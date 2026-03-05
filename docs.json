@@ -1,0 +1,30 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "aspen",
+  "name": "Utexo-Protocol Docs",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#55D799",
+    "dark": "#0D9373"
+  },
+  "favicon": "/~gitbook/image",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Home",
+        "pages": [
+          "home"
+        ]
+      },
+      {
+        "group": "Getting Started",
+        "pages": [
+          "getting-started/quickstart",
+          "getting-started/publish-your-docs",
+          "getting-started/editor",
+          "getting-started/markdown"
+        ]
+      }
+    ]
+  }
+}
