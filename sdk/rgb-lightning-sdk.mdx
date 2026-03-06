@@ -1,4 +1,225 @@
 ---
-title: Rgb Lightning Sdk
+title: RGB Lightning SDK
 ---
+Setup
 
+Copy
+import { RgbSdk } from "@utexo/rgb-sdk";
+
+const sdk = new RgbSdk({
+  // internally holds xpub-van / xpub-col / master-fingerprint
+  // and knows the configured bitcoin node endpoints
+});
+Lightning invoices (receive)
+sdk.createInvoice(...)
+Creates a Lightning invoice for receiving BTC or an RGB asset.
+
+
+Copy
+const req = await sdk.createInvoice({
+  amount_sats?: number,         // BTC amount (optional)
+  asset?: { asset_id: string, amount: number }, // asset invoice (optional)
+  expiry_seconds?: number       // optional invoice expiry
+});
+Returns (LightningReceiveRequest):
+
+
+Copy
+{
+  id: string,
+  invoice: string,
+  status: "OPEN",
+  payment_type: "BTC",
+  amount_sats?: number,
+  asset?: { asset_id: string, amount: number },
+  created_at: string
+}
+sdk.getReceiveRequestStatus(request_id)
+Get invoice status by request id.
+
+
+Copy
+const status = await sdk.getReceiveRequestStatus(request_id: string);
+Returns: same LightningReceiveRequest shape as above.
+
+Lightning payments (send)
+sdk.payInvoiceBegin(...)
+Begins paying a Lightning invoice.
+
+
+Copy
+const unsigned = await sdk.payInvoiceBegin({
+  invoice: string,
+  max_fee_sats: number
+});
+Returns: string (SDK returns exactly what the API returns — a string payload, typically the thing you sign next).
+
+sdk.payInvoiceEnd(...)
+Completes the payment using a signed PSBT
+
+
+Copy
+const payment = await sdk.payInvoiceEnd({
+  signed_psbt: string
+});
+Returns (LightningSendRequest):
+
+
+Copy
+{
+  id: string,
+  status: "PENDING",
+  payment_type: "BTC",
+  amount_sats: number,
+  asset?: { asset_id: string, amount: number },
+  fee_sats: number,
+  created_at: string
+}
+sdk.getSendRequestStatus(request_id)
+Get payment status by request id.
+
+
+Copy
+const status = await sdk.getSendRequestStatus(request_id: string);
+Returns: same LightningSendRequest shape as above.
+
+sdk.feeEstimate(...)
+Estimates routing fee to pay an invoice (optionally with asset context).
+
+
+Copy
+const sats = await sdk.feeEstimate({
+  invoice: string,
+  asset?: { asset_id: string, amount: number }
+});
+Returns: number
+
+sdk.listPayments()
+Lists Lightning payments (inbound/outbound).
+
+
+Copy
+const res = await sdk.listPayments();
+Returns:
+
+
+Copy
+{
+  payments: Array<{
+    amt_msat: number,
+    asset_amount: number,
+    asset_id: string,
+    payment_hash: string,
+    inbound: boolean,
+    status: string,       // e.g. "Pending"
+    created_at: number,
+    updated_at: number,
+    payee_pubkey: string
+  }>
+}
+On-chain receive (for assets)
+sdk.onchainReceive()
+Returns a BTC address + an RGB invoice for receiving assets on-chain
+
+
+Copy
+const recv = await sdk.onchainReceive();
+Returns:
+
+
+Copy
+{
+  btc_address: string,
+  asset_invoice: string,
+  expires_at: string
+}
+Balance + settle
+sdk.getBalance()
+Wallet balance (BTC + assets).
+
+
+Copy
+const bal = await sdk.getBalance();
+Returns:
+
+
+Copy
+{
+  balance: {
+    vanilla: { settled: number, future: number, spendable: number },
+    colored: { settled: number, future: number, spendable: number },
+    offchain_balance: {
+      total: number,
+      details: Array<{ expiry_time: string, amount: number }>
+    }
+  },
+  asset_balances: Array<{
+    asset_id: string,
+    ticker: string,
+    precision: number,
+    balance: {
+      settled: number,
+      future: number,
+      spendable: number,
+      offchain_outbound: number
+    }
+  }>
+}
+On-chain send (from UTEXO)
+sdk.onchainSendBegin(...)
+Begins an on-chain send using address or RGB invoice.
+
+
+Copy
+const unsigned = await sdk.onchainSendBegin({
+  address_or_rgbinvoice: string,
+  amount_sats?: number,
+  fee_rate: number,
+  asset?: { asset_id: string, amount: number }
+});
+Returns: string (the payload to sign psbt constracted client-side).
+
+sdk.onchainSendEnd(...)
+Completes on-chain send using signed PSBT.
+
+
+Copy
+const res = await sdk.onchainSendEnd({ signed_psbt: string });
+Returns:
+
+
+Copy
+{ send_id: string, txid: string }
+sdk.getOnchainSendStatus(send_id)
+Status by send_id.
+
+
+Copy
+const status = await sdk.getOnchainSendStatus(send_id: string);
+Returns:
+
+
+Copy
+{
+  send_id: string,
+  status: string,
+  address_or_rgbinvoice: string,
+  amount_sats_requested: number,
+  amount_sats_sent: number,
+  asset?: { asset_id: string, amount: number },
+  close_txids: string[],
+  sweep_txid: string,
+  fee_sats: number,
+  timestamps: Record<string, number>,
+  error_code: string,
+  error_message: string,
+  retryable: boolean
+}
+Transfers (RGB on-chain history)
+sdk.listTransfers(asset_id)
+Lists on-chain transfers for a specific asset.
+
+
+Copy
+const transfers = await sdk.listTransfers({ asset_id: string });
+Returns: array of RgbTransfer objects
