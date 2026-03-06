@@ -1,0 +1,16 @@
+# SDK
+
+**Overview**
+
+Our SDK allows applications to support native USDT transfers and other RGB assets on Bitcoin without operating Bitcoin nodes, managing Lightning liquidity, or maintaining RGB state infrastructure.
+
+The  SDK provide programmatic access to:
+
+* RGB privacy-preserving asset issuance, transfers, and state transitions
+* Lightning execution, routing and failure recovery
+* Balance tracking, transaction status and audit logs
+
+The SDK enables non-custodial, client-side validated flows, without requiring developers to operate Lightning nodes or manage RGB infrastructure directly.
+
+All API calls execute with predefined costs and latency characteristics, and can be integrated into existing backend systems or user-facing applications.
+

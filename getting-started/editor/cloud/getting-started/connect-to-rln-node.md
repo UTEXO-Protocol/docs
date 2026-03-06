@@ -1,0 +1,58 @@
+# Connect to RLN Node
+
+**Connecting to Node with mTLS**
+
+Follow these detailed steps to establish a secure connection to your node using the provided mTLS credentials:
+
+{% stepper %}
+{% step %}
+### Access Node Connection Details
+
+* Navigate to the Connect Page: open your web browser and go to the /connect page. This page provides the connection details for your node.
+  * URL: `https://www.thunderstack.org/{nodeId}/connect`
+
+![Connect page](<../../../../.gitbook/assets/image (2)>)
+
+* View Connection Details: the connect page displays the unique endpoint URL for your node, along with the private key and certificate required for the mTLS connection. These credentials are automatically generated for your session and are required to establish a secure connection.
+{% endstep %}
+
+{% step %}
+### Obtain Connection Credentials and URL
+
+* Download Credentials from the /connect page:
+  * Private Key: a `.key` file (e.g., `privateKey.key`) containing your private key.
+  * Certificate: a `.pem` file (e.g., `certificate.pem`) containing your public key certificate.
+* Copy Endpoint URL: the page will display the unique endpoint URL formatted like:
+  * `https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/`
+
+![Credentials and endpoint](<../../../../.gitbook/assets/image (3)>)
+{% endstep %}
+
+{% step %}
+### Prepare the Request
+
+* Save the downloaded files in a secure location on your computer. You will reference these files when making requests.
+* Use the example curl command shown on the /connect page as a template. Modify the example by replacing placeholders with the actual paths to your saved key and certificate files.
+
+![Example curl](<../../../../.gitbook/assets/image (4)>)
+
+* Example pattern (replace paths/placeholders accordingly):
+
+```bash
+curl --key /path/to/privateKey.key --cert /path/to/certificate.pem https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/
+```
+{% endstep %}
+{% endstepper %}
+
+**Connecting to Node with API token**
+
+Follow these steps to connect using an API token.
+
+* Example usage with curl:
+
+```bash
+export CLOUD_API_TOKEN=<user barrier token>
+curl -H 'Authorization: Bearer ${CLOUD_API_TOKEN}' https://node-api.thunderstack.org/<user_id>/<node_id>
+```
+
+* Follow this link to obtain `CLOUD_API_TOKEN`:&#x20;
