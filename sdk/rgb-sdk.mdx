@@ -2,3 +2,402 @@
 title: Rgb Sdk
 ---
 
+This is the underlying SDK used by RGB client applications. It provides a complete set of bindings for interacting with the RGB and managing RGB-based transfers.
+
+With this SDK, developers can:
+
+Generate RGB invoices
+
+Create and manage UTXOs
+
+Sign PSBTs using local private keys or hardware signing flows
+
+Fetch asset balances, transfer status, and other RGB-related state
+
+Capabilities of rgb-sdk (via WalletManager)
+Method
+Description
+generateKeys(network)
+
+Generate new wallet keypair with mnemonic/xpub/xpriv/master fingerprint
+
+deriveKeysFromMnemonic(network, mnemonic)
+
+Derive wallet keys (xpub/xpriv) from existing mnemonic
+
+deriveKeysFromSeed(network, seed)
+
+Derive wallet keys (xpub/xpriv) directly from a BIP39 seed
+
+registerWallet()
+
+Register wallet with the RGB Node
+
+getBtcBalance()
+
+Get on-chain BTC balance
+
+getAddress()
+
+Get a derived deposit address
+
+listUnspents()
+
+List unspent UTXOs
+
+listAssets()
+
+List RGB assets held
+
+getAssetBalance(asset_id)
+
+Get balance for a specific asset
+
+createUtxosBegin({ up_to, num, size, fee_rate })
+
+Start creating new UTXOs
+
+createUtxosEnd({ signed_psbt })
+
+Finalize UTXO creation with a signed PSBT
+
+blindReceive({ asset_id, amount })
+
+Generate blinded UTXO for receiving
+
+witnessReceive({ asset_id, amount })
+
+Generate witness UTXO for receiving
+
+issueAssetNia({...})
+
+Issue a new Non-Inflationary Asset
+
+signPsbt(psbt, mnemonic?)
+
+Sign PSBT using mnemonic and BDK (async)
+
+signMessage(message, options?)
+
+Produce a Schnorr signature for an arbitrary message
+
+verifyMessage(message, signature, options?)
+
+Verify Schnorr message signatures using wallet keys or provided public key
+
+refreshWallet()
+
+Sync and refresh wallet state
+
+syncWallet()
+
+Trigger wallet sync without additional refresh logic
+
+listTransactions()
+
+List BTC-level transactions
+
+listTransfers(asset_id)
+
+List RGB transfer history for asset
+
+failTransfers(...)
+
+Mark expired transfers as failed
+
+sendBegin(...)
+
+Prepare a transfer (build unsigned PSBT)
+
+sendEnd(...)
+
+Submit signed PSBT to complete transfer
+
+send(...)
+
+Complete send operation: begin → sign → end
+
+createBackup(password)
+
+Create an encrypted wallet backup
+
+downloadBackup(backupId?)
+
+Download the generated backup binary
+
+restoreFromBackup({ backup, password, ... })
+
+Restore wallet state from a backup file
+
+By using this SDK, developers have full control over:
+
+Transfer orchestration
+
+UTXO selection
+
+Invoice lifecycle
+
+Signing policy
+
+This pattern enables advanced use cases, such as:
+
+Integrating with third-party identity/auth layers
+
+Applying custom fee logic or batching
+
+Implementing compliance and audit tracking
+
+Getting Started
+Installation
+
+Copy
+npm install rgb-sdk
+Important: WASM Module Support
+This SDK uses WebAssembly modules for cryptographic operations. When running scripts, you may need to use the --experimental-wasm-modules flag:
+
+
+Copy
+node --experimental-wasm-modules your-script.js
+Basic Usage
+Generate wallet keys
+
+Copy
+const { WalletManager, createWallet } = require('rgb-sdk');
+const keys = await createWallet('regtest');
+console.log('Master Fingerprint:', keys.master_fingerprint);
+console.log('Master XPriv:', keys.xpriv); // Store securely!
+Initialize wallet
+
+Copy
+const wallet = new WalletManager({
+    xpub_van: keys.account_xpub_vanilla,
+    xpub_col: keys.account_xpub_colored,
+    master_fingerprint: keys.master_fingerprint,
+    mnemonic: keys.mnemonic,
+    network: 'regtest',
+    rgb_node_endpoint: 'http://127.0.0.1:8000' // RGB Node endpoint
+});
+Get a derived deposit address
+
+Copy
+const address = await wallet.getAddress();
+console.log('Wallet address:', address);
+Check balance
+
+Copy
+const balance = await wallet.getBtcBalance();
+console.log('BTC Balance:', balance);
+Core Workflows
+Wallet Initialization
+Generate keys and initialize
+
+Copy
+const { WalletManager, createWallet } = require('rgb-sdk');
+// Generate new wallet keys
+const keys = await createWallet('regtest');
+
+// Initialize wallet with keys (constructor-based - recommended)
+const wallet = new WalletManager({
+    xpub_van: keys.account_xpub_vanilla,
+    xpub_col: keys.account_xpub_colored,
+    master_fingerprint: keys.master_fingerprint,
+    mnemonic: keys.mnemonic,
+    network: 'regtest', // 'mainnet', 'testnet', 'signet', or 'regtest'
+    rgb_node_endpoint: 'http://127.0.0.1:8000' // RGB Node endpoint
+});
+
+// Register wallet with RGB Node
+await wallet.registerWallet();
+Restore from mnemonic
+
+Copy
+const { deriveKeysFromMnemonic } = require('rgb-sdk');
+const restoredKeys = await deriveKeysFromMnemonic('testnet', 'abandon abandon abandon...');
+const restoredWallet = new WalletManager({
+    xpub_van: restoredKeys.account_xpub_vanilla,
+    xpub_col: restoredKeys.account_xpub_colored,
+    master_fingerprint: restoredKeys.master_fingerprint,
+    mnemonic: restoredKeys.mnemonic,
+    network: 'testnet',
+    rgb_node_endpoint: 'http://127.0.0.1:8000'
+});
+UTXO Management
+Begin UTXO creation
+
+Copy
+const psbt = await wallet.createUtxosBegin({
+    up_to: true,
+    num: 5,
+    size: 1000,
+    fee_rate: 1
+});
+Sign PSBT
+
+Copy
+// Sign the PSBT (synchronous operation)
+const signed_psbt = wallet.signPsbt(psbt);
+Finalize UTXO creation
+
+Copy
+const utxosCreated = await wallet.createUtxosEnd({ signed_psbt });
+console.log(`Created ${utxosCreated} UTXOs`);
+Asset Issuance
+
+Copy
+// Issue a new NIA
+const asset = await wallet.issueAssetNia({
+    ticker: "USDT",
+    name: "Tether USD",
+    amounts: [1000, 500],
+    precision: 6
+});
+
+console.log('Asset issued:', asset.asset?.assetId);
+Asset Transfers
+Create blind receive (receiver)
+
+Copy
+const receiveData = await receiverWallet.blindReceive({
+    asset_id: asset_id,
+    amount: 100
+});
+Begin transfer (sender builds PSBT)
+
+Copy
+const sendPsbt = await senderWallet.sendBegin({
+    invoice: receiveData.invoice,
+    fee_rate: 1,
+    min_confirmations: 1
+});
+Sign the PSBT
+
+Copy
+// Sign the PSBT (synchronous operation)
+const signed_send_psbt = senderWallet.signPsbt(sendPsbt);
+Finalize transfer
+
+Copy
+const sendResult = await senderWallet.sendEnd({
+    signed_psbt: signed_send_psbt
+});
+Alternative: Complete send in one call
+
+Copy
+const sendResult = await senderWallet.send({
+    invoice: receiveData.invoice,
+    fee_rate: 1,
+    min_confirmations: 1
+});
+Refresh wallets to sync transfer
+
+Copy
+await senderWallet.refreshWallet();
+await receiverWallet.refreshWallet();
+Balance and Asset Management
+
+Copy
+// Get BTC balance
+const btcBalance = await wallet.getBtcBalance();
+
+// List all assets
+const assets = await wallet.listAssets();
+
+// Get specific asset balance
+const assetBalance = await wallet.getAssetBalance(assetId);
+
+// List unspent UTXOs
+const unspents = await wallet.listUnspents();
+
+// List transactions
+const transactions = await wallet.listTransactions();
+
+// List transfers for specific asset
+const transfers = await wallet.listTransfers(asset_id);
+Setup wallet and issue asset
+Generate and initialize wallet
+
+Copy
+const { WalletManager, createWallet } = require('rgb-sdk');
+
+async function demo() {
+    const keys = await createWallet('regtest');
+    const wallet = new WalletManager({
+        xpub_van: keys.account_xpub_vanilla,
+        xpub_col: keys.account_xpub_colored,
+        master_fingerprint: keys.master_fingerprint,
+        mnemonic: keys.mnemonic,
+        network: 'regtest',
+    });
+Register wallet and fund for fees
+
+Copy
+    // 2. Register wallet
+    await wallet.registerWallet();
+
+    // 3. Get address and balance
+    const address = await wallet.getAddress();
+
+    // TODO: Send some BTC to this address for fees and UTXO creation
+    const balance = await wallet.getBtcBalance();
+Create UTXOs
+
+Copy
+    const psbt = await wallet.createUtxosBegin({
+        up_to: true,
+        num: 5,
+        size: 1000,
+        fee_rate: 1
+    });
+    const signed_psbt = wallet.signPsbt(psbt); // Synchronous operation
+    const utxosCreated = await wallet.createUtxosEnd({ signed_psbt });
+Issue asset and list balances
+
+Copy
+    const asset = await wallet.issueAssetNia({
+        ticker: "DEMO",
+        name: "Demo Token",
+        amounts: [1000],
+        precision: 2
+    });
+
+    const assets = await wallet.listAssets();
+    const assetBalance = await wallet.getAssetBalance(asset.asset?.asset_id);
+
+    // Wallet is ready to send/receive RGB assets
+}
+Security
+Key Management
+
+Copy
+const { createWallet, deriveKeysFromMnemonic } = require('rgb-sdk');
+
+// Generate new wallet keys
+const keys = await createWallet('testnet');
+const mnemonic = keys.mnemonic;
+const xpriv = keys.xpriv; // Sensitive - protect at rest
+
+// Store mnemonic securely for later restoration
+// Use environment variables for production
+const storedMnemonic = process.env.WALLET_MNEMONIC;
+
+// Restore keys from mnemonic
+const restoredKeys = await deriveKeysFromMnemonic('testnet', storedMnemonic);
+// Optionally, persist restoredKeys.xpriv if your flow requires explicit xpriv access
+
+// Sign and verify arbitrary messages (Schnorr signatures)
+const seedHex = process.env.WALLET_SEED_HEX; // 64-byte hex string
+const { signature, accountXpub } = await signMessage({
+  message: 'Hello RGB!',
+  seed: seedHex,
+  network: 'testnet',
+});
+const isValid = await verifyMessage({
+  message: 'Hello RGB!',
+  signature,
+  accountXpub,
+  network: 'testnet',
+});
+Full Examples
+For complete working examples demonstrating all features, see:
+
+example-flow.js - Complete RGB wallet workflow with two wallets, asset issuance, and transfers
