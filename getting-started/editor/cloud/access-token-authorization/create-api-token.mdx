@@ -1,0 +1,34 @@
+---
+title: Create Api Token
+---
+
+# Create API Token
+
+{% stepper %}
+{% step %}
+### Navigate to the API Tokens page and create an access token
+
+Go to the API Tokens page and choose "Create Access Token".
+
+![Create Access Token](<../../../../.gitbook/assets/image (16)>)
+{% endstep %}
+
+{% step %}
+### Provide a token name
+
+Input a name for the token. This helps manage multiple tokens.
+{% endstep %}
+
+{% step %}
+### Revoking a token
+
+{% hint style="warning" %}
+Tokens on this platform do not expire. They remain valid until manually revoked.
+{% endhint %}
+
+* To revoke an access token, return to the API Tokens section, find the token item, and click the "Revoke" button for that token.
+* Revoking a token immediately deactivates it and prevents any further API access using that token.
+
+![Revoke token](<../../../../.gitbook/assets/image (17)>)
+{% endstep %}
+{% endstepper %}
