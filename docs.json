@@ -1,28 +1,39 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "aspen",
-  "name": "Utexo-Protocol Docs",
+  "name": "Utexo Protocol Docs",
   "colors": {
     "primary": "#0D9373",
     "light": "#55D799",
     "dark": "#0D9373"
   },
-  "favicon": "/~gitbook/image",
   "navigation": {
     "groups": [
       {
         "group": "Home",
-        "pages": [
-          "home"
-        ]
+        "pages": ["home"]
       },
       {
         "group": "Getting Started",
         "pages": [
-          "getting-started/quickstart",
-          "getting-started/publish-your-docs",
-          "getting-started/editor",
-          "getting-started/markdown"
+          "getting-started/the-problem",
+          "getting-started/architecture",
+          "getting-started/product-suite"
+        ]
+      },
+      {
+        "group": "Product Suite",
+        "pages": [
+          "product-suite/sdk",
+          "product-suite/cloud",
+          "product-suite/bridge",
+          "product-suite/swap"
+        ]
+      },
+      {
+        "group": "Business Applications",
+        "pages": [
+          "business-applications"
         ]
       }
     ]
