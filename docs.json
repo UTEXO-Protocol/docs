@@ -11,54 +11,67 @@
     "groups": [
       {
         "group": "Home",
-        "pages": [
-          "home"
-        ]
+        "pages": ["home"]
       },
       {
         "group": "Getting Started",
         "pages": [
-          "getting-started/quickstart",
-          "getting-started/publish-your-docs",
-          "getting-started/editor/README",
-          "getting-started/markdown"
+          "getting-started/the-problem",
+          "getting-started/architecture",
+          "getting-started/product-suite"
         ]
       },
       {
-        "group": "Product Suite",
+        "group": "SDK",
         "pages": [
-          "getting-started/editor/sdk/README",
-          "getting-started/editor/sdk/utexo-sdk",
-          "getting-started/editor/cloud/README",
-          "getting-started/editor/cloud/rgb-lightning-node-api",
-          "getting-started/editor/cloud/webhooks",
-          "getting-started/editor/cloud/getting-started/README",
-          "getting-started/editor/cloud/getting-started/create-rln-node/README",
-          "getting-started/editor/cloud/getting-started/create-rln-node/node-ui-actions",
-          "getting-started/editor/cloud/getting-started/upgrade-rln-node",
-          "getting-started/editor/cloud/getting-started/destroy-your-node",
-          "getting-started/editor/cloud/getting-started/connect-to-rln-node",
-          "getting-started/editor/cloud/getting-started/node-backup-restore",
-          "getting-started/editor/cloud/security/README",
-          "getting-started/editor/cloud/security/rln-remote-signer",
-          "getting-started/editor/cloud/access-token-authorization/README",
-          "getting-started/editor/cloud/access-token-authorization/create-api-token",
-          "getting-started/editor/cloud/cloud-api",
-          "getting-started/editor/bridge/README",
-          "getting-started/editor/bridge/getting-started",
-          "getting-started/editor/swap/README",
-          "getting-started/editor/swap/getting-started/README",
-          "getting-started/editor/swap/getting-started/what-is-a-bitcoin-taproot-address",
-          "getting-started/editor/swap/getting-started/create-wallet",
-          "getting-started/editor/swap/getting-started/what-is-utxo",
-          "getting-started/editor/swap/getting-started/get-btc",
-          "getting-started/editor/swap/getting-started-1"
+          "product-suite/sdk",
+          "sdk/rgb-sdk",
+          "sdk/rgb-lightning-sdk"
+        ]
+      },
+      {
+        "group": "Cloud",
+        "pages": [
+          "product-suite/cloud",
+          "cloud/rgb-lightning-node-api",
+          "cloud/webhooks",
+          "cloud/rln-node/create-rln-node",
+          "cloud/rln-node/node-ui-actions",
+          "cloud/rln-node/upgrade-rln-node",
+          "cloud/rln-node/destroy-rln-node",
+          "cloud/rln-node/connect-rln-node",
+          "cloud/rln-node/node-backup-restore"
+        ]
+      },
+      {
+        "group": "Security",
+        "pages": [
+          "security/rln-remote-signer"
+        ]
+      },
+      {
+        "group": "Access Token Authorization",
+        "pages": [
+          "access-token-authorization/create-api-token",
+          "access-token-authorization/cloud-api"
+        ]
+      },
+      {
+        "group": "Bridge",
+        "pages": [
+          "product-suite/bridge"
+        ]
+      },
+      {
+        "group": "Swap",
+        "pages": [
+          "product-suite/swap"
         ]
       },
       {
         "group": "Business Applications",
         "pages": [
-          "getting-started/markdown"
+          "business-applications"
         ]
       }
     ]
