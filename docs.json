@@ -11,7 +11,9 @@
     "groups": [
       {
         "group": "Home",
-        "pages": ["home"]
+        "pages": [
+          "home"
+        ]
       },
       {
         "group": "Getting Started",
@@ -25,22 +27,37 @@
         "group": "SDK",
         "pages": [
           "product-suite/sdk",
-          "sdk/rgb-sdk",
-          "sdk/rgb-lightning-sdk"
+          {
+            "group": "SDK Reference",
+            "pages": [
+              "sdk/rgb-sdk",
+              "sdk/rgb-lightning-sdk"
+            ]
+          }
         ]
       },
       {
         "group": "Cloud",
         "pages": [
           "product-suite/cloud",
-          "cloud/rgb-lightning-node-api",
-          "cloud/webhooks",
-          "cloud/rln-node/create-rln-node",
-          "cloud/rln-node/node-ui-actions",
-          "cloud/rln-node/upgrade-rln-node",
-          "cloud/rln-node/destroy-rln-node",
-          "cloud/rln-node/connect-rln-node",
-          "cloud/rln-node/node-backup-restore"
+          {
+            "group": "Node API",
+            "pages": [
+              "cloud/rgb-lightning-node-api",
+              "cloud/webhooks"
+            ]
+          },
+          {
+            "group": "RLN Node",
+            "pages": [
+              "cloud/rln-node/create-rln-node",
+              "cloud/rln-node/node-ui-actions",
+              "cloud/rln-node/upgrade-rln-node",
+              "cloud/rln-node/destroy-rln-node",
+              "cloud/rln-node/connect-rln-node",
+              "cloud/rln-node/node-backup-restore"
+            ]
+          }
         ]
       },
       {
