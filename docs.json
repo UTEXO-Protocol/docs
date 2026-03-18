@@ -10,9 +10,9 @@
   "navigation": {
     "groups": [
       {
-        "group": "Home",
+        "group": "What Utexo Is",
         "pages": [
-          "home"
+          "what-utexo-is"
         ]
       },
       {
