@@ -1,7 +1,9 @@
 ---
-title: Architecture
+title: "Architecture"
 ---
-System Overview
+
+## System Overview 
+
 In the Utexo model, ownership proofs are validated locally by users’ wallets (client-side validation), while actual payments occur through bidirectional Lightning channels. This means there is no global state to synchronize; each transaction is a direct peer-to-peer exchange verified by cryptographic commitments.
 
 At the protocol level, Utexo combines:
@@ -22,13 +24,14 @@ Utexo sits on top as the execution and coordination layer, abstracting these com
 
 Through our REST API and SDK, users can offer private USDT payments on Bitcoin without facing technical complexity directly.
 
-Because execution does not require global consensus across a public blockchain, throughput and latency are predictable and suitable for payment flows. 
+Because execution does not require global consensus across a public blockchain, throughput and latency are predictable and suitable for payment flows.
 
 More importantly, Utexo enables pre-defined fixed fees that can be set by the protocol in conjunction with the client’s needs.
 
 This architecture allows USDT to operate natively on Bitcoin without wrapped assets, account-based smart contracts, or external Layer-1 dependencies, while keeping transaction data off public ledgers and preserving Bitcoin’s security model.
 
-Bitcoin 
+## Bitcoin 
+
 Bitcoin serves as the settlement and finality anchor for the entire Utexo system.
 
 It handles correctness, finality, and dispute resolution, acting as the foundational layer that grants irreversible settlement and strong security, allowing Utexo to decouple settlement guarantees from execution cost volatility.
@@ -39,24 +42,26 @@ By anchoring state commitments to Bitcoin via RGB, Utexo ensures that execution 
 
 This model minimizes on-chain footprint while preserving the ability to prove that off-chain execution followed the agreed rules, remaining accountable to a globally verifiable settlement layer.
 
-If off-chain execution were to fail, stall, or behave maliciously, participants retain the ability to fall back to Bitcoin-backed guarantees. 
+If off-chain execution were to fail, stall, or behave maliciously, participants retain the ability to fall back to Bitcoin-backed guarantees.
 
 This approach allows Utexo to scale payment activity without compromising on the long-term trust model that Bitcoin provides.
 
-Lightning Network
+## Lightning Network 
+
 The Lightning Network provides off-chain execution and value transfer for the Utexo system, enabling high-throughput payments and near-instant finality, allowing execution costs to remain stable regardless of base-layer congestion.
 
- It serves as the execution path through which BTC and RGB-based assets are exchanged between participants while remaining enforceable by Bitcoin.
+It serves as the execution path through which BTC and RGB-based assets are exchanged between participants while remaining enforceable by Bitcoin.
 
 Lightning allows value transfer to occur as direct peer-to-peer state updates: execution is finalized off-chain and only falls back to Bitcoin in dispute scenarios. Transactions remain fast and deterministic, while settlement security ultimately derives from the base layer.
 
-Within Utexo, Lightning is abstracted through a state-channel layer that manages liquidity management, routing, and failure recovery automatically. 
+Within Utexo, Lightning is abstracted through a state-channel layer that manages liquidity management, routing, and failure recovery automatically.
 
 Utexo provides pooled liquidity and routing access through APIs, transforming Lightning into a scalable backend execution engine without requiring users to open, balance, and maintain individual channels.
 
 By removing transaction execution from Bitcoin’s fee auction and abstracting Lightning’s channel management away from users, Utexo can offer stablecoin execution that behaves like traditional payment rails: fixed latency, predictable fees, and continuous availability.
 
-RGB 
+## RGB 
+
 RGB is a smart contract protocol on Bitcoin designed for privacy-preserving asset issuance and cost optimization.
 
 It enables stablecoins to operate natively on Bitcoin without introducing global state or on-chain execution. It defines how assets such as USDT are created, transferred, and validated while remaining anchored to Bitcoin’s security model.
@@ -69,17 +74,18 @@ Privacy is inherent: only sender and receiver hold the transaction proofs, and n
 
 For operators, this means stablecoin balances, transfer amounts and counterparties are not exposed on public ledgers, reducing competitive intelligence leakage while maintaining cryptographic auditability.
 
-As RGB doesn’t require blockspace for asset execution or state updates, stablecoin transfers do not compete for on-chain throughput. 
+As RGB doesn’t require blockspace for asset execution or state updates, stablecoin transfers do not compete for on-chain throughput.
 
 This removes fee volatility tied to block congestion and allows Utexo to offer predictable and stable execution costs, independent of Bitcoin mempool conditions.
 
 For a more detailed overview of RGB’s architecture, consult the RGB official documentation: https://docs.rgb.info/
 
-Utexo
+## Utexo 
+
 Utexo provides a payment execution environment for USDT on Bitcoin, exposing stablecoin transfers and settlement as predictable, production-ready primitives.
 
 Utexo handles execution routing, liquidity access, retries, and failure recovery on behalf of users, allowing PSPs and financial platforms to support Bitcoin-native stablecoin payments without embedding protocol-specific logic into their systems.
 
 By combining RGB’s client-side validation architecture with Lightning’s routing network, Utexo achieves transaction times of around 200 ms latency, comparable to Visa speeds.
 
- Utexo makes Bitcoin usable as a stablecoin settlement network for high-throughput, private-by-default payments that behave predictably regardless of network conditions.
+Utexo makes Bitcoin usable as a stablecoin settlement network for high-throughput, private-by-default payments that behave predictably regardless of network conditions.
