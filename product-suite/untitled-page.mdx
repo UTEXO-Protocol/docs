@@ -2,7 +2,7 @@
 title: "Utexo SDK"
 ---
 
-This is the underlying SDK used by RGB client applications. It provides a complete set of bindings for interacting with the **RGB** and managing **RGB-based transfers**.
+This is the underlying SDK used by RGB client applications. It provides a complete set of bindings for interacting with the **RGB** and managing **RGB**-based transfers.
 
 With this SDK, developers can:
 
@@ -15,44 +15,52 @@ With this SDK, developers can:
 
 The primary wallet class is `UTEXOWallet`: initialize with a mnemonic (or seed) and optional `{ network, dataDir }`, then call `await wallet.initialize()` before use. It combines standard RGB operations with UTEXO features (Lightning, on-chain deposit/withdrawal).
 
-| Method / Function                                                           | Description                                                    |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `generateKeys(network?)`                                                    | Generate new wallet keys (mnemonic, xpubs, master fingerprint) |
-| `restoreUtxoWalletFromBackup({ backupPath, password, targetDir })`          | Restore UTEXO wallet from file backup                          |
-| `restoreUtxoWalletFromVss({ mnemonic, targetDir, config?, vssServerUrl? })` | Restore UTEXO wallet from VSS cloud backup                     |
-| `deriveKeysFromMnemonic(network, mnemonic)`                                 | Derive wallet keys from existing mnemonic                      |
-| `deriveKeysFromSeed(network, seed)`                                         | Derive wallet keys from BIP39 seed                             |
-| `getAddress()`                                                              | Get deposit address                                            |
-| `getBtcBalance()`                                                           | Get BTC balance                                                |
-| `getXpub()`                                                                 | Get wallet xpub                                                |
-| `getNetwork()`                                                              | Get network                                                    |
-| `listUnspents()`                                                            | List unspent UTXOs                                             |
-| `listAssets()`                                                              | List RGB assets                                                |
-| `getAssetBalance(assetId)`                                                  | Get asset balance                                              |
-| `createUtxos({ num?, size?, upTo? })`                                       | Create UTXOs                                                   |
-| `createUtxosBegin({ upTo?, num?, size? })`                                  | Start creating UTXOs                                           |
-| `createUtxosEnd({ signedPsbt, skipSync? })`                                 | Finalize UTXO creation                                         |
-| `blindReceive({...})`                                                       | Generate blinded receive invoice                               |
-| `witnessReceive({...})`                                                     | Generate witness receive invoice                               |
-| `issueAssetNia({...})`                                                      | Issue non-inflationary asset                                   |
-| `send({...})`                                                               | Complete asset send                                            |
-| `sendBegin({...})`                                                          | Prepare transfer                                               |
-| `sendEnd({...})`                                                            | Complete transfer                                              |
-| `signPsbt(psbt)`                                                            | Sign PSBT                                                      |
-| `refreshWallet()`                                                           | Refresh wallet state                                           |
-| `syncWallet()`                                                              | Trigger wallet sync                                            |
-| `listTransactions()`                                                        | List BTC transactions                                          |
-| `listTransfers(assetId?)`                                                   | List RGB transfers                                             |
-| `createBackup({...})`                                                       | Create encrypted wallet backup                                 |
-| `vssBackup()`                                                               | Backup wallet to VSS                                           |
-| `vssBackupInfo()`                                                           | Retrieve VSS backup info                                       |
-| `onchainReceive()`                                                          | Create on-chain deposit invoice                                |
-| `onchainSendBegin()`                                                        | Begin on-chain withdraw                                        |
-| `onchainSendEnd()`                                                          | Finalize on-chain withdraw                                     |
-| `createLightningInvoice()`                                                  | Create Lightning invoice                                       |
-| `payLightningInvoiceBegin()`                                                | Start Lightning payment                                        |
-| `payLightningInvoiceEnd()`                                                  | Finalize Lightning payment                                     |
-| `listLightningPayments()`                                                   | List Lightning payments                                        |
+| Method / Function | Description |
+| --- | --- |
+| `generateKeys(network?)` | Generate new wallet keys (mnemonic, xpubs, master fingerprint) - top-level function |
+| `restoreUtxoWalletFromBackup({ backupPath, password, targetDir })` | Restore UTEXO wallet from file backup (layer1 \+ utexo) - top-level function |
+| `restoreUtxoWalletFromVss({ mnemonic, targetDir, config?, vssServerUrl? })` | Restore UTEXO wallet from VSS cloud backup – top-level function |
+| `deriveKeysFromMnemonic(network, mnemonic)` | Derive wallet keys from existing mnemonic |
+| `deriveKeysFromSeed(network, seed)` | Derive wallet keys from BIP39 seed |
+| `getAddress()` | Get deposit address (async) |
+| `getBtcBalance()` | Get on-chain BTC balance (async) |
+| `getXpub()` | Get vanilla and colored xpubs |
+| `getNetwork()` | Get current network |
+| `listUnspents()` | List unspent UTXOs |
+| `listAssets()` | List RGB assets held |
+| `getAssetBalance(assetId)` | Get balance for a specific asset |
+| `createUtxos({ num?, size?, upTo? })` | Create UTXOs (async; combines begin, sign, end; feeRate defaults to 1) |
+| `createUtxosBegin({ upTo?, num?, size? })` | Start creating UTXOs (returns unsigned PSBT) |
+| `createUtxosEnd({ signedPsbt, skipSync? })` | Finalize UTXO creation with signed PSBT |
+| `blindReceive({...})` | Generate blinded UTXO for receiving |
+| `witnessReceive({...})` | Generate witness UTXO for receiving |
+| `issueAssetNia({...})` | Issue a new Non-Inflationary Asset |
+| `send({...})` | Complete send (begin → sign → end; use `witnessData` for witness invoices; feeRate defaults to 1) |
+| `sendBegin({...})` | Prepare transfer (returns unsigned PSBT) |
+| `sendEnd({...})` | Complete transfer with signed PSBT |
+| `signPsbt(psbt)` | Sign PSBT using wallet mnemonic (async) |
+| `refreshWallet()` | Sync and refresh wallet state |
+| `syncWallet()` | Trigger wallet sync |
+| `listTransactions()` | List BTC-level transactions |
+| `listTransfers(assetId?)` | List RGB transfer history for asset |
+| `failTransfers(params)` | Mark waiting transfers as failed |
+| `createBackup({...})` | Create encrypted backup (layer1 \+ utexo in one folder) |
+| `vssBackup()` | Backup to VSS (config optional; built from mnemonic \+ default server URL) |
+| `vssBackupInfo()` | Get VSS backup info |
+| _On-chain_ |  |
+| `onchainReceive()` | Generate invoice for depositing from mainnet to UTEXO |
+| `onchainSendBegin()` | Start on-chain withdraw (returns unsigned PSBT) |
+| `onchainSendEnd()` | Finalize on-chain withdraw with signed PSBT |
+| `onchainSend(params, mnemonic?)` | Complete on-chain withdraw (begin → sign → end) |
+| `getOnchainSendStatus(invoice)` | Get status of on-chain withdraw |
+| _Lightning_ |  |
+| `createLightningInvoice()` | Create Lightning invoice for receiving |
+| `payLightningInvoiceBegin()` | Start Lightning payment (returns unsigned PSBT) |
+| `payLightningInvoiceEnd()` | Finalize Lightning payment with signed PSBT |
+| `payLightningInvoice(params, mnemonic?)` | Complete Lightning payment (begin → sign → end) |
+| `getLightningSendRequest(lnInvoice)` | Get status of Lightning send |
+| `getLightningReceiveRequest(lnInvoice)` | Get status of Lightning receive |
+| `listLightningPayments()` | List Lightning payments |
 
 By using this SDK, developers have full control over:
 
@@ -288,6 +296,34 @@ const transactions = await wallet.listTransactions();
 
 const transfers = await wallet.listTransfers(assetId);
 ```
+
+```javascript
+const btcBalance = await wallet.getBtcBalance();
+
+const assets = await wallet.listAssets();
+
+const assetBalance = await wallet.getAssetBalance(assetId);
+
+const unspents = await wallet.listUnspents();
+
+const transactions = await wallet.listTransactions();
+
+const transfers = await wallet.listTransfers(assetId);
+```
+
+> ```javascript
+> const btcBalance = await wallet.getBtcBalance();
+>
+> const assets = await wallet.listAssets();
+>
+> const assetBalance = await wallet.getAssetBalance(assetId);
+>
+> const unspents = await wallet.listUnspents();
+>
+> const transactions = await wallet.listTransactions();
+>
+> const transfers = await wallet.listTransfers(assetId);
+> ```
 
 ---
 
