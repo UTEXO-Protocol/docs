@@ -1,0 +1,375 @@
+---
+title: "Utexo SDK"
+---
+
+This is the underlying SDK used by RGB client applications. It provides a complete set of bindings for interacting with the **RGB** and managing **RGB**-based transfers.
+
+With this SDK, developers can:
+
+- Generate RGB invoices
+- Create and manage UTXOs
+- Sign PSBTs using local private keys or hardware signing flows
+- Fetch asset balances, transfer status, and other RGB-related state
+
+## Capabilities of `@utexo/rgb-sdk` (via `WalletManager`)
+
+The primary wallet class is `UTEXOWallet`: initialize with a mnemonic (or seed) and optional `{ network, dataDir }`, then call `await wallet.initialize()` before use. It combines standard RGB operations with UTEXO features (Lightning, on-chain deposit/withdrawal).
+
+| Method / Function | Description |
+| --- | --- |
+| `generateKeys(network?)` | Generate new wallet keys (mnemonic, xpubs, master fingerprint) - top-level function |
+| `restoreUtxoWalletFromBackup({ backupPath, password, targetDir })` | Restore UTEXO wallet from file backup (layer1 \+ utexo) - top-level function |
+| `restoreUtxoWalletFromVss({ mnemonic, targetDir, config?, vssServerUrl? })` | Restore UTEXO wallet from VSS cloud backup – top-level function |
+| `deriveKeysFromMnemonic(network, mnemonic)` | Derive wallet keys from existing mnemonic |
+| `deriveKeysFromSeed(network, seed)` | Derive wallet keys from BIP39 seed |
+| `getAddress()` | Get deposit address (async) |
+| `getBtcBalance()` | Get on-chain BTC balance (async) |
+| `getXpub()` | Get vanilla and colored xpubs |
+| `getNetwork()` | Get current network |
+| `listUnspents()` | List unspent UTXOs |
+| `listAssets()` | List RGB assets held |
+| `getAssetBalance(assetId)` | Get balance for a specific asset |
+| `createUtxos({ num?, size?, upTo? })` | Create UTXOs (async; combines begin, sign, end; feeRate defaults to 1) |
+| `createUtxosBegin({ upTo?, num?, size? })` | Start creating UTXOs (returns unsigned PSBT) |
+| `createUtxosEnd({ signedPsbt, skipSync? })` | Finalize UTXO creation with signed PSBT |
+| `blindReceive({...})` | Generate blinded UTXO for receiving |
+| `witnessReceive({...})` | Generate witness UTXO for receiving |
+| `issueAssetNia({...})` | Issue a new Non-Inflationary Asset |
+| `send({...})` | Complete send (begin → sign → end; use `witnessData` for witness invoices; feeRate defaults to 1) |
+| `sendBegin({...})` | Prepare transfer (returns unsigned PSBT) |
+| `sendEnd({...})` | Complete transfer with signed PSBT |
+| `signPsbt(psbt)` | Sign PSBT using wallet mnemonic (async) |
+| `refreshWallet()` | Sync and refresh wallet state |
+| `syncWallet()` | Trigger wallet sync |
+| `listTransactions()` | List BTC-level transactions |
+| `listTransfers(assetId?)` | List RGB transfer history for asset |
+| `failTransfers(params)` | Mark waiting transfers as failed |
+| `createBackup({...})` | Create encrypted backup (layer1 \+ utexo in one folder) |
+| `vssBackup()` | Backup to VSS (config optional; built from mnemonic \+ default server URL) |
+| `vssBackupInfo()` | Get VSS backup info |
+| _On-chain_ |  |
+| `onchainReceive()` | Generate invoice for depositing from mainnet to UTEXO |
+| `onchainSendBegin()` | Start on-chain withdraw (returns unsigned PSBT) |
+| `onchainSendEnd()` | Finalize on-chain withdraw with signed PSBT |
+| `onchainSend(params, mnemonic?)` | Complete on-chain withdraw (begin → sign → end) |
+| `getOnchainSendStatus(invoice)` | Get status of on-chain withdraw |
+| _Lightning_ |  |
+| `createLightningInvoice()` | Create Lightning invoice for receiving |
+| `payLightningInvoiceBegin()` | Start Lightning payment (returns unsigned PSBT) |
+| `payLightningInvoiceEnd()` | Finalize Lightning payment with signed PSBT |
+| `payLightningInvoice(params, mnemonic?)` | Complete Lightning payment (begin → sign → end) |
+| `getLightningSendRequest(lnInvoice)` | Get status of Lightning send |
+| `getLightningReceiveRequest(lnInvoice)` | Get status of Lightning receive |
+| `listLightningPayments()` | List Lightning payments |
+
+By using this SDK, developers have full control over:
+
+- Transfer orchestration
+- UTXO selection
+- Invoice lifecycle
+- Signing policy
+
+This pattern enables advanced use cases, such as:
+
+- Integrating with third-party identity/auth layers
+- Applying custom fee logic or batching
+- Implementing compliance and audit tracking
+
+---
+
+# Getting Started
+
+## Prerequisites
+
+This SDK uses `rgb-protocol` libraries. All operations are performed locally.
+
+---
+
+## Default Endpoints
+
+The SDK uses default endpoints for RGB transport and Bitcoin indexing.
+
+### Transport Endpoints (RGB protocol communication)
+
+- **Mainnet:** `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc`
+- **Testnet:** `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc`
+- **Testnet4:** `rpcs://proxy.iriswallet.com/0.2/json-rpc`
+- **Signet:** `rpcs://rgb-proxy-utexo.utexo.com/json-rpc`
+- **Regtest:** `rpcs://proxy.iriswallet.com/0.2/json-rpc`
+
+### Indexer URLs (Bitcoin blockchain data)
+
+- **Mainnet:** `ssl://electrum.iriswallet.com:50003`
+- **Testnet:** `ssl://electrum.iriswallet.com:50013`
+- **Testnet4:** `ssl://electrum.iriswallet.com:50053`
+- **Signet:** `https://esplora-api.utexo.com`
+- **Regtest:** `tcp://regtest.thunderstack.org:50001`
+
+`UTEXOWallet` uses `network` (`testnet` / `mainnet`) to determine these endpoints internally.
+
+---
+
+## Installation
+
+```bash
+npm install @utexo/rgb-sdk
+```
+
+---
+
+## Node.js only
+
+This SDK is designed for **Node.js** and is not browser-compatible.
+
+---
+
+# Basic Usage
+
+<Steps>
+  <Step title="Generate wallet keys">
+    ```javascript
+    const { UTEXOWallet, generateKeys } = require('@utexo/rgb-sdk');
+    
+    const keys = await generateKeys('testnet');
+    console.log('Mnemonic:', keys.mnemonic);
+    ```
+  </Step>
+  <Step title="Initialize wallet">
+    ```javascript
+    const wallet = new UTEXOWallet(keys.mnemonic, { network: 'testnet' });
+    await wallet.initialize();
+    ```
+  </Step>
+  <Step title="Get a deposit address">
+    ```javascript
+    const address = await wallet.getAddress();
+    console.log('Wallet address:', address);
+    ```
+  </Step>
+  <Step title="Check balance">
+    ```javascript
+    const balance = await wallet.getBtcBalance();
+    console.log('BTC Balance:', balance);
+    ```
+  </Step>
+</Steps>
+
+---
+
+# Core Workflows
+
+## Wallet Initialization
+
+<Steps>
+  <Step title="Generate keys and initialize">
+    ```javascript
+    const { UTEXOWallet, generateKeys } = require('@utexo/rgb-sdk');
+    
+    const keys = await generateKeys('testnet');
+    
+    const wallet = new UTEXOWallet(keys.mnemonic, {
+      network: 'testnet'
+    });
+    
+    await wallet.initialize();
+    ```
+  </Step>
+  <Step title="Restore from mnemonic">
+    ```javascript
+    const wallet = new UTEXOWallet(mnemonic, {
+      network: 'testnet'
+    });
+    
+    await wallet.initialize();
+    ```
+  </Step>
+</Steps>
+
+---
+
+# UTXO Management
+
+<Steps>
+  <Step title="Begin UTXO creation">
+    ```javascript
+    const count = await wallet.createUtxos({ num: 5, size: 1000 });
+    await wallet.syncWallet();
+    
+    console.log(`Created ${count} UTXOs`);
+    ```
+  </Step>
+  <Step title="Sign PSBT">
+    ```javascript
+    const psbt = await wallet.createUtxosBegin({
+      num: 5,
+      size: 1000
+    });
+    
+    const signedPsbt = await wallet.signPsbt(psbt);
+    ```
+  </Step>
+  <Step title="Finalize UTXO creation">
+    ```javascript
+    const utxosCreated = await wallet.createUtxosEnd({ signedPsbt });
+    
+    await wallet.syncWallet();
+    console.log(`Created ${utxosCreated} UTXOs`);
+    ```
+  </Step>
+</Steps>
+
+---
+
+# Asset Issuance
+
+```javascript
+const asset = await wallet.issueAssetNia({
+  ticker: 'USD Token',
+  name: 'USDT',
+  amounts: [1000, 500],
+  precision: 6
+});
+
+console.log('Asset issued:', asset.assetId);
+```
+
+---
+
+# Asset Transfers
+
+<Steps>
+  <Step title="Create blind receive">
+    ```javascript
+    const receiveData = receiverWallet.blindReceive({
+      assetId,
+      amount: 100,
+      minConfirmations: 3,
+      durationSeconds: 2000
+    });
+    ```
+  </Step>
+  <Step title="Begin transfer">
+    ```javascript
+    const sendPsbt = await senderWallet.sendBegin({
+      invoice: receiveData.invoice,
+      assetId,
+      amount: 100
+    });
+    ```
+  </Step>
+  <Step title="Sign PSBT">
+    ```javascript
+    const signedSendPsbt = await senderWallet.signPsbt(sendPsbt);
+    ```
+  </Step>
+  <Step title="Finalize transfer">
+    ```javascript
+    await senderWallet.sendEnd({
+      signedPsbt: signedSendPsbt
+    });
+    ```
+  </Step>
+  <Step title="Refresh wallets">
+    ```javascript
+    await senderWallet.refreshWallet();
+    await receiverWallet.refreshWallet();
+    
+    const transfers = await receiverWallet.listTransfers(assetId);
+    ```
+  </Step>
+</Steps>
+
+---
+
+# Balance and Asset Management
+
+```javascript
+const btcBalance = await wallet.getBtcBalance();
+
+const assets = await wallet.listAssets();
+
+const assetBalance = await wallet.getAssetBalance(assetId);
+
+const unspents = await wallet.listUnspents();
+
+const transactions = await wallet.listTransactions();
+
+const transfers = await wallet.listTransfers(assetId);
+```
+
+```javascript
+const btcBalance = await wallet.getBtcBalance();
+
+const assets = await wallet.listAssets();
+
+const assetBalance = await wallet.getAssetBalance(assetId);
+
+const unspents = await wallet.listUnspents();
+
+const transactions = await wallet.listTransactions();
+
+const transfers = await wallet.listTransfers(assetId);
+```
+
+> ```javascript
+> const btcBalance = await wallet.getBtcBalance();
+>
+> const assets = await wallet.listAssets();
+>
+> const assetBalance = await wallet.getAssetBalance(assetId);
+>
+> const unspents = await wallet.listUnspents();
+>
+> const transactions = await wallet.listTransactions();
+>
+> const transfers = await wallet.listTransfers(assetId);
+> ```
+
+---
+
+# Security
+
+## Key Management
+
+```javascript
+const { generateKeys, deriveKeysFromMnemonic } = require('@utexo/rgb-sdk');
+
+// Generate new wallet keys (async)
+const keys = await generateKeys('testnet');
+const mnemonic = keys.mnemonic; // Sensitive - protect at rest
+
+// Store mnemonic securely for later restoration
+// Use environment variables for production
+const storedMnemonic = process.env.WALLET_MNEMONIC;
+
+// Restore keys from mnemonic
+const restoredKeys = await deriveKeysFromMnemonic('testnet', storedMnemonic);
+
+// Sign and verify arbitrary messages (Schnorr signatures)
+const seedHex = process.env.WALLET_SEED_HEX; // 64-byte hex string
+const { signature, accountXpub } = await signMessage({
+  message: 'Hello RGB!',
+  seed: seedHex,
+  network: 'testnet',
+});
+const isValid = await verifyMessage({
+  message: 'Hello RGB!',
+  signature,
+  accountXpub,
+  network: 'testnet',
+});
+```
+
+---
+
+# Full Examples
+
+- `new-wallet` → Generate keys and create wallet
+- `read-wallet` → Initialize wallet and inspect balances
+- `create-utxos-asset` → Create UTXOs and issue asset
+- `transfer` → Perform asset transfer
+- `onchain-flow` → Perform on-chain transfers
+- `lightning-flow` → Execute Lightning payments
+- `utexo-vss-backup-restore` → Backup / restore wallet
+
+See `examples/README.md` for CLI usage.

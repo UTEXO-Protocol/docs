@@ -10,79 +10,78 @@
   "navigation": {
     "groups": [
       {
-        "group": "Home",
+        "group": "What Utexo Is",
         "pages": [
-          "home"
+          "what-utexo-is"
         ]
       },
       {
         "group": "Getting Started",
         "pages": [
           "getting-started/the-problem",
-          "getting-started/architecture",
-          "getting-started/product-suite"
+          "getting-started/architecture"
         ]
       },
       {
-        "group": "SDK",
+        "group": "Product Suite",
         "pages": [
-          "product-suite/sdk",
+          "getting-started/product-suite",
           {
-            "group": "SDK Reference",
+            "group": "SDK",
             "pages": [
-              "sdk/rgb-sdk",
-              "sdk/rgb-lightning-sdk"
-            ]
-          }
-        ]
-      },
-      {
-        "group": "Cloud",
-        "pages": [
-          "product-suite/cloud",
-          {
-            "group": "Node API",
-            "pages": [
-              "cloud/rgb-lightning-node-api",
-              "cloud/webhooks"
+              "product-suite/sdk",
+              "product-suite/untitled-page"
             ]
           },
           {
-            "group": "RLN Node",
+            "group": "Cloud",
             "pages": [
-              "cloud/rln-node/create-rln-node",
-              "cloud/rln-node/node-ui-actions",
-              "cloud/rln-node/upgrade-rln-node",
-              "cloud/rln-node/destroy-rln-node",
-              "cloud/rln-node/connect-rln-node",
-              "cloud/rln-node/node-backup-restore"
+              "product-suite/cloud",
+              {
+                "group": "Node API",
+                "pages": [
+                  "cloud/rgb-lightning-node-api",
+                  "cloud/webhooks"
+                ]
+              },
+              {
+                "group": "Security",
+                "pages": [
+                  "security/rln-remote-signer"
+                ]
+              },
+              {
+                "group": "Access Token Authorization",
+                "pages": [
+                  "access-token-authorization/create-api-token",
+                  "access-token-authorization/cloud-api"
+                ]
+              },
+              {
+                "group": "RLN Node",
+                "pages": [
+                  "cloud/rln-node/create-rln-node",
+                  "cloud/rln-node/node-ui-actions",
+                  "cloud/rln-node/upgrade-rln-node",
+                  "cloud/rln-node/destroy-rln-node",
+                  "cloud/rln-node/connect-rln-node",
+                  "cloud/rln-node/node-backup-restore"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Bridge",
+            "pages": [
+              "product-suite/bridge"
+            ]
+          },
+          {
+            "group": "Swap",
+            "pages": [
+              "product-suite/swap"
             ]
           }
-        ]
-      },
-      {
-        "group": "Security",
-        "pages": [
-          "security/rln-remote-signer"
-        ]
-      },
-      {
-        "group": "Access Token Authorization",
-        "pages": [
-          "access-token-authorization/create-api-token",
-          "access-token-authorization/cloud-api"
-        ]
-      },
-      {
-        "group": "Bridge",
-        "pages": [
-          "product-suite/bridge"
-        ]
-      },
-      {
-        "group": "Swap",
-        "pages": [
-          "product-suite/swap"
         ]
       },
       {
