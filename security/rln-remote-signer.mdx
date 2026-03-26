@@ -1,4 +1,37 @@
 ---
-title: Rln Remote Signer
+title: "RLN Remote Signer"
 ---
 
+Validating Lightning Signer (VLS) is an open-source Rust library for secure, self-custodial Lightning signers. Unlike hot wallets or blind signers, VLS keeps your private keys off the node and validates each signing request, ensuring only legitimate channel operations are approved.
+
+## System Overview
+
+VLS splits Lightning key management into two primary components:
+
+### Lightning Node
+
+Runs the usual LN logic: channel opening, routing, HTLC management. No private keys for signing are stored here.
+
+### Remote Validating Signer
+
+Stores private keys in a secure environment and validates each request before generating a signature. If the request fails policy checks, it denies signing.
+
+### Additional Components
+
+- Policy Engine: A customizable set of rules ensuring no suspicious requests are signed.
+- UTXO Oracle (Optional): The signer can be configured to receive chain data to detect remote breaches.
+- State Storage: Provides secure, redundant cloud storage with anti-rollback protection.
+
+## Architecture Overview
+
+### Validation Flow
+
+1. Node proposes a transaction or state update.
+2. VLS checks protocol correctness and local policy.
+3. If valid, the signer returns a signature. Otherwise, it rejects the request.
+
+## Current Status
+
+Support for a remote signer in the RGB Lightning Node is currently under active development. At this stage, remote signer support is not yet available in production and should be considered experimental.
+
+Progress is tracked publicly at: https://github.com/RGB-Tools/rgb-lightning-node/issues/43

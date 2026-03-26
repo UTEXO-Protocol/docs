@@ -1,4 +1,33 @@
 ---
-title: Node Backup Restore
+title: "Node Backup/Restore"
 ---
 
+### Access Backup Functionality
+
+Navigate to the specific node's backup page at nodes/{nodeId}/backup.
+
+### Create a Backup
+
+- If no backup has been previously created, the page will display a "Create Backup" button.
+- Clicking the button triggers an AWS Lambda function that communicates with the RGB node's /backup API endpoint.
+- Once the backup is successfully created, it is automatically uploaded to an Amazon S3 bucket.
+
+### Download
+
+A pre-signed URL is generated allowing direct download from S3. The URL expires 30 minutes after being issued.
+
+## Node Restore
+
+### Access Restore Functionality
+
+Navigate to the node's backup page and find the "Restore node" section at nodes/{nodeId}/backup.
+
+### Uploading the Backup File
+
+- Click "Upload" to generate an S3 upload URL.
+- Select the backup file from your local device. The upload begins automatically.
+
+### Restoring Node
+
+- After the upload completes, a "Restore" button becomes active.
+- Click the "Restore" button to start the restoration process via the node's /restore API.
