@@ -1,4 +1,39 @@
 ---
-title: Create Rln Node
+title: "Create RLN Node"
 ---
 
+### Initiate RLN Node Creation
+
+- Navigate to the /nodes page to see an overview of your current nodes and the option to create new ones.
+- Click the "Create Node" button to begin the node creation process.
+
+### Configure Your RLN Node
+
+- Fill out the node creation form by entering a unique name for your new node.
+- Click the "Create" button to submit the form and start the node creation process.
+
+On the Regtest Network, block mining doesn't happen automatically. Manually mine blocks using curl:
+
+```text
+curl --location 'http://18.119.98.232:5000/execute' --header 'Content-Type: application/json' --data '{ "args": "mine 10" }'
+```
+
+If you need test BTC, use the sendtoaddress command:
+
+```text
+curl --location 'http://18.119.98.232:5000/execute' --header 'Content-Type: application/json' --data '{ "args": "sendtoaddress <address> 0.1" }'
+```
+
+### Monitor Node Creation Status
+
+- After submitting the form, a new item is added to the nodes table with a status of IN\_PROGRESS while the node is being built.
+- Visit /nodes/{nodeId} to see current status, build progress, and endpoint details.
+
+#### Understanding statuses
+
+- IN\_PROGRESS: Node is under construction. No interactions can be made.
+- RUNNING: Node has been successfully built and is fully operational.
+
+### Final Verification
+
+- Once the status changes to RUNNING, verify the node appears correctly in your dashboard.

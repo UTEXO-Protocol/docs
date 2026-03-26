@@ -1,4 +1,41 @@
 ---
-title: Upgrade Rln Node
+title: "Upgrade RLN Node"
 ---
 
+#### UI Upgrade Flow
+
+When an RLN node is outdated, users will see a notification block on the Node Page prompting them to upgrade.
+
+### Click the "Upgrade" Button
+
+- Navigate to the node page where the notification block appears.
+- Click the "Update" button to trigger the upgrade process.
+
+### Wait for the Upgrade to Complete
+
+- The upgrade process may take a few minutes. During this time, the node will be locked.
+
+### Unlock the Node
+
+- Once the upgrade is complete, click the "Unlock" button on the node page. After unlocking, the node will be fully operational.
+
+#### Automatic Bulk Upgrade (Scale or Wallet Plan Feature)
+
+For users subscribed to the Scale or Wallet Plan, the system provides automatic bulk upgrades.
+
+- When a new RLN image version is released, all user nodes are automatically upgraded.
+- After the automatic upgrade, all upgraded nodes will be locked and require manual unlocking.
+
+#### Upgrade RLN Node Using the API
+
+### Check the Latest RLN Image
+
+Fetch the latest version of the RLN node image available for upgrade and compare your node's current rln\_commit\_id. If the values differ, an upgrade is required.
+
+### Trigger the Node Upgrade
+
+Trigger an upgrade for a specific node to the latest version.
+
+### Unlock the Node After Upgrade
+
+After the upgrade is complete, nodes remain locked. Unlock the node to continue using it.

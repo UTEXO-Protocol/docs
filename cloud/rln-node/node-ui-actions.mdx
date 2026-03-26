@@ -1,4 +1,29 @@
 ---
-title: Node Ui Actions
+title: "Node UI Actions"
 ---
 
+On the Node Page (/node/{nodeId}), users have access to several interactive actions: /init, /lock, /unlock, and /nodeInfo.
+
+### /nodeInfo
+
+- Functionality: Automatically retrieves and displays the node's current status each time the node page is opened.
+- Error handling: If the node is locked or encounters issues, the UI displays an appropriate error message.
+- Use case: Provides real-time visibility into the node's status.
+
+### /init
+
+- Functionality: Initializes the node after its creation, making it ready for operation.
+- Process: During initialization, the system generates a mnemonic and provides it to the user. The mnemonic must be securely saved.
+- Use case: Mandatory step after node creation to enable further actions.
+
+### /lock
+
+- Functionality: Secures the node by locking it, preventing unauthorized access.
+- Process: The user enters a password to lock the node.
+- Use case: Protects sensitive node operations when not actively in use.
+
+### /unlock
+
+- Functionality: Unlocks the node, allowing it to resume normal operations.
+- Process: The user enters the correct password to reverse the lock status.
+- Use case: Enables the user to access and manage the node after it has been secured.

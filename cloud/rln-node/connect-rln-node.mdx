@@ -1,4 +1,33 @@
 ---
-title: Connect Rln Node
+title: "Connect to RLN Node"
 ---
 
+## Connecting to Node with mTLS
+
+### Access Node Connection Details
+
+- Navigate to the Connect Page at https://www.thunderstack.org/{nodeId}/connect.
+- The page displays the unique endpoint URL, private key, and certificate required for the mTLS connection.
+
+### Obtain Connection Credentials and URL
+
+- Download: Private Key (.key file) and Certificate (.pem file).
+- Copy the endpoint URL: https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/
+
+### Prepare the Request
+
+- Save the downloaded files in a secure location.
+- Example curl command:
+
+```text
+curl --key /path/to/privateKey.key --cert /path/to/certificate.pem https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/
+```
+
+## Connecting to Node with API token
+
+- Example usage with curl:
+
+```text
+export CLOUD_API_TOKEN=<your_token>
+curl -H 'Authorization: Bearer ${CLOUD_API_TOKEN}' https://node-api.thunderstack.org/<user_id>/<node_id>
+```
