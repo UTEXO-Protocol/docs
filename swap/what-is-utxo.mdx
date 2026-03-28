@@ -1,0 +1,37 @@
+---
+title: "What Is Utxo"
+---
+
+# What is UTXO
+
+Here we explain what UTXOs are and how to manage it.
+
+## What are UTXOs
+
+A UTXO is the amount of digital currency remaining after a blockchain transaction is executed.
+
+**Transaction Creation:** When a transaction is made, it consumes one or more UTXOs as inputs and creates new UTXOs as outputs.
+
+When you send Bitcoin, several steps programmatically take place. One of the earliest steps in the transaction process is for your cryptocurrency wallet to scan the blockchain for the amount of funds you have. These funds are known as unspent transaction outputs (UTXOs).
+
+The funds are considered "unspent" because they are freely available for you to send to someone or move to another wallet.
+
+They are called "transaction outputs" because they were created from previous transactions.
+
+UTXOs are processed continuously and are responsible for beginning and ending each transaction.
+
+When a transaction is completed, any unspent outputs are deposited back into a database as inputs, which can be used at a later date for a new transaction.
+
+### Example
+
+You can think of UTXOs as loose change leftover from previous Bitcoin transactions.
+
+If you spend \$12 on lunch using a \$20 bill, you'd have \$8 leftover. In this example, the leftover \$8 would be an unspent transaction output. It would be generated as an entirely new "\$8 bill" UTXO and go back to your wallet, ready to be used to buy something else.
+
+Just as you can't physically give a shopkeeper a \$5 bill and then give the same \$5 bill to someone else, a Bitcoin user cannot successfully use the same unspent transaction output in two separate blockchain transactions.
+
+In this way Bitcoin solves the double-spending problem. The other widely used concept of wallet balance tracking is called Account/Balance model. It's being used by EVM chains like Ethereum, EOS, Tezos etc.
+
+## Managing UTXOs
+
+For some transactions, such as bulk minting RGB or sending multiple transactions in one block, you would need to have your BTC divided into smaller or larger UTXO pieces. To adjust them to the size needed, you would either have to split or consolidate your UTXOs.

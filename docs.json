@@ -11,16 +11,11 @@
     "groups": [
       {
         "group": "What Utexo Is",
-        "pages": [
-          "what-utexo-is"
-        ]
+        "pages": ["what-utexo-is"]
       },
       {
         "group": "Getting Started",
-        "pages": [
-          "getting-started/the-problem",
-          "getting-started/architecture"
-        ]
+        "pages": ["getting-started/the-problem", "getting-started/architecture"]
       },
       {
         "group": "Product Suite",
@@ -28,27 +23,34 @@
           "getting-started/product-suite",
           {
             "group": "SDK",
-            "pages": [
-              "product-suite/sdk",
-              "product-suite/untitled-page"
-            ]
+            "pages": ["product-suite/sdk", "sdk/utexo-sdk"]
           },
           {
             "group": "Cloud",
             "pages": [
               "product-suite/cloud",
+              "cloud/rgb-lightning-node-api",
+              "cloud/webhooks",
               {
-                "group": "Node API",
+                "group": "Getting Started",
                 "pages": [
-                  "cloud/rgb-lightning-node-api",
-                  "cloud/webhooks"
+                  "cloud/getting-started",
+                  {
+                    "group": "Create RLN Node",
+                    "pages": [
+                      "cloud/rln-node/create-rln-node",
+                      "cloud/rln-node/node-ui-actions"
+                    ]
+                  },
+                  "cloud/rln-node/upgrade-rln-node",
+                  "cloud/rln-node/destroy-rln-node",
+                  "cloud/rln-node/connect-rln-node",
+                  "cloud/rln-node/node-backup-restore"
                 ]
               },
               {
                 "group": "Security",
-                "pages": [
-                  "security/rln-remote-signer"
-                ]
+                "pages": ["security/rln-remote-signer"]
               },
               {
                 "group": "Access Token Authorization",
@@ -56,39 +58,35 @@
                   "access-token-authorization/create-api-token",
                   "access-token-authorization/cloud-api"
                 ]
-              },
-              {
-                "group": "RLN Node",
-                "pages": [
-                  "cloud/rln-node/create-rln-node",
-                  "cloud/rln-node/node-ui-actions",
-                  "cloud/rln-node/upgrade-rln-node",
-                  "cloud/rln-node/destroy-rln-node",
-                  "cloud/rln-node/connect-rln-node",
-                  "cloud/rln-node/node-backup-restore"
-                ]
               }
             ]
           },
           {
             "group": "Bridge",
-            "pages": [
-              "product-suite/bridge"
-            ]
+            "pages": ["product-suite/bridge", "bridge/getting-started"]
           },
           {
             "group": "Swap",
             "pages": [
-              "product-suite/swap"
+              "product-suite/swap",
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "swap/getting-started",
+                  "swap/what-is-a-bitcoin-taproot-address",
+                  "swap/create-wallet",
+                  "swap/what-is-utxo",
+                  "swap/get-btc"
+                ]
+              },
+              "swap/getting-started-btc"
             ]
           }
         ]
       },
       {
         "group": "Business Applications",
-        "pages": [
-          "business-applications"
-        ]
+        "pages": ["business-applications"]
       }
     ]
   }
