@@ -1,0 +1,178 @@
+---
+title: "Utexo Sdk"
+---
+
+# Utexo SDK
+
+This is the underlying SDK used by RGB client applications. It provides a complete set of bindings for interacting with the RGB and managing RGB-based transfers.
+
+With this SDK, developers can:
+
+- Generate RGB invoices
+- Create and manage UTXOs
+- Sign PSBTs using local private keys or hardware signing flows
+- Fetch asset balances, transfer status, and other RGB-related state
+
+## Capabilities of @utexo/rgb-sdk (via WalletManager)
+
+The primary wallet class is **UTEXOWallet**: initialize with a mnemonic (or seed) and optional `{ network, dataDir }`, then call `await wallet.initialize()` before use. It combines standard RGB operations with UTEXO features (Lightning, on-chain deposit/withdrawal).
+
+### Wallet Methods
+
+- `generateKeys(network?)` — Generate new wallet keys (mnemonic, xpubs, master fingerprint)
+- `restoreUtxoWalletFromBackup({ backupPath, password, targetDir })` — Restore UTEXO wallet from file backup
+- `restoreUtxoWalletFromVss({ mnemonic, targetDir, config?, vssServerUrl? })` — Restore UTEXO wallet from VSS cloud backup
+- `deriveKeysFromMnemonic(network, mnemonic)` — Derive wallet keys from existing mnemonic
+- `deriveKeysFromSeed(network, seed)` — Derive wallet keys from BIP39 seed
+- `getAddress()` — Get deposit address (async)
+- `getBtcBalance()` — Get on-chain BTC balance (async)
+- `getXpub()` — Get vanilla and colored xpubs
+- `listUnspents()` — List unspent UTXOs
+- `listAssets()` — List RGB assets held
+- `getAssetBalance(assetId)` — Get balance for a specific asset
+- `createUtxos({ num?, size?, upTo? })` — Create UTXOs (async; combines begin, sign, end)
+- `blindReceive({ assetId, amount, minConfirmations?, durationSeconds? })` — Generate blinded UTXO for receiving
+- `witnessReceive({ assetId, amount, minConfirmations?, durationSeconds? })` — Generate witness UTXO for receiving
+- `issueAssetNia({ ticker, name, amounts, precision })` — Issue a new Non-Inflationary Asset
+- `send({ invoice, assetId, amount, witnessData? })` — Complete send (begin → sign → end)
+- `signPsbt(psbt, mnemonic?)` — Sign PSBT using wallet mnemonic (async)
+- `refreshWallet()` — Sync and refresh wallet state
+- `listTransactions()` — List BTC-level transactions
+- `listTransfers(assetId?)` — List RGB transfer history for asset
+- `createBackup({ backupPath, password })` — Create encrypted backup
+
+### Lightning Methods
+
+- `createLightningInvoice(params)` — Create Lightning invoice for receiving
+- `payLightningInvoiceBegin(params)` — Start Lightning payment (returns unsigned PSBT)
+- `payLightningInvoiceEnd(params)` — Finalize Lightning payment with signed PSBT
+- `payLightningInvoice(params, mnemonic?)` — Complete Lightning payment (begin → sign → end)
+- `getLightningSendRequest(lnInvoice)` — Get status of Lightning send
+- `getLightningReceiveRequest(lnInvoice)` — Get status of Lightning receive
+- `listLightningPayments()` — List Lightning payments
+
+### On-chain Methods
+
+- `onchainReceive(params)` — Generate invoice for depositing from mainnet to UTEXO
+- `onchainSend(params, mnemonic?)` — Complete on-chain withdraw (begin → sign → end)
+- `getOnchainSendStatus(invoice)` — Get status of on-chain withdraw
+
+## Getting Started
+
+### Prerequisites
+
+This SDK uses rgb-protocol libraries. All operations are performed locally.
+
+### Default Endpoints
+
+The SDK uses default endpoints for RGB transport and Bitcoin indexing:
+
+**Transport Endpoints (RGB protocol communication):**
+
+- Mainnet: `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc`
+- Testnet: `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc`
+- Signet: `rpcs://rgb-proxy-utexo.utexo.com/json-rpc`
+
+**Indexer URLs (Bitcoin blockchain data):**
+
+- Mainnet: `ssl://electrum.iriswallet.com:50003`
+- Testnet: `ssl://electrum.iriswallet.com:50013`
+- Signet: `https://esplora-api.utexo.com`
+
+### Installation
+
+```text
+npm install @utexo/rgb-sdk
+```
+
+**Node.js only** — This SDK is designed for Node.js and is not browser-compatible.
+
+### Basic Usage
+
+```text
+const { UTEXOWallet, generateKeys } = require('@utexo/rgb-sdk');
+
+// 1. Generate wallet keys (async)
+const keys = await generateKeys('testnet');
+console.log('Mnemonic:', keys.mnemonic); // Store securely!
+
+// 2. Initialize wallet
+const wallet = new UTEXOWallet(keys.mnemonic, { network: 'testnet' });
+await wallet.initialize();
+
+// 3. Get a derived deposit address
+const address = await wallet.getAddress();
+
+// 4. Check balance
+const balance = await wallet.getBtcBalance();
+```
+
+## Core Workflows
+
+### Wallet Initialization
+
+```text
+const { UTEXOWallet, generateKeys } = require('@utexo/rgb-sdk');
+
+const keys = await generateKeys('testnet');
+const wallet = new UTEXOWallet(keys.mnemonic, { network: 'testnet' });
+await wallet.initialize();
+```
+
+### UTXO Management
+
+```text
+// Create UTXOs in one call (begin → sign → end)
+const count = await wallet.createUtxos({ num: 5, size: 1000 });
+await wallet.syncWallet();
+```
+
+### Asset Issuance
+
+```text
+const asset = await wallet.issueAssetNia({
+  ticker: "USD Token",
+  name: "USDT",
+  amounts: [1000, 500],
+  precision: 6
+});
+```
+
+### Asset Transfers
+
+```text
+// Receiver: create blind invoice
+const receiveData = receiverWallet.blindReceive({
+  assetId: assetId,
+  amount: 100,
+  minConfirmations: 3,
+  durationSeconds: 2000
+});
+
+// Sender: complete send
+await senderWallet.send({
+  invoice: receiveData.invoice,
+  assetId,
+  amount: 100
+});
+
+// Refresh both wallets
+await senderWallet.refreshWallet();
+await receiverWallet.refreshWallet();
+```
+
+## Security
+
+By using this SDK, developers have full control over transfer orchestration, UTXO selection, invoice lifecycle, and signing policy.
+
+```text
+const { generateKeys, deriveKeysFromMnemonic } = require('@utexo/rgb-sdk');
+
+// Generate new wallet keys (async)
+const keys = await generateKeys('testnet');
+const mnemonic = keys.mnemonic; // Sensitive - protect at rest
+
+// Store mnemonic securely for later restoration
+const storedMnemonic = process.env.WALLET_MNEMONIC;
+const restoredKeys = await deriveKeysFromMnemonic('testnet', storedMnemonic);
+```
