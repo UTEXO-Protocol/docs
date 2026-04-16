@@ -2,36 +2,59 @@
 title: "RLN Remote Signer"
 ---
 
-Validating Lightning Signer (VLS) is an open-source Rust library for secure, self-custodial Lightning signers. Unlike hot wallets or blind signers, VLS keeps your private keys off the node and validates each signing request, ensuring only legitimate channel operations are approved.
+Validating Lightning Signer (VLS) is an open-source **Rust library for secure, self-custodial Lightning signers**. Unlike hot wallets or blind signers, VLS keeps your private keys off the node **and** validates each signing request, ensuring only legitimate channel operations are approved. In other words, even if your Lightning node were compromised, funds remain safe thanks to the signer’s rigorous policy checks.
 
 ## System Overview
 
 VLS splits Lightning key management into two primary components:
 
-### Lightning Node
-
-Runs the usual LN logic: channel opening, routing, HTLC management. No private keys for signing are stored here.
-
-### Remote Validating Signer
-
-Stores private keys in a secure environment and validates each request before generating a signature. If the request fails policy checks, it denies signing.
+<Steps>
+  <Step title="Lightning Node" titleSize="h3">
+    Runs the usual LN logic: channel opening, routing, HTLC management, etc. But **no** private keys for signing are stored here.
+  </Step>
+  <Step title="Remote Validating Signer" titleSize="h3">
+    Stores private keys in a secure environment and **validates** each request (e.g., channel updates, HTLC commitments) before generating a signature. If the request fails policy checks, it denies signing.
+  </Step>
+</Steps>
 
 ### Additional Components
 
-- Policy Engine: A customizable set of rules ensuring no suspicious requests are signed.
-- UTXO Oracle (Optional): The signer can be configured to receive chain data to detect remote breaches.
-- State Storage: Provides secure, redundant cloud storage with anti-rollback protection.
+- **Policy Engine**: A customizable set of rules ensuring no suspicious or off-protocol requests are signed.
+- **UTXO Oracle (Optional)**: The signer can be configured to receive chain data to detect remote breaches or track on-chain states (e.g., unconfirmed inputs, HTLC expiries).
+- **State Storage**: Provides secure, redundant cloud storage for Lightning nodes and signers with anti-rollback protection.
 
 ## Architecture Overview
 
-### Validation Flow
+Below is a simplified technical breakdown of how VLS integrates with Lightning nodes:
 
-1. Node proposes a transaction or state update.
-2. VLS checks protocol correctness and local policy.
-3. If valid, the signer returns a signature. Otherwise, it rejects the request.
+<Steps>
+  <Step title="Integration Points">
+    - **RGB LN  Node**
+  </Step>
+  <Step title="Validation Flow">
+    1. **Node** proposes a transaction or state update.
+    2. **VLS** checks protocol correctness and local policy (e.g., channel open, HTLC amounts, no double revoke).
+    3. **If valid**, the signer returns a signature. Otherwise, it rejects the request.
+  </Step>
+  <Step title="Hardware vs. Software Deployment">
+    - VLS can run in a dedicated hardware security module (HSM), a secure enclave, or simply as a separate process/container.
+    - For extremely large LN balances, hardware isolation is recommended.
+  </Step>
+  <Step title="Performance & Scalability">
+    - Rust ensures efficient, safe concurrency.
+    - The overhead for real-time transaction signing is minimal compared to typical LN operations.
+  </Step>
+</Steps>
 
 ## Current Status
 
-Support for a remote signer in the RGB Lightning Node is currently under active development. At this stage, remote signer support is not yet available in production and should be considered experimental.
+Support for a **remote signer** in the RGB Lightning Node is currently **under active development**.
 
-Progress is tracked publicly at: https://github.com/RGB-Tools/rgb-lightning-node/issues/43
+The goal of this feature is to allow Lightning and RGB operations to be executed while keeping private keys **outside** of the RGB Lightning Node process. This enables stronger security models such as:
+
+- hardware-backed signing
+- isolated signing services
+- custodial or enterprise-grade deployments
+- integration with external signing infrastructure
+
+At this stage, remote signer support is not yet available in production and should be considered experimental. Progress is tracked publicly at: [https://github.com/RGB-Tools/rgb-lightning-node/issues/43](https://github.com/RGB-Tools/rgb-lightning-node/issues/43)

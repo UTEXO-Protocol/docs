@@ -11,11 +11,16 @@
     "groups": [
       {
         "group": "What Utexo Is",
-        "pages": ["what-utexo-is"]
+        "pages": [
+          "what-utexo-is"
+        ]
       },
       {
         "group": "Getting Started",
-        "pages": ["getting-started/the-problem", "getting-started/architecture"]
+        "pages": [
+          "getting-started/the-problem",
+          "getting-started/architecture"
+        ]
       },
       {
         "group": "Product Suite",
@@ -23,7 +28,10 @@
           "getting-started/product-suite",
           {
             "group": "SDK",
-            "pages": ["product-suite/sdk", "sdk/utexo-sdk"]
+            "pages": [
+              "product-suite/sdk",
+              "sdk/utexo-sdk"
+            ]
           },
           {
             "group": "Cloud",
@@ -50,11 +58,15 @@
               },
               {
                 "group": "Security",
-                "pages": ["security/rln-remote-signer"]
+                "pages": [
+                  "security/security",
+                  "security/rln-remote-signer"
+                ]
               },
               {
                 "group": "Access Token Authorization",
                 "pages": [
+                  "access-token-authorization/access-token-authorization",
                   "access-token-authorization/create-api-token",
                   "access-token-authorization/cloud-api"
                 ]
@@ -63,7 +75,10 @@
           },
           {
             "group": "Bridge",
-            "pages": ["product-suite/bridge", "bridge/getting-started"]
+            "pages": [
+              "product-suite/bridge",
+              "bridge/getting-started"
+            ]
           },
           {
             "group": "Swap",
@@ -86,7 +101,9 @@
       },
       {
         "group": "Business Applications",
-        "pages": ["business-applications"]
+        "pages": [
+          "business-applications"
+        ]
       }
     ]
   }
