@@ -94,7 +94,8 @@
                   "swap/get-btc"
                 ]
               },
-              "swap/getting-started-btc"
+              "swap/swap-btc-to-rgb",
+              "swap/swap-rgb-to-btc"
             ]
           }
         ]
