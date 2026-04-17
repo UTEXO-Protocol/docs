@@ -1,34 +1,121 @@
 ---
-icon: bolt
-metaLinks:
-  alternates:
-    - https://app.gitbook.com/s/yE16Xb3IemPxJWydtPOj/getting-started/quickstart
+title: "Quickstart"
 ---
 
-# The Problem
+## Your First Integration
 
-**Why Existing Stablecoin Rails Fail for Business Settlement**
+This guide walks you through installing the Utexo SDK, initializing a wallet, and completing your first USDT transfer on Bitcoin — from zero to working code.
 
-Stablecoins are already used at global scale for payments, treasury operations, remittances, and internal settlement. USDT has become the dominant settlement asset across both crypto-native and cross-border payment flows.
+Estimated time: 15 minutes.
 
-Most stablecoin activity today runs on public blockchains with dynamic fee markets: transaction costs are determined by congestion and blockspace demand, which makes execution costs unpredictable. Fees change continuously and cannot be fixed in advance.
+## Prerequisites
 
-During periods of high usage, costs can increase by orders of magnitude.
+Before you start:
 
-For payment providers, this breaks the basic requirements of a payment rail: there is no fixed unit economics, no deterministic pricing model, and no way to offer flat fees to merchants or users.
+- Node.js v18 or later installed
+- A testnet BTC balance for transaction fees (use a testnet faucet)
+- Basic familiarity with async/await JavaScript
 
-As a result, blockchain networks with variable fee markets are unsuitable as primary settlement infrastructure for payment businesses.
+## Step 1: Install the SDK
 
-Another blocker for B2B adoption concern privacy: all major stablecoin networks today operate on tranconcernssparent public ledgers.
+```bash
+npm install @utexo/rgb-sdk
+```
 
-Every transaction exposes balances, counterparties, and payment flows. For businesses, this leaks sensitive commercial information such as supplier relationships, customer volumes, treasury movements, and internal settlement activity.
+The SDK is Node.js only and is not browser-compatible.
 
-This level of transparency is incompatible with payroll, B2B payments, PSP settlement, and enterprise treasury operations.
+## Step 2: Generate Wallet Keys
 
-Bitcoin offers properties that payment operators already value: deterministic finality, strong censorship resistance, regulatory clarity, and the deepest global liquidity base of any blockchain network.
+```javascript
+const { generateKeys } = require('@utexo/rgb-sdk');
 
-But despite this, there is currently no way to use USDT on Bitcoin in a way that is suitable for production payment systems, which require predictable execution costs, private settlement, and enterprise-grade security.
+const keys = await generateKeys('testnet');
+console.log('Mnemonic:', keys.mnemonic); // Store this securely
+```
 
-Stablecoin settlement is therefore forced onto alternative chains or custodial platforms, introducing additional trust assumptions, counterparty risk, and external execution dependencies.
+This generates a BIP-39 mnemonic. Store it securely — it is the only way to recover your wallet.
 
-Utexo exists to make stablecoin settlement costs predictable, independent of blockspace congestion while preserving Bitcoin’s security model.
+## Step 3: Initialize the Wallet
+
+```javascript
+const { UTEXOWallet } = require('@utexo/rgb-sdk');
+
+const wallet = new UTEXOWallet(keys.mnemonic, { network: 'testnet' });
+await wallet.initialize();
+```
+
+Initialization connects to the default RGB transport and Bitcoin indexer endpoints for testnet.
+
+## Step 4: Get a Deposit Address
+
+```javascript
+const address = await wallet.getAddress();
+console.log('Deposit address:', address);
+```
+
+Use this address to receive BTC on testnet. You need a small BTC balance to cover RGB transaction fees.
+
+## Step 5: Create UTXOs
+
+Before receiving RGB assets, the wallet needs UTXOs to anchor RGB state.
+
+```javascript
+await wallet.createUtxos({ num: 5, size: 1000 });
+await wallet.refreshWallet();
+```
+
+## Step 6: Generate an RGB Invoice
+
+To receive USDT (or any RGB asset), generate a blinded invoice:
+
+```javascript
+const receiveData = await wallet.blindReceive({
+  assetId: 'your-rgb-usdt-asset-id',
+  amount: 100,
+  minConfirmations: 1,
+  durationSeconds: 3600
+});
+console.log('RGB Invoice:', receiveData.invoice);
+```
+
+Share this invoice with the sender. It expires after `durationSeconds`.
+
+## Step 7: Send an RGB Asset
+
+Once you have an RGB asset balance, send it to another wallet:
+
+```javascript
+await senderWallet.send({
+  invoice: receiveData.invoice,
+  assetId: 'your-rgb-usdt-asset-id',
+  amount: 100
+});
+
+await senderWallet.refreshWallet();
+await receiverWallet.refreshWallet();
+```
+
+## Step 8: Check Balances
+
+```javascript
+const assets = await wallet.listAssets();
+console.log('Assets:', assets);
+
+const btcBalance = await wallet.getBtcBalance();
+console.log('BTC balance:', btcBalance);
+```
+
+## Default Network Endpoints
+
+The SDK connects to the following endpoints by default on testnet:
+
+- **RGB Transport:** `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc`
+- **Bitcoin Indexer:** `ssl://electrum.iriswallet.com:50013`
+
+For mainnet, see the [SDK reference](/sdk/utexo-sdk) for mainnet endpoint configuration.
+
+## Next Steps
+
+- [SDK Reference](/sdk/utexo-sdk) — Full method reference for UTEXOWallet
+- [Architecture](/getting-started/architecture) — Understand how Bitcoin, Lightning, and RGB fit together
+- [Glossary](/getting-started/glossary) — Definitions for RGB, PSBT, blinded invoice, and other key terms
