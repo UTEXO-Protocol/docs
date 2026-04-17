@@ -6,7 +6,7 @@ description: "Send your first RGB USDT transfer on Bitcoin in under 15 minutes."
 
 ## What You Will Build
 
-This guide walks you through the full Utexo SDK integration flow: installing the SDK, generating and initializing a wallet, funding it with testnet BTC, creating UTXOs to anchor RGB state, generating an RGB invoice, and completing your first USDT transfer on Bitcoin.
+This guide walks you through the full Utexo SDK integration flow: installing the SDK, generating and initializing a wallet, funding it with testnet BTC, creating UTXOs to anchor RGB state, generating an RGB invoice and completing your first USDT transfer on Bitcoin.
 
 By the end of this guide you will have:
 
@@ -23,11 +23,11 @@ By the end of this guide you will have:
 Before writing any code, it helps to understand the flow:
 
 1. The **receiver** generates a blinded invoice tied to one of their UTXOs
-2. The **sender** calls `.send()` with that invoice — the RGB state transition is constructed and broadcast
+2. The **sender** calls `.send()` with that invoice - the RGB state transition is constructed and broadcast
 3. Both wallets call `.refreshWallet()` to sync the latest on-chain state
 4. The receiver's balance updates to reflect the new asset allocation
 
-All asset state is validated client-side. Neither party needs to trust a third party — the Bitcoin UTXO provides the settlement anchor.
+All asset state is validated client-side. Neither party needs to trust a third party, the Bitcoin UTXO provides the settlement anchor.
 
 <Info>
   New to RGB or UTXOs? See the [Glossary](/getting-started/glossary) for definitions, and [Architecture](/getting-started/architecture) for how Bitcoin, Lightning, and RGB fit together.
@@ -52,7 +52,7 @@ Before you start, make sure you have the following:
 The SDK connects to the following endpoints by default on testnet. No configuration is needed to follow this guide.
 
 | Service | Endpoint |
-|---|---|
+| --- | --- |
 | RGB Transport | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` |
 | Bitcoin Indexer | `ssl://electrum.iriswallet.com:50013` |
 
@@ -134,7 +134,7 @@ console.log('UTXOs created and wallet synced');
 **Parameter reference:**
 
 | Parameter | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `num` | `number` | Number of UTXOs to create. `5` is recommended for a new wallet. |
 | `size` | `number` | Size of each UTXO in **satoshis**. `1000` satoshis per UTXO is the minimum recommended value. |
 
@@ -181,7 +181,7 @@ console.log('RGB Invoice:', receiveData.invoice);
 **Parameter reference:**
 
 | Parameter | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `assetId` | `string` | The RGB asset contract ID. See Step 6. |
 | `amount` | `number` | Amount to receive in **asset base units**. For RGB USDT, 1 unit = 1 USDT. |
 | `minConfirmations` | `number` | Minimum Bitcoin confirmations required before accepting the transfer. |
@@ -242,7 +242,7 @@ Expected result: the receiver's asset list shows a balance of `100` for the USDT
 ## Troubleshooting
 
 | Issue | Likely cause | Fix |
-|---|---|---|
+| --- | --- | --- |
 | `initialize()` hangs or times out | No network connection to indexer | Check your internet connection and firewall settings |
 | `createUtxos()` fails | Insufficient BTC balance | Fund your wallet with more testnet BTC from a faucet |
 | Invoice rejected | Invoice has expired | Generate a new invoice and retry |

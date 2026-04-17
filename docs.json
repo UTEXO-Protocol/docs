@@ -91,10 +91,11 @@
                   "swap/what-is-a-bitcoin-taproot-address",
                   "swap/create-wallet",
                   "swap/what-is-utxo",
-                  "swap/get-btc"
+                  "swap/get-btc",
+                  "swap/swap-btc-to-rgb",
+                  "swap/swap-rgb-to-btc"
                 ]
-              },
-              "swap/getting-started-btc"
+              }
             ]
           }
         ]

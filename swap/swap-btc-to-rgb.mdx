@@ -1,0 +1,119 @@
+---
+title: "Swap BTC to RGB"
+sidebarTitle: "Swap BTC to RGB"
+description: "How to swap Bitcoin (BTC) for an RGB asset using Utexo and Tribe Wallet."
+---
+
+## What You Will Accomplish
+
+This guide walks you through converting native Bitcoin (BTC) into an RGB asset (such as RGB USDT) using the Utexo swap interface and Tribe Wallet. By the end you will have:
+
+- Sent BTC from your Bitcoin wallet to a Utexo-generated deposit address
+- Received the equivalent RGB asset in your Tribe Wallet
+- Confirmed the transaction status in both interfaces
+
+<Info>
+  Looking to go the other direction? See [Swap RGB to BTC](/swap/swap-rgb-to-btc).
+</Info>
+
+## How BTC → RGB Transfers Work
+
+When you swap BTC to RGB:
+
+1. Utexo generates a **BTC deposit address** tied to your swap request
+2. You send BTC to that address from your Bitcoin wallet
+3. Utexo detects the deposit and issues the equivalent RGB asset to the invoice you provided
+4. Your Tribe Wallet receives and displays the RGB asset balance
+
+The swap is non-custodial on the RGB side — the asset is delivered directly to the blinded invoice your Tribe Wallet generates. Utexo does not hold your RGB assets.
+
+## Prerequisites
+
+Before you start:
+
+- **Tribe Wallet** (mobile app) installed and set up with a funded RGB wallet
+- **A Bitcoin wallet** with a BTC balance to send (any standard Bitcoin wallet works)
+- **UTXOs created** in Tribe Wallet to receive RGB assets (see [Create Wallet](/swap/create-wallet) if you haven't done this)
+
+<Warning>
+  Make sure you have created UTXOs in Tribe Wallet before generating an invoice. Without dedicated UTXOs, the RGB asset delivery will fail.
+</Warning>
+
+## Step 1: Enter the Transfer Details in Utexo
+
+In the Utexo swap interface:
+
+1. Set **You send** to **BTC** (Bitcoin)
+2. Set **You receive** to the RGB asset you want (for example, RGB USDT)
+3. Enter the amount of BTC you want to send
+4. Click **Swap** to proceed to the invoice step
+
+<Info>
+  The interface will show you the estimated RGB amount you will receive after fees before you confirm.
+</Info>
+
+## Step 2: Generate an RGB Invoice in Tribe Wallet
+
+Utexo needs an RGB invoice from your Tribe Wallet to know where to deliver the asset. In Tribe Wallet:
+
+1. Open **Other assets** (bottom navigation)
+2. Tap the **\+** icon (top right)
+3. Tap **Receive Asset**
+4. Select the asset you are receiving (for example, RGB USDT)
+5. **Generate an invoice** for the expected amount
+6. Select a **blinded invoice**, then copy it
+
+<Warning>
+  Always use a **blinded invoice**. A non-blinded invoice exposes your UTXO to the sender. Tribe Wallet generates blinded invoices by default — confirm this before copying.
+</Warning>
+
+## Step 3: Paste the Invoice into Utexo
+
+Back in the Utexo interface:
+
+1. Paste the blinded invoice from Tribe Wallet into the **RGB invoice** field
+2. Review the swap summary — confirm the asset, amount, and estimated fees
+3. Click **Confirm** to proceed
+
+Utexo will now display a **BTC payment address** and QR code for you to send BTC to.
+
+## Step 4: Pay the BTC Deposit Address
+
+In your Bitcoin wallet:
+
+1. Scan the QR code shown in Utexo, or copy the BTC payment address manually
+2. Scanning the QR code will auto-fill the recipient address and amount
+3. If pasting manually, paste the payment address and enter the exact BTC amount shown
+4. Review the transaction details, then **Swipe to broadcast** (or confirm via your wallet's send flow)
+
+<Warning>
+  Send **exactly** the BTC amount shown in Utexo. Sending a different amount may result in a failed or partial swap that requires manual support resolution.
+</Warning>
+
+## Step 5: Check Transaction Status
+
+After broadcasting the BTC transaction:
+
+- In **Utexo**: the swap appears as **In progress**. Refresh the page to see status updates.
+- In **Tribe Wallet**: once Utexo detects the BTC deposit and issues the RGB asset, your balance will update. This typically takes 1–3 Bitcoin confirmations.
+
+<Info>
+  On testnet, a new Bitcoin block arrives every 1–10 minutes. On mainnet, expect 10–30 minutes for 1–3 confirmations depending on network conditions.
+</Info>
+
+**Expected result:** Tribe Wallet shows the received RGB asset in your balance under **Other assets**.
+
+## Troubleshooting
+
+| Issue | Likely cause | Fix |
+|---|---|---|
+| RGB asset not received after confirmation | Invoice was not blinded, or UTXOs not set up | Regenerate a blinded invoice and ensure UTXOs exist in Tribe Wallet |
+| Swap stuck at "In progress" | BTC transaction not yet confirmed | Wait for Bitcoin confirmations; check your tx on a block explorer |
+| Wrong amount received | Sent a different BTC amount than shown | Contact Utexo support with your transaction ID |
+| Invoice rejected by Utexo | Invoice has expired | Generate a new invoice in Tribe Wallet and retry |
+
+## Next Steps
+
+- [Swap RGB to BTC](/swap/swap-rgb-to-btc) — Go the other direction
+- [Create Wallet](/swap/create-wallet) — Set up Tribe Wallet and create UTXOs
+- [What is UTXO](/swap/what-is-utxo) — Understand why UTXOs are needed for RGB
