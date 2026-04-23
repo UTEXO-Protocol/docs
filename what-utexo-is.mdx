@@ -1,7 +1,6 @@
 ---
-title: 'What is Utexo?'
-description: 'Utexo is a Bitcoin-native execution and settlement layer for stablecoin payments — enabling predictable costs, private execution, and trustless settlement through a single API integration.'
-sidebarTitle: 'What Utexo Is'
+title: "What is Utexo?"
+sidebarTitle: "What is Utexo?"
 ---
 
 Utexo is a Bitcoin-native execution and settlement layer that allows payment operators to process stablecoin payments with predictable costs, private execution, and Bitcoin-anchored settlement through a single low-friction API integration. It leverages Bitcoin’s finality, censorship resistance, and global liquidity as the security and settlement anchor of the system.
@@ -10,21 +9,21 @@ Utexo is a Bitcoin-native execution and settlement layer that allows payment ope
 
 Existing stablecoin payment infrastructure was built for public blockchains, not business operations:
 
-- **Unpredictable fees** — gas markets fluctuate with network demand, making unit economics unreliable for payment operators.
-- **Public execution** — every transaction is visible on-chain, exposing business-sensitive payment flows.
-- **Fragmented settlement** — routing, liquidity management, and asset validation are handled by separate systems, increasing integration complexity.
-- **No Bitcoin finality** — most stablecoin rails depend on smart contract platforms without Bitcoin’s proof-of-work security guarantees.
+- **Unpredictable fees** - gas markets fluctuate with network demand, making unit economics unreliable for payment operators.
+- **Public execution** - every transaction is visible on-chain, exposing business-sensitive payment flows.
+- **Fragmented settlement** - routing, liquidity management, and asset validation are handled by separate systems, increasing integration complexity.
+- **No Bitcoin finality** - most stablecoin rails depend on smart contract platforms without Bitcoin’s proof-of-work security guarantees.
 
-These constraints make stablecoin settlement operationally brittle for payment systems, exchanges, wallets, and financial operators that need deterministic margins and compliance-friendly infrastructure.
+These constraints make stablecoin settlement operationally brittle for payment systems, exchanges, wallets and financial operators that need deterministic margins and compliance-friendly infrastructure.
 
 ## The Utexo Framework
 
 Utexo redefines stablecoin settlement by combining four core design principles:
 
-- **Deterministic cost model** — fees are predefined and fixed at the protocol level. Transactions do not compete for global blockspace and are not subject to congestion-driven pricing.
-- **Off-chain execution with on-chain anchoring** — execution occurs off-chain for performance and scalability, while cryptographic commitments are anchored to Bitcoin for correctness and dispute resolution.
-- **Bitcoin + RGB + Lightning convergence** — stablecoins are issued and transferred using the RGB protocol, while payments are executed over the Lightning Network for instant settlement and low latency. Bitcoin provides the trust anchor for the entire stack.
-- **Single execution layer** — Utexo abstracts routing, liquidity management, asset validation, and settlement coordination into a unified layer exposed via SDK and API, eliminating the need to integrate multiple systems.
+- **Deterministic cost model** - fees are predefined and fixed at the protocol level. Transactions do not compete for global blockspace and are not subject to congestion-driven pricing.
+- **Off-chain execution with on-chain anchoring** - execution occurs off-chain for performance and scalability, while cryptographic commitments are anchored to Bitcoin for correctness and dispute resolution.
+- **Bitcoin \+ RGB \+ Lightning convergence** - stablecoins are issued and transferred using the RGB protocol, while payments are executed over the Lightning Network for instant settlement and low latency. Bitcoin provides the trust anchor for the entire stack.
+- **Single execution layer** - Utexo abstracts routing, liquidity management, asset validation and settlement coordination into a unified layer exposed via SDK and API, eliminating the need to integrate multiple systems.
 
 ## Getting Started
 
@@ -32,14 +31,17 @@ Utexo redefines stablecoin settlement by combining four core design principles:
   <Card title="The Problem" icon="triangle-exclamation" href="/getting-started/the-problem">
     Understand why existing stablecoin rails fail for business settlement and what Utexo solves.
   </Card>
+
   <Card title="Architecture" icon="sitemap" href="/getting-started/architecture">
     Learn how Bitcoin, the Lightning Network, RGB, and Utexo fit together as a unified stack.
   </Card>
+
   <Card title="Quickstart" icon="bolt" href="/getting-started/quickstart">
     Integrate Utexo and process your first stablecoin payment in minutes.
   </Card>
+
   <Card title="Product Suite" icon="cubes" href="/product-suite">
-    Explore the SDK, Cloud Modules, Bridge, and AMM DEX that make up the Utexo product surface.
+    Explore the SDK, Cloud Modules, Bridge, and AMM DEX.
   </Card>
 </CardGroup>
 
@@ -49,20 +51,23 @@ Utexo redefines stablecoin settlement by combining four core design principles:
   <Accordion title="Deterministic Fees">
     Unlike public blockchain fee markets, Utexo’s settlement layer uses a fixed, protocol-level fee schedule. Payment providers can model exact unit economics without exposure to gas price volatility.
   </Accordion>
+
   <Accordion title="Private Execution">
     Transactions are executed off-chain within Utexo’s settlement layer. Only cryptographic commitments are published to Bitcoin, preserving the confidentiality of business payment flows.
   </Accordion>
+
   <Accordion title="Bitcoin-Anchored Security">
     Utexo does not rely on a new consensus mechanism. It inherits Bitcoin’s finality and censorship resistance by anchoring settlement state to the Bitcoin blockchain.
   </Accordion>
+
   <Accordion title="Application Abstraction">
-    Applications integrate through a single SDK and API. Utexo handles routing, liquidity, asset validation, and settlement coordination internally — no protocol-specific logic required in application code.
+    Applications integrate through a single SDK and API. Utexo handles routing, liquidity, asset validation and settlement coordination internally - no protocol-specific logic required in application code.
   </Accordion>
 </AccordionGroup>
 
 ## Further Reading
 
-- [The Problem](/getting-started/the-problem) — Why existing stablecoin rails fail for business settlement.
-- [Architecture](/getting-started/architecture) — How Bitcoin, the Lightning Network, RGB, and Utexo fit together.
-- [Product Suite](/product-suite) — SDK/API, Cloud Modules, Bridge, and AMM DEX.
-- [Business Applications](/business-applications) — Bitcoin-native stablecoin payments at scale.
+- [The Problem](/getting-started/the-problem) - Why existing stablecoin rails fail for business settlement.
+- [Architecture](/getting-started/architecture) - How Bitcoin, the Lightning Network, RGB, and Utexo fit together.
+- [Product Suite](/product-suite) - SDK/API, Cloud Modules, Bridge, and AMM DEX.
+- [Business Applications](/business-applications) - Bitcoin-native stablecoin payments at scale.
