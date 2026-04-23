@@ -1,34 +1,261 @@
 ---
-icon: bolt
-metaLinks:
-  alternates:
-    - https://app.gitbook.com/s/yE16Xb3IemPxJWydtPOj/getting-started/quickstart
+title: "Quickstart"
+sidebarTitle: "Quickstart"
+description: "Send your first RGB USDT transfer on Bitcoin in under 15 minutes."
 ---
 
-# The Problem
+## What You Will Build
 
-**Why Existing Stablecoin Rails Fail for Business Settlement**
+This guide walks you through the full Utexo SDK integration flow: installing the SDK, generating and initializing a wallet, funding it with testnet BTC, creating UTXOs to anchor RGB state, generating an RGB invoice and completing your first USDT transfer on Bitcoin.
 
-Stablecoins are already used at global scale for payments, treasury operations, remittances, and internal settlement. USDT has become the dominant settlement asset across both crypto-native and cross-border payment flows.
+By the end of this guide you will have:
 
-Most stablecoin activity today runs on public blockchains with dynamic fee markets: transaction costs are determined by congestion and blockspace demand, which makes execution costs unpredictable. Fees change continuously and cannot be fixed in advance.
+- A working `UTEXOWallet` instance connected to testnet
+- A funded wallet with UTXOs ready to receive RGB assets
+- Successfully sent and verified an RGB USDT transfer
 
-During periods of high usage, costs can increase by orders of magnitude.
+<Info>
+  **Estimated time:** 15 minutes, not counting testnet faucet confirmation time (usually 1–5 minutes, but can vary).
+</Info>
 
-For payment providers, this breaks the basic requirements of a payment rail: there is no fixed unit economics, no deterministic pricing model, and no way to offer flat fees to merchants or users.
+## How RGB Transfers Work
 
-As a result, blockchain networks with variable fee markets are unsuitable as primary settlement infrastructure for payment businesses.
+Before writing any code, it helps to understand the flow:
 
-Another blocker for B2B adoption concern privacy: all major stablecoin networks today operate on tranconcernssparent public ledgers.
+1. The **receiver** generates a blinded invoice tied to one of their UTXOs
+2. The **sender** calls `.send()` with that invoice - the RGB state transition is constructed and broadcast
+3. Both wallets call `.refreshWallet()` to sync the latest on-chain state
+4. The receiver's balance updates to reflect the new asset allocation
 
-Every transaction exposes balances, counterparties, and payment flows. For businesses, this leaks sensitive commercial information such as supplier relationships, customer volumes, treasury movements, and internal settlement activity.
+All asset state is validated client-side. Neither party needs to trust a third party, the Bitcoin UTXO provides the settlement anchor.
 
-This level of transparency is incompatible with payroll, B2B payments, PSP settlement, and enterprise treasury operations.
+<Info>
+  New to RGB or UTXOs? See the [Glossary](/getting-started/glossary) for definitions, and [Architecture](/getting-started/architecture) for how Bitcoin, Lightning, and RGB fit together.
+</Info>
 
-Bitcoin offers properties that payment operators already value: deterministic finality, strong censorship resistance, regulatory clarity, and the deepest global liquidity base of any blockchain network.
+## Prerequisites
 
-But despite this, there is currently no way to use USDT on Bitcoin in a way that is suitable for production payment systems, which require predictable execution costs, private settlement, and enterprise-grade security.
+Before you start, make sure you have the following:
 
-Stablecoin settlement is therefore forced onto alternative chains or custodial platforms, introducing additional trust assumptions, counterparty risk, and external execution dependencies.
+- **Node.js v18 or later** — [Download here](https://nodejs.org/)
+- **A testnet BTC balance** for transaction fees. Get testnet BTC from a faucet:
+  - [testnet-faucet.com](https://testnet-faucet.com/btc-testnet/)
+  - [bitcoinfaucet.uo1.net](https://bitcoinfaucet.uo1.net/)
+- **Basic familiarity with async/await JavaScript**
 
-Utexo exists to make stablecoin settlement costs predictable, independent of blockspace congestion while preserving Bitcoin’s security model.
+<Warning>
+  This guide uses **testnet**. Never use mainnet keys or real funds while following this tutorial. Testnet assets have no monetary value.
+</Warning>
+
+## Network Endpoints (Testnet)
+
+The SDK connects to the following endpoints by default on testnet. No configuration is needed to follow this guide.
+
+| Service | Endpoint |
+| --- | --- |
+| RGB Transport | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` |
+| Bitcoin Indexer | `ssl://electrum.iriswallet.com:50013` |
+
+<Info>
+  For mainnet endpoint configuration, see the [SDK Reference](/sdk/utexo-sdk).
+</Info>
+
+## Step 1: Install the SDK
+
+```bash
+npm install @utexo/rgb-sdk
+```
+
+<Warning>
+  The Utexo SDK is **Node.js only** and is not browser-compatible. It requires access to the file system and native crypto modules.
+</Warning>
+
+## Step 2: Generate Wallet Keys
+
+Start by generating a BIP-39 mnemonic. This 12-word seed phrase is the only way to recover your wallet — store it securely before proceeding.
+
+```javascript
+const { generateKeys } = require('@utexo/rgb-sdk');
+
+const keys = await generateKeys('testnet');
+console.log('Mnemonic:', keys.mnemonic); // Store this securely — never share it
+console.log('Pubkey:', keys.xpub);
+```
+
+<Warning>
+  **Back up your mnemonic immediately.** If you lose it, your wallet and any assets it holds cannot be recovered. Never commit mnemonics to source control.
+</Warning>
+
+## Step 3: Initialize the Wallet
+
+Create and initialize a `UTEXOWallet` instance using your mnemonic. Initialization connects to the default RGB transport and Bitcoin indexer endpoints for testnet.
+
+```javascript
+const { UTEXOWallet } = require('@utexo/rgb-sdk');
+
+const wallet = new UTEXOWallet(keys.mnemonic, { network: 'testnet' });
+await wallet.initialize();
+
+console.log('Wallet initialized successfully');
+```
+
+<Info>
+  `initialize()` performs the initial sync with the Bitcoin indexer and RGB transport layer. This may take a few seconds on first run.
+</Info>
+
+## Step 4: Get a Deposit Address
+
+Get your wallet's Bitcoin deposit address. You will use this to receive testnet BTC from a faucet — a small BTC balance is required to pay RGB transaction fees.
+
+```javascript
+const address = await wallet.getAddress();
+console.log('Deposit address:', address);
+```
+
+Send testnet BTC to this address using one of the faucets listed in [Prerequisites](#prerequisites). Wait for at least 1 confirmation before continuing.
+
+<Info>
+  You only need a small amount — a few thousand satoshis is enough to cover fees for this tutorial.
+</Info>
+
+## Step 5: Create UTXOs
+
+RGB asset state must be anchored to Bitcoin UTXOs. Before you can receive any RGB asset, your wallet needs dedicated UTXOs created for this purpose.
+
+```javascript
+// num: number of UTXOs to create
+// size: size of each UTXO in satoshis
+await wallet.createUtxos({ num: 5, size: 1000 });
+await wallet.refreshWallet();
+
+console.log('UTXOs created and wallet synced');
+```
+
+**Parameter reference:**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `num` | `number` | Number of UTXOs to create. `5` is recommended for a new wallet. |
+| `size` | `number` | Size of each UTXO in **satoshis**. `1000` satoshis per UTXO is the minimum recommended value. |
+
+<Info>
+  `refreshWallet()` syncs the wallet's local state with the Bitcoin chain. Always call it after any on-chain operation before querying balances or generating invoices.
+</Info>
+
+## Step 6: Get the RGB USDT Asset ID
+
+Before generating an invoice, you need the **asset ID** of the RGB USDT token on testnet. This ID uniquely identifies the asset contract in the RGB protocol.
+
+```javascript
+// List known assets to find the USDT asset ID
+const assets = await wallet.listAssets();
+console.log('Available assets:', JSON.stringify(assets, null, 2));
+
+// The USDT asset ID will look like:
+// "rgb:2dkSTbr-jFhznbPmo-TQafzswCN-av2UEe9m2-LnFCMMG9-M9vByXo"
+const usdtAssetId = assets.find(a => a.ticker === 'USDT')?.id;
+console.log('USDT Asset ID:', usdtAssetId);
+```
+
+<Info>
+  If no assets appear, your wallet may not yet have been assigned any RGB assets. You can also obtain the canonical testnet USDT asset ID from the [SDK Reference](/sdk/utexo-sdk) or by asking in the [Utexo Discord](https://discord.gg/utexo).
+</Info>
+
+## Step 7: Generate an RGB Invoice (Receiver Side)
+
+The receiver generates a blinded invoice to share with the sender. The blinded invoice hides the receiver's UTXO from the sender while still allowing the transfer to be verified client-side.
+
+```javascript
+// Run this on the RECEIVER's wallet
+const receiveData = await wallet.blindReceive({
+  assetId: usdtAssetId,   // RGB asset ID from Step 6
+  amount: 100,            // Amount in asset base units (1 USDT = 1 unit for RGB USDT)
+  minConfirmations: 1,    // Minimum Bitcoin confirmations before the transfer is accepted
+  durationSeconds: 3600  // Invoice expiry: 3600 seconds = 1 hour
+});
+
+console.log('RGB Invoice:', receiveData.invoice);
+// Share receiveData.invoice with the sender
+```
+
+**Parameter reference:**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `assetId` | `string` | The RGB asset contract ID. See Step 6. |
+| `amount` | `number` | Amount to receive in **asset base units**. For RGB USDT, 1 unit = 1 USDT. |
+| `minConfirmations` | `number` | Minimum Bitcoin confirmations required before accepting the transfer. |
+| `durationSeconds` | `number` | Invoice validity window in seconds. Invoice is rejected by the receiver after expiry. |
+
+<Warning>
+  Invoices expire after `durationSeconds`. The sender must complete the transfer before the invoice expires, otherwise the sender will need a new invoice.
+</Warning>
+
+## Step 8: Send an RGB Asset (Sender Side)
+
+The sender uses the invoice from Step 7 to transfer the asset. The sender must already hold a balance of the RGB asset being transferred.
+
+```javascript
+// Run this on the SENDER's wallet (must hold RGB USDT balance)
+const sendResult = await wallet.send({
+  invoice: receiveData.invoice, // Invoice string from Step 7
+  assetId: usdtAssetId,         // Must match the asset ID in the invoice
+  amount: 100                   // Must match the amount in the invoice
+});
+
+console.log('Transfer TXID:', sendResult.txid);
+console.log('Transfer status:', sendResult.status);
+
+// Sync both wallets after the transfer
+await wallet.refreshWallet();             // Sender
+await receiverWallet.refreshWallet();     // Receiver (run on receiver's side)
+```
+
+<Info>
+  The `send()` call constructs the RGB state transition, attaches it to a Bitcoin transaction, and broadcasts it. The RGB transport layer (`rpcs://`) is used to communicate the state transition to the receiver.
+</Info>
+
+<Warning>
+  The `amount` and `assetId` in the `send()` call must exactly match those in the invoice. Mismatches will cause the transfer to be rejected by the receiver's client-side validator.
+</Warning>
+
+## Step 9: Verify the Transfer
+
+After both wallets have called `refreshWallet()`, check the balances to confirm the transfer completed successfully.
+
+```javascript
+// Check receiver's balance
+const receiverAssets = await receiverWallet.listAssets();
+console.log('Receiver assets:', JSON.stringify(receiverAssets, null, 2));
+
+// Check sender's remaining BTC balance
+const senderBtcBalance = await wallet.getBtcBalance();
+console.log('Sender BTC balance (satoshis):', senderBtcBalance);
+```
+
+Expected result: the receiver's asset list shows a balance of `100` for the USDT asset. If the transfer is still pending confirmation, call `refreshWallet()` again after the next Bitcoin block.
+
+<Info>
+  RGB transfers require Bitcoin confirmation to finalize. On testnet, a new block typically arrives every 1–10 minutes.
+</Info>
+
+## Troubleshooting
+
+| Issue | Likely cause | Fix |
+| --- | --- | --- |
+| `initialize()` hangs or times out | No network connection to indexer | Check your internet connection and firewall settings |
+| `createUtxos()` fails | Insufficient BTC balance | Fund your wallet with more testnet BTC from a faucet |
+| Invoice rejected | Invoice has expired | Generate a new invoice and retry |
+| `send()` fails with validation error | `amount` or `assetId` mismatch | Confirm the send parameters exactly match the invoice |
+| Balance not updated after send | Wallet not synced | Call `refreshWallet()` on both sender and receiver wallets |
+| Asset ID not found | Asset not yet in wallet | Check `listAssets()` or obtain the canonical asset ID from the SDK reference |
+
+<Info>
+  If you encounter an issue not listed here, join the [Utexo Discord](https://discord.gg/utexo) for community support.
+</Info>
+
+## Next Steps
+
+- [SDK Reference](/sdk/utexo-sdk) — Full method reference for `UTEXOWallet`, including Lightning channel management
+- [Architecture](/getting-started/architecture) — Understand how Bitcoin, Lightning, and RGB fit together
+- [Glossary](/getting-started/glossary) — Definitions for RGB, PSBT, blinded invoice, UTXO, and other key terms
