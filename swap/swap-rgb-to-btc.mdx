@@ -1,0 +1,72 @@
+---
+title: 'Swap RGB to BTC'
+description: 'Transfer a BTC-backed RGB asset back to native BTC on the Bitcoin network using Utexo Swap.'
+---
+
+## Overview
+
+This guide explains how to redeem a BTC-backed RGB asset and receive native BTC on the Bitcoin network. The process is trustless and non-custodial — you send the RGB asset from Tribe Wallet and receive BTC directly to your Bitcoin address.
+
+<Info>
+  This flow moves assets **out of** the RGB layer back to Bitcoin. To move BTC into RGB, see [Swap BTC to RGB](/swap/swap-btc-to-rgb).
+</Info>
+
+## How it works
+
+When you initiate an RGB → BTC swap:
+
+1. Utexo generates an RGB invoice for you to pay from Tribe Wallet.
+2. You send the BTC-backed RGB asset to that invoice.
+3. Utexo releases an equivalent amount of native BTC to your specified Bitcoin address.
+
+The Bitcoin address is provided by you and is where the released BTC will be sent.
+
+## Requirements
+
+Before you start, make sure you have:
+
+- **Tribe Wallet** (mobile app) — with a BTC-backed RGB asset balance
+- **A Bitcoin receive address** — any standard Bitcoin wallet address where you want to receive the BTC
+
+## Step 1: Initiate the swap in Utexo
+
+1. Go to [Utexo Swap](https://utexo.io/swap).
+2. In the **You receive** field, select BTC and enter the amount.
+3. Enter your **Bitcoin receive address** in the destination field.
+4. Click **Swap**.
+5. Utexo displays an RGB invoice. Copy it.
+
+## Step 2: Send the RGB asset from Tribe Wallet
+
+1. Open Tribe Wallet.
+2. Navigate to **Other assets** and select the BTC-backed RGB asset.
+3. Tap **Send**.
+4. Paste the RGB invoice copied from Utexo into the recipient field.
+5. Confirm the amount and tap **Send**.
+
+<Warning>
+  Double-check the RGB invoice before sending. RGB transactions are irreversible once broadcast.
+</Warning>
+
+## Step 3: Verify BTC receipt
+
+1. Check your Bitcoin wallet for the incoming transaction.
+2. BTC will appear after the required network confirmations.
+
+<Info>
+  Settlement time depends on Bitcoin network congestion and your Utexo swap processing time. If BTC has not arrived after 60 minutes, contact Utexo support.
+</Info>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="I sent the RGB asset but haven't received BTC">
+    Verify the transaction is confirmed in Tribe Wallet. If confirmed, check your Bitcoin wallet for a pending incoming transaction. Processing may take additional time depending on network conditions. Contact Utexo support if BTC has not arrived after 60 minutes.
+  </Accordion>
+  <Accordion title="Tribe Wallet shows an error when sending">
+    Ensure the RGB invoice is still valid (invoices expire after a set time). If expired, return to Utexo Swap and generate a new swap to get a fresh RGB invoice.
+  </Accordion>
+  <Accordion title="The amount I received is less than expected">
+    Network fees are deducted from the swap amount. Review the fee breakdown shown in Utexo Swap before confirming.
+  </Accordion>
+</AccordionGroup>

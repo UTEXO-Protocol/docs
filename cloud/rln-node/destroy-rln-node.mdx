@@ -2,11 +2,21 @@
 title: "Destroy your Node"
 ---
 
-1. **Initiate Node Destruction**
-   To begin the destruction process, navigate to the specific node's page by accessing `/nodes/{nodeId}`.
-2. **Check Node Status**
-   Ensure that the node is in a `RUNNING` status. Nodes in this state are eligible for destruction.
-3. **Destroy the Node**
-   Click the **"Destroy"** button available on the page. This action will initiate the destruction process, and the node's status will change to `IN_PROGRESS` to indicate that the destruction is underway.
-4. **Final Status Update**
-   Once the node has been successfully destroyed, the status will update to `DESTROYED`. This confirms that the node has been decommissioned and all associated resources have been properly cleaned up.
+<Steps>
+  <Step title="Initiate Node Destruction" titleSize="h3">
+     To begin the destruction process, navigate to the specific node's page by accessing `/nodes/{nodeId}`.
+
+    <Frame>
+      ![Image](/images/image-7.png)
+    </Frame>
+  </Step>
+  <Step title="Check Node Status" titleSize="h3">
+     Ensure that the node is in a `RUNNING` status. Nodes in this state are eligible for destruction.
+  </Step>
+  <Step title="Destroy the Node" titleSize="h3">
+     Click the **"Destroy"** button available on the page. This action will initiate the destruction process, and the node's status will change to `IN_PROGRESS` to indicate that the destruction is underway.
+  </Step>
+  <Step title="Final Status Update" titleSize="h3">
+     Once the node has been successfully destroyed, the status will update to `DESTROYED`. This confirms that the node has been decommissioned and all associated resources have been properly cleaned up.
+  </Step>
+</Steps>

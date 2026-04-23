@@ -2,98 +2,158 @@
 title: "Getting Started"
 ---
 
-# Getting Started
-
 ## How Ethereum → RGB Transfers Work
 
 When transferring USDT from the Ethereum network to RGB, you receive an equivalent TUSDT token in the RGB network. The transfer is made through Utexo, with transactions signed in MetaMask and an RGB invoice used as the recipient address.
 
-### 🔧 Requirements Before You Start
+<Info>
+  🔧 Requirements Before You Start
 
-**MetaMask**
+  **MetaMask**
 
-- ETH balance (to pay for gas fees).
-- USDT balance (the amount you will transfer).
+  - ETH balance (to pay for gas fees).
+  - USDT balance (the amount you will transfer).
 
-**IRIS Wallet (Mobile App)**
+  **IRIS Wallet (Mobile App)**
 
-- BTC balance (to pay the RGB transaction fee).
-- Connect RGB Wallet on the Bridge — you can do this in two ways:
+  - BTC balance (to pay the RGB transaction fee).
+
+  **Connect RGB Wallet on the Bridge** — you can do this in two ways:
+
   - Click CONNECT RGB WALLET at the bottom of the bridge form.
   - Open the wallet list in the top-right corner of the bridge page and click the power button next to RGBWallet.
+</Info>
 
-### 1. Enter the transfer details
+<Steps>
+  <Step title="Enter the transfer details" titleSize="h3">
+    **Enter the amount** — In the Amount field, enter the number of USDT tokens to transfer.
 
-**Enter the amount** — In the Amount field, enter the number of USDT tokens to transfer.
+    **Enter the destination address** — In the Destination field, paste an RGB invoice generated in the IRIS Wallet mobile app:
 
-**Enter the destination address** — In the Destination field, paste an RGB invoice generated in the IRIS Wallet mobile app:
+    - Ensure your wallet has a BTC balance to cover the transaction fee.
+    - Open IRIS Wallet → select Receive assets.
+    - Generate the invoice and copy it.
+    - Paste this invoice into the Destination field on Utexo.
 
-- Ensure your wallet has a BTC balance to cover the transaction fee.
-- Open IRIS Wallet → select Receive assets.
-- Generate the invoice and copy it.
-- Paste this invoice into the Destination field on Utexo.
+    <Frame caption="Receive & QR Code">
+      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', width: '100%' }}>
+  <img src="/images/image-19.png" alt="Image" title="Image" style={{ flex: 1, maxWidth: 'none' }} />
 
-### 2. Review and confirm the transaction
+  <img src="/images/image-20.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
+</div>
+    </Frame>
 
-After filling in the form, a **Transaction Preview** will appear showing:
+    <Frame caption="Preparation">
+      ![Image](/images/image-22.png)
+    </Frame>
+  </Step>
+  <Step title="Review and confirm the transaction" titleSize="h3">
+    After filling in the form, a **Transaction Preview** will appear showing:
 
-- **You will receive** — estimated amount of TUSDT after fees.
-- **Estimated gas fee** — Ethereum network gas fee at live market rates.
-- **Bridge commission** — fixed % fee charged by Utexo.
+    - **You will receive** — estimated amount of tUSDT after fees.
+    - **Estimated gas fee** — Ethereum network gas fee at live market rates.
+    - **Bridge commission** — fixed % fee charged by Utexo.
 
-Click **Transfer**. MetaMask will request confirmation in three stages:
+    Click **Transfer**. MetaMask will request confirmation in three stages:
 
-**Approve token spending** — A MetaMask popup will appear asking you to approve USDT spending. Click Confirm.
+    **Approve token spending** — A MetaMask popup will appear asking you to approve USDT spending. Click Confirm.
 
-**Confirm the transaction** — Wait 2–10 seconds for the second MetaMask popup. Review the details and click Confirm to complete the transfer.
+    **Confirm the transaction** — Wait 2–10 seconds for the second MetaMask popup. Review the details and click Confirm to complete the transfer.
 
-### 3. Wait for TUSDT to be credited
+    <Frame caption="Metamask transfer stages">
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', width: '100%' }}>
+  <img src="/images/image-23.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
 
-In the IRIS Wallet mobile app, wait until the TUSDT tokens are credited to your balance.
+  <img src="/images/image-24.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
 
-This may take longer than usual due to high Bitcoin network congestion.
+  <img src="/images/image-25.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
+</div>
+    </Frame>
+  </Step>
+  <Step title="Wait for tUSDT to be credited" titleSize="h3">
+    In the IRIS Wallet mobile app, wait until the tUSDT tokens are credited to your balance.
 
-## How RGB → Ethereum Transfers Work (TUSDT → USDT)
+    This may take longer than usual due to high Bitcoin network congestion.
+  </Step>
+</Steps>
 
-### 1. Prepare the transaction on the bridge
+## w RGB → Ethereum Transfers Work (TUSDT → USDT)
 
-On Utexo, set:
+<Steps>
+  <Step title="Prepare the transaction on the bridge" titleSize="h3">
+    On Utexo, set:
 
-- **Send:** Blockchain – RGB, Token – TUSDT.
-- **Receive:** Blockchain – Ethereum, Token – USDT.
+    - **Send:** Blockchain – RGB, Token – TUSDT.
+    - **Receive:** Blockchain – Ethereum, Token – USDT.
 
-Enter the **Amount** of TUSDT you want to send.
+    Enter the **Amount** of TUSDT you want to send.
 
-In the **Destination address** field, enter your Ethereum address (MetaMask).
+    In the **Destination address** field, enter your Ethereum address (MetaMask).
 
-Review the preview section — it will display: **You will receive** — estimated amount of USDT after fees. **Estimated gas fee** and Commission.
+    Review the preview section, it will display:
 
-Click **TRANSFER**.
+    - **You will receive** - estimated amount of USDT after fees.
+    - **Estimated gas fee** and Commission.
 
-### 2. Pay the RGB invoice
+    Click **TRANSFER**.
 
-Once the bridge generates the RGB invoice (popup with QR code), open the IRIS Wallet mobile app.
+    <Frame caption="Network Selection & RGB invoice">
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', width: '100%' }}>
+  <img src="/images/image-27.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
 
-- Go to your TUSDT token.
-- Tap **Send**.
-- Tap the QR scanner icon and scan the QR code from the Utexo popup.
-- Confirm sending in IRIS Wallet by pressing Send.
+  <img src="/images/image-28.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
+</div>
+    </Frame>
+  </Step>
+  <Step title="Pay the RGB invoice" titleSize="h3">
+    - Once the bridge generates the RGB invoice (popup with QR code), open the IRIS Wallet mobile app.
+    - Go to your TUSDT token.
+    - Tap **Send**.
+    - Tap the QR scanner icon and scan the QR code from the Utexo popup.
+    - Confirm sending in IRIS Wallet by pressing Send.
 
-### 3. Check transaction status in IRIS Wallet
+    <Frame caption="tUSDT send in Iris wallet">
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', width: '100%' }}>
+  <img src="/images/image-29.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
 
-After sending, the transaction will first appear with the status **WAITING\_COUNTERPARTY**.
+  <img src="/images/image-30.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
+</div>
+    </Frame>
+  </Step>
+  <Step title="Check transaction status in IRIS Wallet" titleSize="h3">
+    After sending, the transaction will first appear with the status **WAITING\_COUNTERPARTY**.
 
-Refresh your wallet (tap the refresh icon).
+    Refresh your wallet (tap the refresh icon).
 
-Once refreshed, the transaction status should change to **WAITING\_CONFIRMATIONS**, meaning it is now being processed on the Bitcoin network.
+    Once refreshed, the transaction status should change to **WAITING\_CONFIRMATIONS**, meaning it is now being processed on the Bitcoin network.
 
-### 🔧 Additional notes
+    <Frame caption="Transaction status in IRIS Wallet">
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', width: '100%' }}>
+  <img src="/images/image-31.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
 
-Transaction time may vary depending on Bitcoin network congestion — in some cases, it may take longer than expected.
+  <img src="/images/image-32.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
+</div>
+    </Frame>
 
-In IRIS Wallet, a finalized transaction is highlighted in:
+    <Frame caption="RGB invoice">
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', width: '100%' }}>
+  <img src="/images/image-33.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
 
-- **Red** – for RGB → Ethereum transfers (asset deduction).
-- **Green** – for Ethereum → RGB transfers (asset credit).
+  <img src="/images/image-34.png" alt="Image" style={{ flex: 1, maxWidth: 'none' }} />
+</div>
+    </Frame>
+  </Step>
+</Steps>
+
+<Info>
+  🔧 Additional notes
+
+  Transaction time may vary depending on Bitcoin network congestion, in some cases, it may take longer than expected.
+
+  In IRIS Wallet, a finalized transaction is highlighted in:
+
+  - **Red** – for RGB → Ethereum transfers (asset deduction).
+  - **Green** – for Ethereum → RGB transfers (asset credit).
+</Info>
 
 You're all set! Enjoy smooth and secure cross-chain transfers with Utexo.

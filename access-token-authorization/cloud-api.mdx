@@ -2,15 +2,11 @@
 title: "Cloud Api"
 ---
 
-## Cloud API
-
 Manage Cloud nodes over a REST JSON API.
 
 ## Base URL
 
-```text
-https://cloud-api.thunderstack.org
-```
+`[https://cloud-api.thunderstack.org]`
 
 ## Authentication
 
@@ -26,7 +22,9 @@ Each request must include:
 -H "Authorization: Bearer ${CLOUD_API_TOKEN}"
 ```
 
-Examples below use `curl` and show paths relative to the base URL.
+<Info>
+  Examples below use `curl` and show paths relative to the base URL.
+</Info>
 
 ## List nodes
 
@@ -61,23 +59,44 @@ Example response:
 
 ## Create a node
 
-`POST /api/nodes`
+**POST** `/api/nodes`
 
-Body fields: `name` (string, required), `network` (string, required): regtest or testnet, `settings` (object, optional): webhookUrl
+Body fields:
+
+- `name` (string, required)
+- `network` (string, required): `regtest` or `testnet`
+- `settings` (object, optional)
+  - webhookUrl (string, optional)
 
 ```text
 curl -s \
   -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
   -H "Content-Type: application/json" \
-  -d '{"name":"my-node","network":"regtest","settings":{"webhookUrl":"https://example.com/webhooks/thunderstack"}}' \
+  -d '{
+	"name":"my-node",
+	"network":"regtest",
+	"settings":{"webhookUrl":"https://example.com/webhooks/thunderstack"}
+}' \
   "https://cloud-api.thunderstack.org/api/nodes"
 ```
 
-Example response: `{ "data": { "nodeId": "<node_id>", "name": "my-node", "network": "regtest", "status": "STARTING" }, "message": "<message>" }`
+Example response:
+
+```text
+{ 
+ "data": { 
+	"nodeId": "<node_id>", 
+	"name": "my-node", 
+	"network": "regtest", 
+	"status": "STARTING" 
+ }, 
+ "message": "<message>" 
+}
+```
 
 ## Get a node
 
-`GET /api/nodes/{id}`
+**GET** `/api/nodes/{id}`
 
 ```text
 curl -s \
@@ -87,7 +106,13 @@ curl -s \
 
 ## Destroy a node
 
-`DELETE /api/nodes` — Body: `destroyNodeId` (string, required). This endpoint expects a JSON body on a DELETE request.
+DELETE `/api/nodes`
+
+Body: `destroyNodeId` (string, required).
+
+<Warning>
+  This endpoint expects a JSON body on a DELETE request.
+</Warning>
 
 ```text
 curl -s -X DELETE \
@@ -97,9 +122,15 @@ curl -s -X DELETE \
   "https://cloud-api.thunderstack.org/api/nodes"
 ```
 
+Example response:
+
+```text
+{ "message": "<message>" }
+```
+
 ## Webhooks: public key
 
-`GET /api/webhook-public-key` — Returns the public key used to verify webhook signatures.
+**GET** `/api/webhook-public-key` — Returns the public key used to verify webhook signatures.
 
 ```text
 curl -s \
@@ -107,11 +138,15 @@ curl -s \
   "https://cloud-api.thunderstack.org/api/webhook-public-key"
 ```
 
-Example response: `{ "data": "<public_key>" }`
+Example response:
+
+```text
+{ "data": "<public_key>" }
+```
 
 ## RLN images: latest version
 
-`GET /api/nodes/latest-rln-image`
+**GET** `/api/nodes/latest-rln-image`
 
 ```text
 curl -s \
@@ -119,11 +154,15 @@ curl -s \
   "https://cloud-api.thunderstack.org/api/nodes/latest-rln-image"
 ```
 
-Example response: `{ "data": "<rln_version>" }`
+Example response:
+
+```text
+{ "data": "<rln_version>" }
+```
 
 ## RLN images: upgrade node
 
-`POST /api/nodes/{id}/upgrade`
+**POST** `/api/nodes/{id}/upgrade`
 
 ```text
 curl -s -X POST \
@@ -131,9 +170,17 @@ curl -s -X POST \
   "https://cloud-api.thunderstack.org/api/nodes/<node_id>/upgrade"
 ```
 
+Example response:
+
+```text
+{ "message": "<message>" }
+```
+
 ## Node settings: update
 
-`POST /api/nodes/{id}/settings` — Use this to change node settings like `webhookUrl`.
+**POST** `/api/nodes/{id}/settings`
+
+Use this to change node settings like `webhookUrl`.
 
 ```text
 curl -s -X POST \
@@ -143,9 +190,15 @@ curl -s -X POST \
   "https://cloud-api.thunderstack.org/api/nodes/<node_id>/settings"
 ```
 
+Example response:
+
+```text
+{ "message": "<message>" }
+```
+
 ## Node lifecycle: start
 
-`POST /api/nodes/{id}/start`
+**POST** `/api/nodes/{id}/start`
 
 ```text
 curl -s -X POST \
@@ -155,7 +208,7 @@ curl -s -X POST \
 
 ## Node lifecycle: stop
 
-`POST /api/nodes/{id}/stop`
+**POST** `/api/nodes/{id}/stop`
 
 ```text
 curl -s -X POST \
@@ -165,7 +218,9 @@ curl -s -X POST \
 
 ## Logs: trigger export
 
-`POST /api/nodes/{id}/logs` — Starts a log export job for a node.
+**POST** `/api/nodes/{id}/logs`
+
+ Starts a log export job for a node.
 
 ```text
 curl -s -X POST \
@@ -173,11 +228,15 @@ curl -s -X POST \
   "https://cloud-api.thunderstack.org/api/nodes/<node_id>/logs"
 ```
 
-Example response: `{ "taskId": "<task_id>" }`
+Example response:
+
+```text
+{ "taskId": "<task_id>" }
+```
 
 ## Logs: get download URLs
 
-`GET /api/nodes/{id}/logs?taskId={taskId}`
+GET `/api/nodes/{id}/logs?taskId={taskId}`
 
 ```text
 curl -s \
@@ -185,4 +244,8 @@ curl -s \
   "https://cloud-api.thunderstack.org/api/nodes/<node_id>/logs?taskId=<task_id>"
 ```
 
-Example response: `{ "data": ["<presigned_url>"] }`
+Example response:
+
+```text
+{ "data": ["<presigned_url>"] }
+```

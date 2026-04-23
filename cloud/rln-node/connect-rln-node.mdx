@@ -2,35 +2,43 @@
 title: "Connect to RLN Node"
 ---
 
-## Connecting to Node with mTLS
+### Connecting to Node with mTLS
 
 Follow these detailed steps to establish a secure connection to your node using the provided mTLS credentials:
 
-### Access Node Connection Details
+<Steps>
+  <Step title="Access Node Connection Details" titleSize="h3">
+    - Navigate to the Connect Page: open your web browser and go to the /connect page. This page provides the connection details for your node. URL: `https://www.thunderstack.org/{nodeId}/connect`
+      <Frame caption="Connect page">
+        ![Image](/images/image-14.png)
+      </Frame>
+    - View Connection Details: the connect page displays the unique endpoint URL for your node, along with the private key and certificate required for the mTLS connection. These credentials are automatically generated for your session and are required to establish a secure connection.
+  </Step>
+  <Step title="Obtain Connection Credentials and URL" titleSize="h3">
+    - Download Credentials from the /connect page:
+      - Private Key: a `.key` file (e.g., `privateKey.key`) containing your private key.
+      - Certificate: a `.pem` file (e.g., `certificate.pem`) containing your public key certificate.
+    - Copy Endpoint URL: the page will display the unique endpoint URL formatted like: `https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/`
 
-- Navigate to the Connect Page: open your web browser and go to the /connect page. This page provides the connection details for your node. URL: `https://www.thunderstack.org/{nodeId}/connect`
+    <Frame caption="Credentials and endpoint">
+      ![Image](/images/image-11.png)
+    </Frame>
+  </Step>
+  <Step title="Prepare the Request" titleSize="h3">
+    - Save the downloaded files in a secure location on your computer. You will reference these files when making requests.
+    - Use the example curl command shown on the /connect page as a template. Modify the example by replacing placeholders with the actual paths to your saved key and certificate files.
+      <Frame caption="Example curl">
+        ![Image](/images/image-8.png)
+      </Frame>
+      Example pattern (replace paths/placeholders accordingly):
 
-- View Connection Details: the connect page displays the unique endpoint URL for your node, along with the private key and certificate required for the mTLS connection. These credentials are automatically generated for your session and are required to establish a secure connection.
+    ```text
+    curl --key /path/to/privateKey.key --cert /path/to/certificate.pem https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/
+    ```
+  </Step>
+</Steps>
 
-### Obtain Connection Credentials and URL
-
-- Download Credentials from the /connect page:
-  - Private Key: a `.key` file (e.g., `privateKey.key`) containing your private key.
-  - Certificate: a `.pem` file (e.g., `certificate.pem`) containing your public key certificate.
-- Copy Endpoint URL: the page will display the unique endpoint URL formatted like: `https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/`
-
-### Prepare the Request
-
-- Save the downloaded files in a secure location on your computer. You will reference these files when making requests.
-- Use the example curl command shown on the /connect page as a template. Modify the example by replacing placeholders with the actual paths to your saved key and certificate files.
-
-- Example pattern (replace paths/placeholders accordingly):
-
-```text
-curl --key /path/to/privateKey.key --cert /path/to/certificate.pem https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/
-```
-
-## Connecting to Node with API token
+### Connecting to Node with API token
 
 Follow these steps to connect using an API token.
 
