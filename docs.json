@@ -38,45 +38,13 @@
           {
             "group": "Cloud",
             "pages": [
-              "product-suite/cloud",
-              "cloud/rgb-lightning-node-api",
-              "cloud/webhooks",
-              {
-                "group": "Getting Started",
-                "pages": [
-                  "cloud/getting-started",
-                  {
-                    "group": "Create RLN Node",
-                    "pages": [
-                      "cloud/rln-node/create-rln-node",
-                      "cloud/rln-node/node-ui-actions"
-                    ]
-                  },
-                  "cloud/rln-node/upgrade-rln-node",
-                  "cloud/rln-node/destroy-rln-node",
-                  "cloud/rln-node/connect-rln-node",
-                  "cloud/rln-node/node-backup-restore"
-                ]
-              },
-              {
-                "group": "Security",
-                "pages": [
-                  "security/rln-remote-signer"
-                ]
-              },
-              {
-                "group": "Access Token Authorization",
-                "pages": [
-                  "access-token-authorization/create-api-token",
-                  "access-token-authorization/cloud-api"
-                ]
-              }
+              "product-suite/cloud"
             ]
           },
           {
             "group": "Bridge",
             "pages": [
-              "product-suite/bridge",
+              "bridge/bridge",
               "bridge/getting-started"
             ]
           },
@@ -85,7 +53,7 @@
             "pages": [
               "product-suite/swap",
               {
-                "group": "Getting Started",
+                "group": "Bitcoin Guide",
                 "pages": [
                   "swap/getting-started",
                   "swap/what-is-a-bitcoin-taproot-address",
