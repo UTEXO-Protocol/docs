@@ -38,13 +38,45 @@
           {
             "group": "Cloud",
             "pages": [
-              "product-suite/cloud"
+              "product-suite/cloud",
+              "cloud/rgb-lightning-node-api",
+              "cloud/webhooks",
+              {
+                "group": "Node Management",
+                "pages": [
+                  "cloud/getting-started",
+                  {
+                    "group": "Create RLN Node",
+                    "pages": [
+                      "cloud/rln-node/create-rln-node",
+                      "cloud/rln-node/node-ui-actions"
+                    ]
+                  },
+                  "cloud/rln-node/upgrade-rln-node",
+                  "cloud/rln-node/destroy-rln-node",
+                  "cloud/rln-node/connect-rln-node",
+                  "cloud/rln-node/node-backup-restore"
+                ]
+              },
+              {
+                "group": "Security",
+                "pages": [
+                  "security/rln-remote-signer"
+                ]
+              },
+              {
+                "group": "Access Token Authorization",
+                "pages": [
+                  "access-token-authorization/create-api-token",
+                  "access-token-authorization/cloud-api"
+                ]
+              }
             ]
           },
           {
             "group": "Bridge",
             "pages": [
-              "bridge/bridge",
+              "product-suite/bridge",
               "bridge/getting-started"
             ]
           },
