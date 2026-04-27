@@ -1,84 +1,92 @@
 ---
-title: "Product Suite"
+title: 'Product Suite'
+description: 'The Utexo product suite is a composable set of stablecoin-native primitives for execution, settlement, liquidity access, and asset movement on Bitcoin.'
+sidebarTitle: 'Product Suite'
 ---
 
-## Overview
+The Utexo product suite packages execution, settlement, liquidity access, and asset exchange into a unified stack for stablecoin payments on Bitcoin. Each component addresses a distinct layer of the payment infrastructure and can be used independently or together through a single API integration.
 
-The Utexo product suite facilitates stablecoin payments and settlement grouping execution, liquidity access and asset movement into a composable set of stablecoin-native primitives.
+By grouping these components under a common execution model, Utexo reduces the need for custom orchestration between settlement, exchange, and routing layers, allowing operators to deliver consistent and predictable payment experiences without managing the underlying Bitcoin, Lightning, or RGB infrastructure directly.
 
-The suite simplifies UX and abstracts the technical complexities that come from using native RGB and Lightning Network infrastructures.
+<CardGroup cols={2}>
+  <Card title="SDK" icon="code" href="/product-suite/sdk">
+    REST API and client library for native USDT transfers and RGB asset operations on Bitcoin.
+  </Card>
+  <Card title="Cloud" icon="cloud" href="/product-suite/cloud">
+    Managed infrastructure for running RGB-enabled Lightning nodes without self-hosting.
+  </Card>
+  <Card title="Bridge" icon="bridge-water" href="/product-suite/bridge">
+    Atomic stablecoin transfers from EVM networks and Tron to native Bitcoin RGB USDT.
+  </Card>
+  <Card title="Swap" icon="arrows-rotate" href="/product-suite/swap">
+    Non-custodial BTC ↔ USDT swaps with instant finality and LP functionality.
+  </Card>
+</CardGroup>
 
-It’s designed for payment operators, providing an execution and settlement stack for stablecoin payments through API and managed infrastructure, preserving the operational characteristics required for modern payment systems.
+## SDK
 
-By packaging these components as a unified product suite, Utexo reduces the need for custom orchestration between execution, settlement, and exchange, enabling applications to deliver simpler user experiences while relying on Bitcoin as the underlying settlement layer.
+The Utexo SDK and REST API allows applications to support native USDT transfers and other RGB assets on Bitcoin without operating Bitcoin nodes, managing Lightning liquidity, or maintaining RGB state infrastructure.
 
-<Steps>
+The SDK provides programmatic access to:
 
-<Step title="Utexo SDK">
+- **RGB asset operations** — privacy-preserving asset issuance, transfers, and state transitions
+- **Lightning execution** — routing, payment lifecycle, and failure recovery
+- **Balance and audit** — balance tracking, transaction status, and transfer history
 
-Our SDK and REST API allows applications to support native USDT transfers and other RGB assets on Bitcoin without operating Bitcoin nodes, managing Lightning liquidity, or maintaining RGB state infrastructure.
+The SDK enables non-custodial, client-side validated flows without requiring developers to operate Lightning nodes or manage RGB infrastructure directly. All API calls execute with predefined costs and latency characteristics.
 
-The API and SDK provide programmatic access to:
+<Info>
+  See the [SDK reference](/product-suite/sdk) for installation, method reference, and integration examples.
+</Info>
 
-- RGB privacy-preserving asset issuance, transfers, and state transitions  
-- Lightning execution, routing and failure recovery  
-- Balance tracking, transaction status and audit logs  
+## Cloud
 
-The SDK enables non-custodial, client-side validated flows, without requiring developers to operate Lightning nodes or manage RGB infrastructure directly.
-
-All API calls execute with predefined costs and latency characteristics, and can be integrated into existing backend systems or user-facing applications.
-
-</Step>
-
-<Step title="Utexo Cloud">
-
-Utexo Cloud Modules offers managed execution infrastructure for applications that require direct control over node-level components.
-
-It provides a control plane for running and managing RGB-enabled Lightning nodes in production environments, including lifecycle management, backups, and observability.
-
-Cloud is optional and complementary to the API and SDK: applications can combine Cloud-managed infrastructure with Dev Utexo’s execution APIs depending on their deployment model and trust requirements.
+Utexo Cloud Modules provide managed execution infrastructure for operators who need RGB-enabled Lightning node capabilities without running self-hosted infrastructure. It acts as a control plane for running and managing RGB-enabled Lightning nodes.
 
 Capabilities include:
 
-- node lifecycle management (start, stop, upgrade)  
-- health and status monitoring  
-- controlled access and permissions  
-- versioned deployments  
+- **Node lifecycle management** — provisioning, upgrades, and teardown
+- **Health and status monitoring** — real-time node diagnostics
+- **Managed backup and recovery** — encrypted state backups with point-in-time restore
+- **VSS integration** — Verifiable Secret Sharing for non-custodial cloud key management
 
-Cloud provides managed backup and recovery for execution nodes and associated state: backups can be created, retained, and restored through the control plane, allowing teams to recover execution environments and state deterministically in case of failure or migration.
+<Info>
+  See the [Cloud documentation](/product-suite/cloud) for setup and configuration.
+</Info>
 
-By spinning up their own Lightning Node, teams can access yield opportunities on BTC and USDT derived from routing fees, similar to Lightning’s liquidity provisioning model.
+## Bridge
 
-Every transaction routed through Utexo’s channels pays a pre-defined fixed fee. These accumulate across high transaction volumes, resulting in an estimated annual yield of ~2–3% for Bitcoin and ~8–10% for USDT.
+The Utexo Bridge acts as the liquidity gateway for native USDT on Bitcoin. It enables fully atomic stablecoin transfers from external EVM-based networks and Tron to the RGB protocol on Bitcoin.
 
-</Step>
+USDT bridged to Bitcoin is represented as native RGB USDT — the same asset used across all Utexo payment flows. No wrapped or synthetic representations are introduced.
 
-<Step title="Utexo Bridge">
+Key properties:
 
-The Utexo Bridge acts as the liquidity gateway for native USDT on Bitcoin, allowing operators to migrate and rebalance stablecoin flows while preserving downstream execution logic.
+- **Atomic cross-chain transfers** — no custodian or intermediary holds funds during the bridge process
+- **EVM and Tron support** — compatible with the networks where most USDT supply exists today
+- **Native RGB output** — bridged assets are immediately usable in Utexo payment and swap flows
 
-It enables fully atomic stablecoin transfers from external EVM-based networks and Tron without introducing counterparty risks.
+<Info>
+  See the [Bridge documentation](/product-suite/bridge) for supported networks and integration steps.
+</Info>
 
-USDT bridged to Bitcoin is represented as native RGB USDT and can be transferred or exchanged against BTC with onchain settlement guarantees, without relying on centralized exchanges, wrapped assets, or custodial intermediaries.
+## Swap
 
-Utexo Bridge: https://bridge.utexo.com/
+The Utexo Swap DEX provides non-custodial BTC ↔ USDT exchange on Bitcoin with instant finality. It enables operators and users to rebalance between BTC and stablecoin positions without leaving the RGB/Lightning stack.
 
-</Step>
+Key properties:
 
-<Step title="Utexo Swap">
+- **Native BTC ↔ USDT swaps** — settled directly on the RGB protocol with Lightning execution
+- **Privacy-preserving** — swap activity uses the same client-side validation model as standard RGB transfers
+- **LP functionality** — liquidity providers can supply RGB-native assets and earn fees
+- **Instant finality** — trades settle without waiting for on-chain confirmations
 
-The Utexo Swap Dex ensures non-custodial internal BTC↔USDT (or any other RGB-based asset) execution for settlement, treasury and payments, reducing reliance on centralized venues for rebalancing and conversion.
+<Info>
+  See the [Swap documentation](/product-suite/swap) for trading and liquidity provider guides.
+</Info>
 
-It enables:
+## Further Reading
 
-- Native USDT ↔ BTC swaps on Bitcoin  
-- Privacy-preserving swaps that prevent front-running  
-- LP functionality for RGB-native assets  
-
-Trades are settled with instant finality, allowing for low-latency swaps with predictable fees.
-
-Notably, the Utexo DEX makes it possible for the first time to execute USDT↔BTC swaps natively on Bitcoin: on CEXes, the BTC-USDT pair accounts for ~8% of daily trading volume.
-
-</Step>
-
-</Steps>
+- [Architecture](/getting-started/architecture) — How Bitcoin, Lightning, and RGB work together as the underlying stack.
+- [What is Utexo?](/what-utexo-is) — The four core design principles of the Utexo framework.
+- [Quickstart](/getting-started/quickstart) — Integrate Utexo and process your first stablecoin payment.
