@@ -1,47 +1,80 @@
 ---
 title: "Webhooks"
+description: "Receive real-time event notifications from your Utexo Cloud RLN nodes."
 ---
 
-The Utexo Cloud supports webhooks to notify users about events in their nodes.
+## Overview
 
-## Adding a Webhook Endpoint
+Utexo Cloud supports webhooks to notify your application about events occurring in your RLN nodes. When an event is triggered, ThunderStack sends a `POST` request to your configured endpoint with a JSON payload and a cryptographic signature header for verification.
 
-You can add a webhook endpoint to your node by editing the node's settings:
+## Setting Up a Webhook
 
-1. Navigate to your node and click **Settings**.
-2. Locate the field named **Webhook URL**.
-3. Enter the endpoint where you'd like to send requests.
-4. Note down your public key from the settings, as it will be used to verify requests.
+### Option 1: Via Node Settings
 
-## Adding a Webhook When Creating a Node
+1. Navigate to your node page and click **Settings**.
+2. Locate the **Webhook URL** field.
+3. Enter the HTTPS endpoint where you want to receive events.
+4. Save the settings. Your public key for signature verification is shown in the same section.
 
-When creating a new node via the API, you can provide a Webhook URL in the settings.
+### Option 2: Via API at Node Creation
 
-## Retrieve the Public Key
+When creating a node via the Cloud API, include `webhookUrl` in the `settings` object:
 
-To verify webhook requests, retrieve the public key from: https://cloud-api.thunderstack.org/api/webhook-public-key
-
-This public key is used to validate the `X-ThunderStack-Signature` header included in each webhook event.
+```bash
+curl -s \
+  -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"my-node","network":"regtest","settings":{"webhookUrl":"https://example.com/webhooks/thunderstack"}}' \
+  "https://cloud-api.thunderstack.org/api/nodes"
+```
 
 ## How Webhooks Work
 
-When an event is triggered, ThunderStack sends a POST request to your webhook endpoint including a JSON payload and a header named `X-ThunderStack-Signature`.
+When a node state changes or an operation completes, ThunderStack sends a `POST` request to your endpoint including:
 
-## Verification Steps
+- A **JSON payload** with the event data and `nodeId`
+- A **`X-ThunderStack-Signature` header** containing a cryptographic signature
 
-1. **Validate the Signature**: Use the public key to verify the `X-ThunderStack-Signature` header.
-2. **Validate the Payload**: Ensure the `nodeId` in the payload matches the expected node.
+## Node Status Values
 
-## Status Values
+Webhook events reflect the following node status transitions:
 
-- **RUNNING**: The node is running.
-- **STARTING**: The node is starting.
-- **PAUSED**: The node is paused.
-- **FAILED**: The node has failed.
-- **IN\_PROGRESS**: An operation is currently in progress.
+| Status | Description |
+|---|---|
+| `RUNNING` | Node is fully operational |
+| `STARTING` | Node is starting up |
+| `PAUSED` | Node has been paused |
+| `FAILED` | Node encountered an error |
+| `IN_PROGRESS` | An operation is currently in progress |
 
-## Security Considerations
+## Verifying Webhook Signatures
 
-1. **Use HTTPS**: Always use HTTPS for your webhook endpoint.
-2. **Signature Verification**: Validate the `X-ThunderStack-Signature` header using the public key.
-3. **Payload Validation**: Ensure the `nodeId` field matches the expected node.
+All webhook requests include a `X-ThunderStack-Signature` header that should be validated to confirm authenticity.
+
+### Step 1: Retrieve the Public Key
+
+```bash
+curl -s \
+  -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
+  "https://cloud-api.thunderstack.org/api/webhook-public-key"
+```
+
+This returns the public key used to sign all webhook payloads from your account.
+
+### Step 2: Validate the Signature
+
+Use the public key to verify the `X-ThunderStack-Signature` header on each incoming request.
+
+### Step 3: Validate the Payload
+
+Ensure the `nodeId` in the payload matches the expected node to prevent spoofing.
+
+## Security Best Practices
+
+<Warning>
+Always verify the `X-ThunderStack-Signature` header before processing any webhook payload.
+</Warning>
+
+1. **Use HTTPS** — Your webhook endpoint must use HTTPS to protect data in transit.
+2. **Verify the signature** — Validate the `X-ThunderStack-Signature` header using the public key on every request.
+3. **Validate the node ID** — Confirm the `nodeId` in the payload matches the node you expect.
