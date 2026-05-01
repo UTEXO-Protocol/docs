@@ -1,84 +1,86 @@
 ---
 title: "Glossary"
+description: "Key terms used throughout the Utexo documentation."
 ---
 
 Key terms used throughout the Utexo documentation.
 
 ## B
 
-**Bitcoin**
-The base settlement layer used by Utexo. All RGB asset state is ultimately anchored to Bitcoin UTXOs, and Bitcoin provides double-spending prevention and final settlement guarantees.
+**Bitcoin** The base settlement layer used by Utexo. All RGB asset state is ultimately anchored to Bitcoin UTXOs, and Bitcoin provides double-spending prevention and final settlement guarantees.
 
-**Blinded Invoice**
-A privacy-preserving RGB payment request. The receiver generates a blinded UTXO reference that hides their address from the sender while still allowing the asset transfer to be verified client-side. Generated via `wallet.blindReceive()`.
+**BIP-39** Bitcoin Improvement Proposal 39. The standard for generating human-readable mnemonic seed phrases (12 or 24 words) that can be used to derive all wallet keys. The Utexo SDK uses BIP-39 mnemonics for wallet initialisation and recovery.
 
-**BIP-39**
-Bitcoin Improvement Proposal 39. The standard for generating human-readable mnemonic seed phrases (12 or 24 words) that can be used to derive all wallet keys. The Utexo SDK uses BIP-39 mnemonics for wallet initialization and recovery.
+**Blinded Invoice** A privacy-preserving RGB payment request. The receiver generates a blinded UTXO reference that hides their address from the sender while still allowing the asset transfer to be verified client-side. Generated via `wallet.blindReceive()`.
+
+**Bridge Connector** A stateless gRPC microservice that monitors a specific blockchain's smart contract for `FundsIn` events and issues `FundsOut` transactions on the destination chain. Each supported network has its own Connector implementation. Connectors are stateless and reboot-resistant; all transfer state is held by the Bridge orchestrator.
 
 ## C
 
-**Channel (Lightning)**
-A bidirectional payment channel opened between two Lightning Network nodes. Channels allow off-chain USDT and BTC transfers with instant settlement. Utexo manages channel lifecycle, routing, and liquidity on behalf of integrators.
+**Channel (Lightning)** A bidirectional payment channel opened between two Lightning Network nodes. Channels allow off-chain USDT and BTC transfers with instant settlement. Utexo manages channel lifecycle, routing, and liquidity on behalf of integrators.
 
-**Client-Side Validation**
-The RGB protocol's core security model. Instead of verifying asset state on a public blockchain, the recipient validates the full chain of ownership locally using cryptographic proofs. This preserves privacy and removes the need for global consensus on asset balances.
+**Client-Side Validation** The RGB protocol's core security model. Instead of verifying asset state on a public blockchain, the recipient validates the full chain of ownership locally using cryptographic proofs. This preserves privacy and removes the need for global consensus on asset balances.
 
-**Commitment**
-A compact cryptographic hash anchored to a Bitcoin UTXO that represents off-chain RGB state. Commitments are indistinguishable from ordinary Bitcoin transaction metadata on-chain.
+**Commitment** A compact cryptographic hash anchored to a Bitcoin UTXO that represents off-chain RGB state. Commitments are indistinguishable from ordinary Bitcoin transaction metadata on-chain.
+
+## E
+
+**EIP-712** An Ethereum standard for typed structured data signing. The Utexo Bridge Enclave Signer uses EIP-712 to sign `FundsOut` authorisation messages for EVM-bound transfers, allowing smart contracts to verify the signer's intent without exposing raw private keys.
+
+**Enclave Signer** The cryptographic microservice responsible for signing all Bridge transactions. It runs exclusively inside an AWS Nitro Enclave — a hardware-isolated Trusted Execution Environment (TEE) — where private keys are generated and held. Keys never exist outside the enclave boundary. See also: *Trusted Execution Environment (TEE)*.
+
+## F
+
+**FundsIn** An on-chain event emitted by a Bridge smart contract when a user deposits assets on the source chain. The Bridge Connector detects this event and notifies the Bridge orchestrator to begin routing the transfer to the destination chain.
+
+**FundsOut** A transaction issued by the Bridge Connector on the destination chain to release assets to the recipient, following a validated `FundsIn` event. The Enclave Signer signs the `FundsOut` payload inside the TEE before it is broadcast.
 
 ## L
 
-**Lightning Network**
-A Bitcoin Layer 2 payment protocol that enables instant, low-cost transfers via off-chain payment channels. Utexo uses Lightning as the execution layer for RGB asset transfers, providing near-instant settlement and predictable fees.
+**Lightning Invoice** A standard BOLT-11 or BOLT-12 payment request used to receive BTC or RGB assets over Lightning channels. Generated via `wallet.createLightningInvoice()`.
 
-**Lightning Invoice**
-A standard BOLT-11 or BOLT-12 payment request used to receive BTC or RGB assets over Lightning channels. Generated via `wallet.createLightningInvoice()`.
+**Lightning Network** A Bitcoin Layer 2 payment protocol that enables instant, low-cost transfers via off-chain payment channels. Utexo uses Lightning as the execution layer for RGB asset transfers, providing near-instant settlement and predictable fees.
 
 ## M
 
-**Mnemonic**
-A 12 or 24-word BIP-39 seed phrase that represents the root key of a wallet. Store it securely offline — it is the only way to recover a wallet. Never share it.
+**Mnemonic** A 12 or 24-word BIP-39 seed phrase that represents the root key of a wallet. Store it securely offline — it is the only way to recover a wallet. Never share it.
 
 ## N
 
-**NIA (Non-Inflationary Asset)**
-An RGB asset type with a fixed total supply that cannot be inflated after issuance. USDT issued via Utexo is an NIA asset. Issued via `wallet.issueAssetNia()`.
+**NIA (Non-Inflationary Asset)** An RGB asset type with a fixed total supply that cannot be inflated after issuance. USDT issued via Utexo is an NIA asset. Issued via `wallet.issueAssetNia()`.
 
 ## P
 
-**PSBT (Partially Signed Bitcoin Transaction)**
-A standard format (BIP-174) for Bitcoin transactions that have not yet been fully signed. The Utexo SDK uses PSBTs as an intermediate step in the send flow, allowing keys to be held separately from transaction construction. Signed via `wallet.signPsbt()`.
+**PSBT (Partially Signed Bitcoin Transaction)** A standard format (BIP-174) for Bitcoin transactions that have not yet been fully signed. The Utexo SDK uses PSBTs as an intermediate step in the send flow, allowing keys to be held separately from transaction construction. The Bridge Enclave Signer uses Taproot Schnorr PSBTs for RGB → EVM direction transfers. Signed via `wallet.signPsbt()`.
 
 ## R
 
-**RGB**
-A smart contract protocol built on Bitcoin that uses client-side validation. RGB enables the issuance and transfer of assets (such as USDT) natively on Bitcoin without modifying the Bitcoin protocol. Asset state is held off-chain; only cryptographic commitments are anchored on-chain.
+**RGB** A smart contract protocol built on Bitcoin that uses client-side validation. RGB enables the issuance and transfer of assets (such as USDT) natively on Bitcoin without modifying the Bitcoin protocol. Asset state is held off-chain; only cryptographic commitments are anchored on-chain.
 
-**RGB Invoice**
-A payment request specific to the RGB protocol. Contains the asset ID, expected amount, and a blinded or witness UTXO reference for the recipient. Generated via `wallet.blindReceive()` or `wallet.witnessReceive()`.
+**RGB Invoice** A payment request specific to the RGB protocol. Contains the asset ID, expected amount, and a blinded or witness UTXO reference for the recipient. Used as the destination address when bridging assets from Ethereum to the Bitcoin RGB layer. Generated via `wallet.blindReceive()` or `wallet.witnessReceive()`.
 
-**RGB Transport**
-The communication layer used to exchange RGB state between sender and receiver during a transfer. The Utexo SDK connects to RGB proxy endpoints (e.g. `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc`) to facilitate this exchange.
+**RGB Transport** The communication layer used to exchange RGB state between sender and receiver during a transfer. The Utexo SDK connects to RGB proxy endpoints (e.g. `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc`) to facilitate this exchange.
 
 ## S
 
-**Single-Use Seal**
-A core RGB primitive. A single-use seal binds an asset state transition to a specific Bitcoin UTXO, ensuring it can only be "opened" (spent) once. This prevents double-spending without requiring global ledger consensus.
+**Single-Use Seal** A core RGB primitive. A single-use seal binds an asset state transition to a specific Bitcoin UTXO, ensuring it can only be "opened" (spent) once. This prevents double-spending without requiring global ledger consensus.
+
+## T
+
+**TEE (Trusted Execution Environment)** A hardware-isolated compute environment that provides confidentiality and integrity guarantees for the code and data running inside it. The Utexo Bridge uses an AWS Nitro Enclave as its TEE. Code running in the enclave cannot be inspected or tampered with from the host operating system. See also: *Enclave Signer*.
+
+**TUSDT** The RGB-layer representation of USDT received when bridging from Ethereum or Tron to Bitcoin via the Utexo Bridge. TUSDT is a native RGB asset held in IRIS Wallet and can be transferred or exchanged against BTC with on-chain settlement guarantees. The "T" prefix denotes the token's origin as a Tether-backed bridged asset on the RGB layer.
 
 ## U
 
-**USDT (RGB)**
-Tether's USDT stablecoin issued natively on Bitcoin using the RGB protocol. Distinct from ERC-20 USDT (Ethereum) and TRC-20 USDT (Tron). RGB USDT is transferred over Lightning channels and validated client-side.
+**USDT (RGB)** Tether's USDT stablecoin issued natively on Bitcoin using the RGB protocol. Distinct from ERC-20 USDT (Ethereum) and TRC-20 USDT (Tron). RGB USDT is transferred over Lightning channels and validated client-side.
 
-**UTXO (Unspent Transaction Output)**
-A unit of Bitcoin that has been received but not yet spent. In RGB, UTXOs serve as anchors for asset state — each RGB asset allocation is bound to a specific UTXO.
+**UTXO (Unspent Transaction Output)** A unit of Bitcoin that has been received but not yet spent. In RGB, UTXOs serve as anchors for asset state — each RGB asset allocation is bound to a specific UTXO.
 
 ## V
 
-**VSS (Verifiable Secret Sharing)**
-A cloud-based backup mechanism used by the Utexo SDK to store encrypted wallet recovery data. Enables wallet restoration without requiring the user to manually store the mnemonic locally. Used via `wallet.restoreUtxoWalletFromVss()`.
+**VSS (Verifiable Secret Sharing)** A cloud-based backup mechanism used by the Utexo SDK to store encrypted wallet recovery data. Enables wallet restoration without requiring the user to manually store the mnemonic locally. Used via `wallet.restoreUtxoWalletFromVss()`.
 
 ## W
 
-**Witness Invoice**
-An alternative to a blinded invoice for receiving RGB assets. Uses a witness UTXO reference rather than a blinded one. Less privacy-preserving than a blinded invoice but may be required in certain integration scenarios. Generated via `wallet.witnessReceive()`.
+**Witness Invoice** An alternative to a blinded invoice for receiving RGB assets. Uses a witness UTXO reference rather than a blinded one. Less privacy-preserving than a blinded invoice but may be required in certain integration scenarios. Generated via `wallet.witnessReceive()`.

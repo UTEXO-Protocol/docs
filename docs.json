@@ -84,26 +84,20 @@
             "group": "Swap",
             "pages": [
               "product-suite/swap",
+              "swap/getting-started",
               {
-                "group": "Bitcoin Guide",
+                "group": "Bitcoin Basics",
                 "pages": [
-                  "swap/getting-started",
                   "swap/what-is-a-bitcoin-taproot-address",
                   "swap/create-wallet",
                   "swap/what-is-utxo",
-                  "swap/get-btc",
-                  "swap/swap-btc-to-rgb",
-                  "swap/swap-rgb-to-btc"
+                  "swap/get-btc"
                 ]
-              }
+              },
+              "swap/swap-btc-to-rgb",
+              "swap/swap-rgb-to-btc"
             ]
           }
-        ]
-      },
-      {
-        "group": "Business Applications",
-        "pages": [
-          "business-applications"
         ]
       }
     ]

@@ -1,27 +1,32 @@
 ---
-title: 'Architecture'
-description: 'How Bitcoin, the Lightning Network, RGB, and the Utexo execution layer fit together as a unified stablecoin settlement stack.'
-sidebarTitle: 'Architecture'
+title: "Architecture"
+description: "How Bitcoin, the Lightning Network, RGB and the Utexo execution layer fit together as a unified stablecoin settlement stack."
+sidebarTitle: "Architecture"
 ---
 
-Utexo is built on a four-layer stack. Each layer has a distinct and non-overlapping role. Together they deliver the properties that make Bitcoin-native stablecoin settlement viable for production payment systems: deterministic costs, settlement privacy, and Bitcoin-backed security.
+Utexo is built on a layered stack. Each layer has a distinct and non-overlapping role. Together they deliver the properties that make Bitcoin-native stablecoin settlement viable for production payment systems: deterministic costs, settlement privacy, and Bitcoin-backed security. The Bridge layer extends this stack outward, connecting external EVM-based networks to the Bitcoin RGB layer.
+
+<Frame caption="Utexo Protocol Architecture">
+  ![Screenshot 2026 04 30 At 11 45 02](/images/Screenshot-2026-04-30-at-11.45.02.png)
+</Frame>
 
 ## Stack Overview
 
 | Layer | Role | What Utexo Uses It For |
-|---|---|---|
+| --- | --- | --- |
 | Bitcoin | Settlement anchor and finality | Double-spend prevention, dispute resolution, irreversible state |
 | Lightning Network | Off-chain execution and value transfer | High-throughput payments, near-instant finality, predictable latency |
 | RGB | Asset issuance and client-side validation | Stablecoin creation, privacy-preserving transfers, Bitcoin-secured ownership |
 | Utexo | Execution and coordination layer | Routing, liquidity, fee management, SDK/API abstraction |
+| Bridge | Cross-chain connectivity | Atomic, non-custodial inbound and outbound transfers between Ethereum, Tron, and the RGB layer |
 
-In the Utexo model, ownership proofs are validated locally by users’ wallets (client-side validation), while actual payments occur through bidirectional Lightning channels. There is no global state to synchronise. Each transaction is a direct peer-to-peer exchange verified by cryptographic commitments.
+In the Utexo model, ownership proofs are validated locally by users' wallets (client-side validation), while actual payments occur through bidirectional Lightning channels. There is no global state to synchronise. Each transaction is a direct peer-to-peer exchange verified by cryptographic commitments.
 
 ## Bitcoin
 
 Bitcoin serves as the settlement and finality anchor for the entire Utexo system.
 
-It handles correctness, finality, and dispute resolution — acting as the foundational layer that grants irreversible settlement and strong security. This allows Utexo to decouple settlement guarantees from execution cost volatility.
+It handles correctness, finality and dispute resolution, acting as the foundational layer that grants irreversible settlement and strong security. This allows Utexo to decouple settlement guarantees from execution cost volatility.
 
 **What this means in practice:**
 
@@ -43,13 +48,13 @@ Lightning serves as the execution path through which BTC and RGB-based assets ar
 
 - Within Utexo, Lightning is abstracted through a state-channel layer that manages liquidity management, routing, and failure recovery automatically.
 - Utexo provides pooled liquidity and routing access through APIs, transforming Lightning into a scalable backend execution engine without requiring users to open, balance, and maintain individual channels.
-- By removing transaction execution from Bitcoin’s fee auction and abstracting Lightning’s channel management away from users, Utexo can offer stablecoin execution that behaves like traditional payment rails: fixed latency, predictable fees, and continuous availability.
+- By removing transaction execution from Bitcoin's fee auction and abstracting Lightning's channel management away from users, Utexo can offer stablecoin execution that behaves like traditional payment rails: fixed latency, predictable fees, and continuous availability.
 
 ## RGB
 
 RGB is a smart contract protocol on Bitcoin designed for privacy-preserving asset issuance and cost optimisation. It enables stablecoins to operate natively on Bitcoin without introducing global state or on-chain execution.
 
-RGB defines how assets such as USDT are created, transferred, and validated while remaining anchored to Bitcoin’s security model. It uses a client-side validation architecture, where ownership proofs and state transitions are verified locally by participants rather than recorded on a shared public ledger.
+RGB defines how assets such as USDT are created, transferred, and validated while remaining anchored to Bitcoin's security model. It uses a client-side validation architecture, where ownership proofs and state transitions are verified locally by participants rather than recorded on a shared public ledger.
 
 **Privacy properties:**
 
@@ -58,12 +63,10 @@ RGB defines how assets such as USDT are created, transferred, and validated whil
 
 **Fee properties:**
 
-- As RGB doesn’t require blockspace for asset execution or state updates, stablecoin transfers do not compete for on-chain throughput.
+- As RGB doesn't require blockspace for asset execution or state updates, stablecoin transfers do not compete for on-chain throughput.
 - This removes fee volatility tied to block congestion and allows Utexo to offer predictable and stable execution costs, independent of Bitcoin mempool conditions.
 
-<Info>
-  For a more detailed overview of RGB’s architecture, see the [RGB official documentation](https://docs.rgb.info/).
-</Info>
+For a more detailed overview of RGB's architecture, see the [RGB official documentation](https://docs.rgb.info/).
 
 ## Utexo Execution Layer
 
@@ -73,7 +76,7 @@ Utexo handles execution routing, liquidity access, retries, and failure recovery
 
 **Performance characteristics:**
 
-- By combining RGB’s client-side validation architecture with Lightning’s routing network, Utexo achieves transaction times of around 200 ms latency, comparable to Visa speeds.
+- By combining RGB's client-side validation architecture with Lightning's routing network, Utexo achieves transaction times of around 200 ms latency, comparable to Visa speeds.
 - Utexo makes Bitcoin usable as a stablecoin settlement network for high-throughput, private-by-default payments that behave predictably regardless of network conditions.
 
 **Integration surface:**
@@ -82,9 +85,69 @@ Utexo handles execution routing, liquidity access, retries, and failure recovery
 - Abstracts all channel management, routing, and liquidity operations internally
 - No protocol-specific knowledge required in application code
 
+## Bridge
+
+The Utexo Bridge extends the stack outward by enabling atomic, non-custodial transfers of USDT between external EVM-based networks (Ethereum, Tron) and the Bitcoin RGB layer. It is composed of three coordinated components: the Bridge orchestrator, stateless chain Connectors, and the Enclave Signer.
+
+### Bridge Orchestrator
+
+The Bridge orchestrator is the central coordinator. It tracks all in-flight transfers in a persistent database, processes `FundsIn` events reported by Connectors, and instructs the appropriate destination Connector to issue a `FundsOut` transaction. Once the destination Connector reports finality, the orchestrator marks the transfer as complete.
+
+If a transfer becomes overdue or the source-side `FundsIn` event is not registered within a validity window, the orchestrator queues a cancellation and returns funds to the user.
+
+### Connectors
+
+Each supported blockchain has its own stateless Connector — a gRPC microservice that performs four tasks:
+
+1. **Read events** — Monitors the chain's Bridge smart contract for `FundsIn`, `FundsOut`, and `FundsIn Cancelled` events.
+2. **Send transactions** — Issues `FundsOut` transactions on instruction from the orchestrator.
+3. **Generate signatures** — Produces the cryptographic signatures required by the destination chain's smart contract to verify the transfer intent.
+4. **Report chain state** — Provides block height, confirmation counts, and token balance information to the orchestrator.
+
+Connectors are stateless: all transfer state is held by the orchestrator. If a Connector restarts, it resumes operation without data loss.
+
+Currently supported networks: Ethereum (EVM, secp256k1), Tron (EVM-compatible), Bitcoin RGB layer (Taproot / Schnorr).
+
+### Enclave Signer
+
+The Enclave Signer is the cryptographic trust anchor of the Bridge. It is a Rust microservice (`utexo-bridge-enclave-signer`) running inside an **AWS Nitro Enclave** — a hardware-isolated Trusted Execution Environment (TEE) with no persistent storage, no shell access, and no network access except a vsock proxy allowlisted to an Esplora indexer.
+
+Private keys are generated inside the enclave using a BIP-39 mnemonic derived from OS entropy and never leave the hardware boundary. The enclave derives separate key paths for each chain type:
+
+- **EVM keys** — Derived at `m/44'/60'/0'/0/0`. Used to sign EIP-712 typed data for EVM-bound `FundsOut` authorisations.
+- **Bitcoin keys** — Derived at `m/84'` (SegWit legacy) and `m/86'` (Taproot). Used to sign PSBTs for RGB → EVM transfers using Taproot Schnorr script-path signatures.
+
+Before signing any transaction, the enclave validates the RGB consignment against an Esplora indexer in-enclave, cross-checking the RGB asset amount against the calldata amount plus commission, verifying the consignment hash for tamper detection, and checking the deadline and chain ID.
+
+**Security properties:**
+
+- Keys never exist outside the TEE boundary under any circumstances.
+- Every signing operation is preceded by in-enclave RGB validation — the enclave will refuse to sign if amounts or hashes do not match.
+- Secrets are zeroized on drop in memory (`SecretBox`). The codebase enforces `#![deny(unsafe_code)]`.
+- The enclave is built with release hardening (`opt-level="z"`, LTO, `panic="abort"`) and no persistent storage — a restarted enclave generates a fresh key unless a seed is explicitly imported via a gated build feature disabled in production.
+
+<Info>
+  The Enclave Signer is the reason the Utexo Bridge is non-custodial. No operator, server or cloud environment - including AWS itself - can access the private keys used to authorise bridge transfers. The only way to issue a valid `FundsOut` transaction is via a signing request processed inside the enclave.
+</Info>
+
+### Transfer Flow
+
+The following describes the complete atomic transfer sequence for an Ethereum → Bitcoin (RGB) transfer:
+
+1. The user submits a deposit transaction to the Ethereum Bridge smart contract (`FundsIn`).
+2. The Ethereum Connector detects the `FundsIn` event on-chain and reports it to the Bridge orchestrator.
+3. The orchestrator validates the event, looks up the destination chain, and instructs the Bitcoin Connector to prepare a `FundsOut` transaction.
+4. The Bitcoin Connector requests a signature from the Enclave Signer. The enclave validates the RGB consignment and, if all checks pass, signs the PSBT.
+5. The signed transaction is broadcast to the Bitcoin network.
+6. Once finality is confirmed, the orchestrator marks the transfer complete and TUSDT appears in the recipient's IRIS Wallet.
+
+The reverse direction (RGB → Ethereum) follows the same orchestration pattern but swaps the signing method: the enclave signs an EIP-712 typed data payload for the Ethereum Connector instead of a PSBT.
+
 ## Further Reading
 
 - [The Problem](/getting-started/the-problem) — The structural failure modes in existing stablecoin infrastructure that this architecture is designed to resolve.
 - [What is Utexo?](/what-utexo-is) — The four core design principles of the Utexo framework.
 - [Quickstart](/getting-started/quickstart) — Integrate Utexo and process your first stablecoin payment.
-- [Product Suite](/product-suite) — SDK/API, Cloud Modules, Bridge, and AMM DEX.
+- [Bridge](/product-suite/bridge) — Overview of the Bridge, supported networks, assets, and security model.
+- [Bridge: Getting Started](/bridge/getting-started) — Step-by-step guide to transferring USDT between Ethereum and the Bitcoin RGB layer.
+- [Product Suite](/getting-started/product-suite) — SDK/API, Cloud Modules, Bridge, and AMM DEX.

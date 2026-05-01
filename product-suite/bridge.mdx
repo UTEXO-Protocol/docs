@@ -1,12 +1,55 @@
 ---
-title: Bridge
+title: "Bridge"
+description: "Atomic, non-custodial stablecoin transfers between Ethereum, Tron and the Bitcoin RGB layer."
 ---
-Overview
 
-The Utexo Bridge acts as the liquidity gateway for native USDT on Bitcoin, allowing operators to migrate and rebalance stablecoin flows while preserving downstream execution logic.
+The Utexo Bridge is a non-custodial, atomic cross-chain bridge that moves USDT between EVM-based networks (Ethereum, Tron) and the Bitcoin RGB layer. Bridged USDT is represented on Bitcoin as native RGB USDT, a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
 
-It enables fully atomic stablecoin transfers from external EVM-based networks and Tron without introducing counterparty risks.
+## How It Works
 
-USDT bridged to Bitcoin is represented as native RGB USDT and can be transferred or exchanged against BTC with onchain settlement guarantees, without relying on centralized exchanges, wrapped assets, or custodial intermediaries.
+The Bridge is composed of modular, stateless components that together coordinate a fully atomic transfer:
 
-Website: https://bridge.utexo.com/
+| Component | Role |
+| --- | --- |
+| **Bridge orchestrator** | Tracks all in-flight transfers, routes events between connectors, and drives transfers to completion or cancellation |
+| **Connectors** | Chain-specific gRPC services that monitor smart contracts for `FundsIn` events and issue `FundsOut` transactions on the destination chain |
+| **Enclave Signer** | Cryptographic microservice running inside an AWS Nitro Enclave; derives and holds private keys in a Trusted Execution Environment (TEE) so they never leave the hardware boundary |
+| **REST Gateway** | Public API used by the web UI and external integrations |
+
+The transfer flow is:
+
+1. User deposits funds on the source chain (`FundsIn`).
+2. The source Connector detects the on-chain event and notifies the Bridge orchestrator.
+3. The Bridge instructs the destination Connector to release funds (`FundsOut`).
+4. The Enclave Signer signs the `FundsOut` transaction inside the TEE before broadcast.
+5. Transfer is marked complete once finality is confirmed.
+
+## Supported Networks
+
+| Network | Type | Direction |
+| --- | --- | --- |
+| Ethereum | EVM (secp256k1) | Inbound & Outbound |
+| Tron | EVM-compatible | Inbound & Outbound |
+| Bitcoin (RGB layer) | Taproot / Schnorr | Inbound & Outbound |
+
+## Supported Assets
+
+| Asset | Source Network | Representation on Bitcoin |
+| --- | --- | --- |
+| USDT | Ethereum, Tron | RGB USDT (TUSDT) |
+
+## Security
+
+The Enclave Signer (`utexo-bridge-enclave-signer`) runs inside an **AWS Nitro Enclave** - an isolated compute environment with no persistent storage, no shell access and network access limited to a vsock proxy allowlisted to an Esplora indexer. Key properties:
+
+- **Keys never leave the TEE.** BIP-39 key generation and all signing operations (EIP-712 for EVM, PSBT Taproot Schnorr for Bitcoin) happen inside the enclave.
+- **In-enclave RGB validation.** Every RGB consignment is validated against an Esplora indexer before signing, cross-checking amounts against calldata and commission.
+- **Memory safety.** Secrets are zeroized on drop; the codebase enforces `#![deny(unsafe_code)]`.
+
+## Guide
+
+<CardGroup cols={1}>
+  <Card title="Getting Started" icon="arrow-right" href="/bridge/getting-started">
+    Transfer USDT between Ethereum and the Bitcoin RGB layer.
+  </Card>
+</CardGroup>
