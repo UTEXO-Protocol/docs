@@ -1,16 +1,25 @@
 ---
 title: "RLN Remote Signer"
+description: "How Validating Lightning Signer (VLS) keeps private keys off your RGB Lightning Node."
 ---
+
+## Overview
 
 Validating Lightning Signer (VLS) is an open-source Rust library for secure, self-custodial Lightning signers. Unlike hot wallets or blind signers, VLS keeps your private keys off the node and validates each signing request, ensuring only legitimate channel operations are approved.
 
-## System Overview
+<Note>
+Support for a remote signer in the RGB Lightning Node is currently under active development and should be considered **experimental** — not yet available for production use.
+
+Progress is tracked at: [github.com/RGB-Tools/rgb-lightning-node/issues/43](https://github.com/RGB-Tools/rgb-lightning-node/issues/43)
+</Note>
+
+## System Architecture
 
 VLS splits Lightning key management into two primary components:
 
 ### Lightning Node
 
-Runs the usual LN logic: channel opening, routing, HTLC management. No private keys for signing are stored here.
+Runs the standard LN logic — channel opening, routing, HTLC management. **No private keys are stored here.**
 
 ### Remote Validating Signer
 
@@ -18,20 +27,33 @@ Stores private keys in a secure environment and validates each request before ge
 
 ### Additional Components
 
-- Policy Engine: A customizable set of rules ensuring no suspicious requests are signed.
-- UTXO Oracle (Optional): The signer can be configured to receive chain data to detect remote breaches.
-- State Storage: Provides secure, redundant cloud storage with anti-rollback protection.
+| Component | Description |
+|---|---|
+| **Policy Engine** | Customizable rules ensuring no suspicious requests are signed |
+| **UTXO Oracle** (optional) | Provides chain data to detect remote breaches |
+| **State Storage** | Secure cloud storage with anti-rollback protection |
 
-## Architecture Overview
+## Validation Flow
 
-### Validation Flow
+```
+[Lightning Node] --> proposes transaction/state update
+        |
+        v
+[VLS Signer] --> checks protocol correctness + local policy
+        |
+        +-- valid --> returns signature
+        |
+        +-- invalid --> rejects request
+```
 
-1. Node proposes a transaction or state update.
+1. The Lightning Node proposes a transaction or state update.
 2. VLS checks protocol correctness and local policy.
 3. If valid, the signer returns a signature. Otherwise, it rejects the request.
 
-## Current Status
+## Why This Matters
 
-Support for a remote signer in the RGB Lightning Node is currently under active development. At this stage, remote signer support is not yet available in production and should be considered experimental.
+Traditional Lightning nodes require private keys to be on the same machine that handles routing and channel logic. VLS decouples these concerns:
 
-Progress is tracked publicly at: https://github.com/RGB-Tools/rgb-lightning-node/issues/43
+- **Reduced attack surface** — a compromised node cannot access signing keys
+- **Policy enforcement** — custom rules prevent unauthorized channel operations
+- **Self-custody** — keys never leave the secure signing environment
