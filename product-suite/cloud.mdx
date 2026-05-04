@@ -1,22 +1,51 @@
 ---
-title: Cloud
+title: "Cloud"
+sidebarTitle: "Cloud"
+description: "Managed infrastructure for running RGB Lightning Nodes in production environments."
 ---
-Overview
 
-Utexo Cloud Modules offers managed execution infrastructure for applications that require direct control over node-level components.
+Utexo Cloud provides a managed control plane for deploying and operating RGB Lightning Nodes (RLNs). It is designed for applications that require direct control over node-level infrastructure — channel management, asset issuance, backups, and observability — without building or maintaining that infrastructure themselves.
 
-It provides a control plane for running and managing RGB-enabled Lightning nodes in production environments, including lifecycle management, backups, and observability.
+Cloud is optional and complementary to the SDK. Applications can combine Cloud-managed nodes with the Utexo SDK depending on their deployment model and trust requirements.
 
-Cloud is optional and complementary to the API and SDK: applications can combine Cloud-managed infrastructure with Dev Utexo’s execution APIs depending on their deployment model and trust requirements.
+## What Utexo Cloud Provides
 
-Capabilities include:
+| Capability | Description |
+| --- | --- |
+| Node lifecycle management | Create, start, stop, upgrade, and destroy RLN nodes via dashboard or API |
+| Health and status monitoring | Real-time node status (`RUNNING`, `PAUSED`, `FAILED`) and build progress tracking |
+| Controlled access | mTLS and API-token–based authentication for secure remote connections |
+| Versioned deployments | Upgrade nodes to the latest RLN image with a single operation |
+| Backup and restore | Snapshot node state and restore from backup at any time |
+| Webhook events | Receive real-time notifications when node state transitions occur |
 
-node lifecycle management (start, stop, upgrade)
+## When to Use Cloud
 
-health and status monitoring
+<AccordionGroup>
+  <Accordion title="I need to run payment infrastructure without managing servers">
+    Use Utexo Cloud to provision and operate RGB Lightning Nodes directly from the dashboard. The node lifecycle — creation, upgrade, backup, teardown — is managed via a control plane API, not raw server access.
+  </Accordion>
+  <Accordion title="I want to call the node REST API directly from my application">
+    Once a node is running, it exposes a REST JSON API for all Lightning and RGB operations: channel management, asset issuance, payments, and more. See [RGB Lightning Node API](/cloud/rgb-lightning-node-api).
+  </Accordion>
+  <Accordion title="I need event-driven notifications from my node">
+    Configure webhooks on your node to receive `POST` callbacks whenever node status transitions occur (`RUNNING`, `FAILED`, `IN_PROGRESS`). See [Webhooks](/cloud/webhooks).
+  </Accordion>
+</AccordionGroup>
 
-controlled access and permissions
+## Get Started
 
-versioned deployments
-
-Website: https://cloud.utexo.com
+<CardGroup cols={2}>
+  <Card title="Node Management" icon="server" href="/cloud/getting-started">
+    Create, connect, upgrade, back up, and destroy RLN nodes.
+  </Card>
+  <Card title="RGB Lightning Node API" icon="code" href="/cloud/rgb-lightning-node-api">
+    Full REST endpoint reference for your running node.
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/cloud/webhooks">
+    Receive real-time event notifications from your nodes.
+  </Card>
+  <Card title="Cloud Dashboard" icon="arrow-up-right-from-square" href="https://cloud.utexo.com">
+    Access the Utexo Cloud dashboard.
+  </Card>
+</CardGroup>

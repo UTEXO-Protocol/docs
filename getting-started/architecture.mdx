@@ -46,8 +46,8 @@ Lightning serves as the execution path through which BTC and RGB-based assets ar
 
 **What Utexo adds:**
 
-- Within Utexo, Lightning is abstracted through a state-channel layer that manages liquidity management, routing, and failure recovery automatically.
-- Utexo provides pooled liquidity and routing access through APIs, transforming Lightning into a scalable backend execution engine without requiring users to open, balance, and maintain individual channels.
+- Within Utexo, Lightning is abstracted through a state-channel layer that manages liquidity management, routing and failure recovery automatically.
+- Utexo provides pooled liquidity and routing access through APIs, transforming Lightning into a scalable backend execution engine without requiring users to open, balance and maintain individual channels.
 - By removing transaction execution from Bitcoin's fee auction and abstracting Lightning's channel management away from users, Utexo can offer stablecoin execution that behaves like traditional payment rails: fixed latency, predictable fees, and continuous availability.
 
 ## RGB
@@ -59,7 +59,7 @@ RGB defines how assets such as USDT are created, transferred, and validated whil
 **Privacy properties:**
 
 - Only sender and receiver hold the transaction proofs. No public ledger of individual transfers exists, eliminating data traceability.
-- For operators, stablecoin balances, transfer amounts, and counterparties are not exposed on public ledgers, reducing competitive intelligence leakage while maintaining cryptographic auditability.
+- For operators, stablecoin balances, transfer amounts and counterparties are not exposed on public ledgers, reducing competitive intelligence leakage while maintaining cryptographic auditability.
 
 **Fee properties:**
 

@@ -1,33 +1,53 @@
 ---
-title: "Node Backup/Restore"
+title: "Node Backup / Restore"
+sidebarTitle: "Node Backup / Restore"
+description: "Back up and restore your RLN node state on Utexo Cloud."
 ---
 
-### Access Backup Functionality
+## Node Backup
 
-Navigate to the specific node's backup page at nodes/{nodeId}/backup.
+### 1. Access Backup Functionality
 
-### Create a Backup
+Navigate to the backup page for your node:
 
-- If no backup has been previously created, the page will display a "Create Backup" button.
-- Clicking the button triggers an AWS Lambda function that communicates with the RGB node's /backup API endpoint.
-- Once the backup is successfully created, it is automatically uploaded to an Amazon S3 bucket.
+```
+nodes/{nodeId}/backup
+```
 
-### Download
+### 2. Create a Backup
 
-A pre-signed URL is generated allowing direct download from S3. The URL expires 30 minutes after being issued.
+If no backup has been previously created, the page displays a **Create Backup** button.
+
+Clicking the button triggers an AWS Lambda function that communicates with the node's `/backup` API endpoint. Once the backup is successfully created, it is automatically uploaded to an Amazon S3 bucket.
+
+### 3. Download the Backup
+
+A pre-signed URL is generated that allows direct download from S3. The URL expires **30 minutes** after being issued.
+
+<Warning>
+  Download and store the backup file securely before the pre-signed URL expires. After 30 minutes, you will need to create a new backup to obtain a fresh download URL.
+</Warning>
 
 ## Node Restore
 
-### Access Restore Functionality
+### 1. Access Restore Functionality
 
-Navigate to the node's backup page and find the "Restore node" section at nodes/{nodeId}/backup.
+Navigate to the backup page for the node you want to restore:
 
-### Uploading the Backup File
+```
+nodes/{nodeId}/backup
+```
 
-- Click "Upload" to generate an S3 upload URL.
-- Select the backup file from your local device. The upload begins automatically.
+Locate the **Restore node** section.
 
-### Restoring Node
+### 2. Upload the Backup File
 
-- After the upload completes, a "Restore" button becomes active.
-- Click the "Restore" button to start the restoration process via the node's /restore API.
+Click **Upload** to generate an S3 upload URL. Select the backup file from your local device. The upload begins automatically.
+
+### 3. Restore the Node
+
+After the upload completes, a **Restore** button becomes active. Click **Restore** to start the restoration process via the node's `/restore` API endpoint.
+
+<Info>
+  The restore process will overwrite the current node state. Ensure you are restoring the correct backup file before proceeding.
+</Info>

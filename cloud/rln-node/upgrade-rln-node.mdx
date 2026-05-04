@@ -1,79 +1,47 @@
 ---
 title: "Upgrade RLN Node"
+sidebarTitle: "Upgrade RLN Node"
+description: "Update your RGB Lightning Node to the latest RLN image version."
 ---
 
 ## UI Upgrade Flow
 
-When an RLN node is outdated, users will see a notification block on the Node Page prompting them to upgrade.
+When an RLN node is outdated, a notification block appears at the top of the Node Page prompting you to upgrade.
 
-### Notification Block
+The notification reads:
 
-The notification will appear at the top of the node details page and include the following message:
+> Please note: Your current RLN image version is no longer supported. Update your node to the latest version.
 
-> "Please note: Your current RLN image version is no longer supported. Update your node to the latest version."
+### Steps
 
-### Steps to Upgrade the Node
+1. **Click the Upgrade button** — Navigate to the node page where the notification block appears and click **Update** to trigger the upgrade process. This initiates an upgrade to the latest RLN image.
 
-1. **Click the "Upgrade" Button**
-   - Navigate to the node page where the notification block appears.
-   - Click the **"Update"** button to trigger the upgrade process.
-   - This action initiates the upgrade to the latest RLN image version.
-2. **Wait for the Upgrade to Complete**
-   - The upgrade process may take a few minutes.
-   - During this time, the node will be **locked**.
-3. **Unlock the Node**
-   - Once the upgrade is complete, the node will remain **locked**.
-   - To resume using the node:
-     - Click the **"Unlock"** button displayed on the node page.
-   - After unlocking, the node will be fully operational and updated to the latest version.
+2. **Wait for the upgrade to complete** — The process may take a few minutes. During this time, the node will be **locked** and unavailable.
 
-## Automatic Bulk Upgrade (Scale or Wallet Plan Feature)
+3. **Unlock the node** — Once the upgrade is complete, the node remains locked. To resume using it:
+   - Navigate to the Node Page for that node.
+   - Click the **Unlock** button.
+   - The node will be fully operational on the updated image.
 
-For users subscribed to the Scale or Wallet Plan, the system provides automatic bulk upgrades.
+## Automatic Bulk Upgrade (Scale or Wallet Plan)
 
-### How Automatic Bulk Upgrades Work
+For users on the Scale or Wallet Plan, the system provides automatic bulk upgrades.
 
-- When a new RLN image version is released, all user nodes are **automatically upgraded** to the latest version.
-- Users will **not** need to manually trigger the upgrade process.
+### How It Works
 
-### Post-Upgrade Requirement: Unlock Nodes
+When a new RLN image version is released, all user nodes are **automatically upgraded** to the latest version. Manual triggering is not required.
 
-After the automatic upgrade, all upgraded nodes will be locked. To continue using each node:
+### Post-Upgrade: Unlock Nodes
+
+After an automatic bulk upgrade, all upgraded nodes are locked. To continue using each node:
 
 1. Navigate to the Node Page for the respective node.
-2. Click the **"Unlock"** button to unlock the node.
+2. Click the **Unlock** button.
 
-### Important Notes for Wallet Plan Users
+<Info>
+  Automatic upgrades ensure all nodes stay up-to-date without user intervention. However, **manual unlocking is required for each upgraded node** to resume functionality.
+</Info>
 
-- Automatic bulk upgrades ensure all nodes stay up-to-date without user intervention.
-- However, **manual unlocking** is required for **each upgraded node** to resume functionality.
+## Upgrade via API
 
-## Upgrade RLN Node Using the API
-
-This section explains how to upgrade RLN nodes programmatically using API endpoints. Follow the steps below to check, trigger, and finalize an upgrade.
-
-1. **Check the Latest RLN Image**
-   **Endpoint**
-   ```text
-   GET /api/nodes/latest-rln-image
-   ```
-   **Description**
-   Fetch the latest version of the RLN node image available for upgrade.
-   **Action**
-   Compare your node's current `rln_commit_id` with the data in the response. If the values differ, an upgrade is required.
-2. **Trigger the Node Upgrade**
-   **Endpoint**
-   ```text
-   POST /api/nodes/{id}/upgrade
-   ```
-   **Description**
-   Trigger an upgrade for a specific node to the latest version.
-   **Action**
-   Initiate the upgrade process for the specified node.
-3. **Unlock the Node After Upgrade**
-   **Endpoint**
-   ```text
-   POST https://node-api.thunderstack.org/${userId}/${nodeId}/unlock
-   ```
-   **Description**
-   After the upgrade is complete, nodes remain locked. Unlock the node to continue using it.
+You can also check node version status and trigger upgrades programmatically using the Cloud API. Refer to the [RGB Lightning Node API](/cloud/rgb-lightning-node-api) reference for the relevant endpoints.
