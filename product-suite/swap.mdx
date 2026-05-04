@@ -1,11 +1,64 @@
 ---
 title: "Swap"
+description: "Non-custodial BTC to RGB asset exchange on Bitcoin via atomic Submarine swaps, with instant finality and liquidity provider support."
+sidebarTitle: "Swap"
 ---
 
-Overview
+The Utexo Swap DEX enables non-custodial exchange between native Bitcoin (BTC) and RGB-native assets including RGB USDT directly on the Bitcoin and Lightning stack. Swaps are executed as atomic Submarine swaps using P2TR HTLCs, eliminating the need for custodians, wrapped assets, or centralised exchange venues.
 
-The Utexo Swap Dex ensures non-custodial internal BTC/USDT execution for settlement, treasury and payments, reducing reliance on centralized venues for rebalancing and conversion.
+The Swap DEX is powered by the [HotPot protocol](https://docs.hotpot.tech/), an open liquidity layer that coordinates quote requests, intent creation, and resolver execution across the swap lifecycle.
 
-It enables native USDT/BTC swaps on Bitcoin, privacy-preserving swaps to prevent front-running, and LP functionality for RGB-native assets. Trades are settled with instant finality and predictable fees.
+## How It Works
 
-Utexo Swap Technical docs are coming soon!
+Every swap involves two participants: the **user**, who initiates the swap, and the **resolver** (liquidity provider), who executes it. The lifecycle proceeds as follows:
+
+| Step | Action |
+| --- | --- |
+| 1. Quote | User specifies the asset pair and amount. The HotPot Quote API returns a time-limited execution estimate including fees. |
+| 2. Intent | User creates a signed intent - a structured, off-chain commitment to execute under the quoted conditions. |
+| 3. HTLC | A P2TR HTLC (Hash Time-Locked Contract) is constructed on-chain. The user funds the deposit address. |
+| 4. Execution | The resolver pays the RGB-LN invoice (Submarine swap). On success, the HTLC is claimed using the payment preimage. |
+| 5. Settlement | The RGB asset is delivered to the user's Tribe Wallet. If execution times out, a refund PSBT is generated automatically. |
+
+## Swap Mechanism
+
+The Utexo Swap uses a **Submarine swap** architecture - a trustless, atomic exchange between on-chain Bitcoin and an off-chain RGB Lightning payment:
+
+- The user funds a **P2TR HTLC** on-chain with BTC.
+- The resolver pays the corresponding **RGB-LN invoice** off-chain, releasing the HTLC preimage.
+- The HTLC is claimed by the resolver on successful delivery.
+- If the resolver does not complete execution within the validity window, the user can broadcast a **refund PSBT** to recover their BTC.
+
+This model ensures neither party can take funds without fulfilling their obligation. The RGB asset is delivered directly to the blinded invoice the user's wallet generates. Utexo does not hold user funds at any point.
+
+## Supported Assets
+
+| Asset Pair | Direction | Settlement |
+| --- | --- | --- |
+| BTC / RGB USDT | Inbound & Outbound | Lightning + RGB client-side validation |
+| BTC / SatoshiRamen | Inbound & Outbound | Lightning + RGB client-side validation |
+
+## Security
+
+The Utexo Swap is non-custodial by construction:
+
+- **HTLC atomicity** - The swap either completes in full or reverts. There is no partial execution risk.
+- **Resolver constraints** - Resolvers can only claim HTLC funds after proving delivery of the RGB asset. They cannot withdraw funds before fulfillment conditions are met or access funds from any other swap.
+- **Refund path** - A timelock refund PSBT is generated at swap creation. If the resolver fails to deliver, the user recovers BTC after the timelock expires.
+- **Client-side validation** - RGB asset delivery is validated locally by the user's wallet before the transaction is confirmed, consistent with the broader Utexo privacy model.
+
+## Guides
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" icon="arrow-right" href="/swap/getting-started">
+    Prerequisites and overview for using the Utexo Swap DEX.
+  </Card>
+
+  <Card title="Swap BTC to RGB" icon="arrow-right-arrow-left" href="/swap/swap-btc-to-rgb">
+    Convert native BTC into an RGB asset using the Utexo swap interface and Tribe Wallet.
+  </Card>
+
+  <Card title="Swap RGB to BTC" icon="arrow-right-arrow-left" href="/swap/swap-rgb-to-btc">
+    Convert an RGB asset back to native BTC using the Utexo swap interface and Tribe Wallet.
+  </Card>
+</CardGroup>
