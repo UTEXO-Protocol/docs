@@ -86,9 +86,9 @@ The Utexo execution layer is the payment execution environment for USDT. It sits
 
 ## Bridge
 
-The Utexo Bridge connects external EVM-based networks (Ethereum, Tron) to the Bitcoin RGB layer, enabling atomic, non-custodial USDT transfers in both directions. Bridged USDT is represented on Bitcoin as RGB USDT (TUSDT) — a real on-chain asset with Bitcoin-backed settlement guarantees.
+The Utexo Bridge connects external EVM-based networks (Ethereum, Tron) to the Bitcoin RGB layer, enabling atomic, non-custodial USDT transfers in both directions. Bridged USDT is represented on Bitcoin as RGB USDT — a real on-chain asset with Bitcoin-backed settlement guarantees.
 
-The Bridge is composed of three coordinated components: a **Bridge orchestrator** that tracks all in-flight transfers, stateless chain-specific **Connectors** that monitor smart contracts and issue on-chain transactions, and an **Enclave Signer** that holds and uses private keys exclusively inside an AWS Nitro Trusted Execution Environment (TEE).
+The Bridge is composed of three coordinated components: a **Bridge orchestrator** that tracks all in-flight transfers, stateless chain-specific **Connectors** that monitor smart contracts and issue on-chain transactions and an **Enclave Signer** that holds and uses private keys exclusively inside an AWS Nitro Trusted Execution Environment (TEE).
 
 <Info>
   For full component details, supported networks, transfer flow, and security properties, see [Bridge](/product-suite/bridge).
@@ -127,12 +127,15 @@ Swap uses an intent-based execution model with two participants: the **user**, w
   <Card title="The Problem" href="/getting-started/the-problem">
     Why existing payment infrastructure fails and what Utexo solves.
   </Card>
+
   <Card title="What is Utexo" href="/what-utexo-is">
     Product overview and integration paths.
   </Card>
+
   <Card title="Bridge" href="/product-suite/bridge">
     Full Bridge component reference, supported networks, and security model.
   </Card>
+
   <Card title="Swap" href="/product-suite/swap">
     Non-custodial BTC/USDT exchange on Bitcoin.
   </Card>
