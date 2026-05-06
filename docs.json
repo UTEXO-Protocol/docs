@@ -84,7 +84,6 @@
             "group": "Swap",
             "pages": [
               "product-suite/swap",
-              "swap/getting-started",
               {
                 "group": "Bitcoin Basics",
                 "pages": [
@@ -94,8 +93,14 @@
                   "swap/get-btc"
                 ]
               },
-              "swap/swap-btc-to-rgb",
-              "swap/swap-rgb-to-btc"
+        {
+          "group": "Legacy AMM Swap",
+          "pages": [
+            "swap/getting-started",
+            "swap/swap-btc-to-rgb",
+            "swap/swap-rgb-to-btc"
+          ]
+        }
             ]
           }
         ]
