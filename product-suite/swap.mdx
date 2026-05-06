@@ -1,10 +1,10 @@
 ---
 title: "Swap"
-description: "Non-custodial BTC to RGB asset exchange on Bitcoin, powered by the HotPot protocol with intent-based execution and liquidity provider support."
+description: "Cross-chain BTC to RGB asset exchange on Bitcoin, powered by the HotPot protocol with intent-based execution and liquidity provider support."
 sidebarTitle: "Swap"
 ---
 
-The Utexo Swap DEX enables non-custodial exchange between native Bitcoin (BTC) and RGB-native assets including RGB USDT directly on the Bitcoin network. Swaps are executed via a decentralised intent system, eliminating the need for custodians, wrapped assets, or centralised exchange venues.
+The Utexo Swap DEX enables cross-chain exchange between native Bitcoin (BTC) and and RGB-native assets including RGB USDT directly on the Bitcoin network. Swaps are executed via a decentralised intent system, eliminating the need for custodians, wrapped assets or centralised exchange venues.
 
 The Swap DEX is powered by the [HotPot protocol](https://docs.hotpot.tech/), an open liquidity layer that coordinates quote requests, intent creation, and resolver execution across the swap lifecycle.
 
@@ -21,7 +21,7 @@ Every swap involves two participants: the **user**, who initiates the swap, and 
 
 ## Swap Mechanism
 
-The Utexo Swap uses the HotPot **intent-based execution model** - a trustless, non-custodial swap architecture where the user's intent governs the entire execution flow:
+The Utexo Swap uses the HotPot **intent-based execution model** - a trustless, cross-chain swap architecture where the user's intent governs the entire execution flow:
 
 - The user signs an intent off-chain, cryptographically committing to the quoted swap parameters.
 - HotPot notifies the winning resolver to begin execution by depositing the required assets into a dedicated on-chain escrow.
@@ -35,8 +35,8 @@ This model ensures neither party can take funds without fulfilling their obligat
 
 | Asset Pair | Direction | Settlement |
 | --- | --- | --- |
-| BTC / RGB USDT | Inbound & Outbound | On-chain escrow + RGB client-side validation |
-| BTC / SatoshiRamen | Inbound & Outbound | On-chain escrow + RGB client-side validation |
+| BTC / RGB USDT | Inbound & Outbound | On-chain escrow \+ RGB client-side validation |
+| BTC / SatoshiRamen | Inbound & Outbound | On-chain escrow \+ RGB client-side validation |
 
 ## Security
 

@@ -18,7 +18,7 @@ Utexo is built on a layered stack. Each layer has a distinct and non-overlapping
 | Lightning Network | Off-chain execution and value transfer | High-throughput payments, near-instant finality, predictable latency |
 | RGB | Asset issuance and client-side validation | Stablecoin creation, privacy-preserving transfers, Bitcoin-secured ownership |
 | Utexo | Execution and coordination layer | Routing, liquidity, fee management, SDK/API abstraction |
-| Bridge | Cross-chain connectivity | Atomic, non-custodial inbound and outbound transfers between Ethereum, Tron, and the RGB layer |
+| Bridge | Cross-chain connectivity | Atomic, non-custodial inbound and outbound transfers between Arbitrum and the RGB layer, with Ethereum, Tron, and Solana supported via USDT0 |
 | Swap | On-chain BTC/USDT exchange | Non-custodial BTC ↔ USDT swaps on Bitcoin via the HotPot intent protocol |
 
 In the Utexo model, ownership proofs are validated locally by users' wallets (client-side validation), while actual payments occur through bidirectional Lightning channels. There is no global state to synchronise. Each transaction is a direct peer-to-peer exchange verified by cryptographic commitments.
@@ -86,9 +86,15 @@ The Utexo execution layer is the payment execution environment for USDT. It sits
 
 ## Bridge
 
-The Utexo Bridge connects external EVM-based networks (Ethereum, Tron) to the Bitcoin RGB layer, enabling atomic, non-custodial USDT transfers in both directions. Bridged USDT is represented on Bitcoin as RGB USDT — a real on-chain asset with Bitcoin-backed settlement guarantees.
+The Utexo Bridge connects external EVM-based networks to the Bitcoin RGB layer, enabling atomic, non-custodial USDT transfers in both directions. It is built around Arbitrum as the single EVM settlement hub, with USDT from Ethereum, Tron, and Solana supported transparently via the USDT0 / LayerZero protocol. Bridged USDT is represented on Bitcoin as RGB USDT — a real on-chain asset with Bitcoin-backed settlement guarantees.
 
-The Bridge is composed of three coordinated components: a **Bridge orchestrator** that tracks all in-flight transfers, stateless chain-specific **Connectors** that monitor smart contracts and issue on-chain transactions and an **Enclave Signer** that holds and uses private keys exclusively inside an AWS Nitro Trusted Execution Environment (TEE).
+The Bridge is composed of five coordinated components:
+
+1. **Bridge orchestrator** that tracks all in-flight transfers; stateless chain-specific.
+2. **Connectors** that monitor smart contracts and issue on-chain transactions; three independent.
+3. **Federated Signer Nodes**, each running inside an AWS Nitro Enclave, that jointly sign transactions using a 2-of-3 threshold — ensuring no single node can act unilaterally.
+4. **RGB Multisig Bridge** that coordinates multi-party custody of RGB assets with its own 2-of-3 cosigner threshold
+5. **BTC Relay** that streams Bitcoin block headers into the TEE for in-enclave SPV verification.
 
 <Info>
   For full component details, supported networks, transfer flow, and security properties, see [Bridge](/product-suite/bridge).
@@ -118,7 +124,7 @@ Swap uses an intent-based execution model with two participants: the **user**, w
 | Instant finality | Trades settle with predictable fees on Bitcoin |
 
 <Info>
-  For step-by-step swap guides, see [Swap BTC to RGB](/swap/swap-btc-to-rgb) and [Swap RGB to BTC](/swap/swap-rgb-to-btc).
+  For full component details, supported networks, transfer flow and security properties, see [Swap](product-suite/swap).
 </Info>
 
 ## Further Reading
@@ -137,6 +143,6 @@ Swap uses an intent-based execution model with two participants: the **user**, w
   </Card>
 
   <Card title="Swap" href="/product-suite/swap">
-    Non-custodial BTC/USDT exchange on Bitcoin.
+    Cross-chain BTC/USDT exchange on Bitcoin.
   </Card>
 </CardGroup>

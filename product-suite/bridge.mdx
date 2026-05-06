@@ -1,10 +1,14 @@
 ---
 title: "Bridge"
 sidebarTitle: "Bridge"
-description: "Atomic, non-custodial stablecoin transfers between Ethereum, Tron and the Bitcoin RGB layer."
+description: "Atomic, non-custodial stablecoin transfers between Arbitrum, Ethereum, Tron, Solana and the Bitcoin RGB layer."
 ---
 
-The Utexo Bridge is a non-custodial, atomic cross-chain bridge that moves USDT between EVM-based networks (Ethereum, Tron) and the Bitcoin RGB layer. Bridged USDT is represented on Bitcoin as native RGB USDT (TUSDT) — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
+<Frame>
+  ![Screenshot 2026 05 06 At 23 43 56](/images/Screenshot-2026-05-06-at-23.43.56.png)
+</Frame>
+
+The Utexo Bridge is a non-custodial, atomic cross-chain bridge that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron, or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as native RGB USDT on Bitcoin. Bridged USDT is represented on Bitcoin as native RGB USDT — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
 
 ## How It Works
 
@@ -14,7 +18,10 @@ The Bridge is composed of modular, stateless components that together coordinate
 | --- | --- |
 | **Bridge orchestrator** | Tracks all in-flight transfers, routes events between connectors, and drives transfers to completion or cancellation |
 | **Connectors** | Chain-specific gRPC services that monitor smart contracts for `FundsIn` events and issue `FundsOut` transactions on the destination chain |
+| **Federated Signer Nodes** | A set of three independent listener nodes, each running inside an AWS Nitro Enclave, that jointly sign transactions using a 2-of-3 threshold scheme |
 | **Enclave Signer** | Cryptographic microservice running inside an AWS Nitro Enclave; derives and holds private keys in a Trusted Execution Environment (TEE) so they never leave the hardware boundary |
+| **RGB Multisig Bridge** | Multi-party custody layer for RGB assets, coordinated through a dedicated hub with a 2-of-3 cosigner threshold for both colored and vanilla UTXO outputs |
+| **BTC Relay** | Lightweight Bitcoin header relay service that feeds block headers into the TEE for in-enclave SPV verification |
 | **REST Gateway** | Public API used by the web UI and external integrations |
 
 ### Bridge Orchestrator
@@ -23,17 +30,31 @@ The Bridge orchestrator is the central coordinator. It tracks all in-flight tran
 
 ### Connectors
 
-Each supported chain has a dedicated Connector — a stateless gRPC service that watches the chain for `FundsIn` smart contract events and issues `FundsOut` transactions on the destination chain. Connectors do not hold keys or funds. All signing is delegated to the Enclave Signer.
+Each supported chain has a dedicated Connector — a stateless gRPC service that watches the chain for `FundsIn` smart contract events and issues `FundsOut` transactions on the destination chain. Connectors do not hold keys or funds. All signing is delegated to the Federated Signer Nodes.
 
-### Enclave Signer
+### Federated Signer Nodes
 
-The Enclave Signer (`utexo-bridge-enclave-signer`) is a cryptographic microservice running inside an **AWS Nitro Enclave** — an isolated compute environment with no persistent storage, no shell access, and network access limited to a vsock proxy allowlisted to an Esplora indexer.
+Transaction signing is distributed across three independent listener nodes, each running inside its own **AWS Nitro Enclave**. A valid signature requires agreement from at least **2 of the 3 nodes** (2-of-3 threshold). No single node — and no external party — can unilaterally produce a valid signature.
 
 Key properties:
 
-- **Keys never leave the TEE.** BIP-39 key generation and all signing operations (EIP-712 for EVM, PSBT Taproot Schnorr for Bitcoin) happen inside the enclave.
-- **In-enclave RGB validation.** Every RGB consignment is validated against an Esplora indexer before signing, cross-checking amounts against calldata and commission.
+- **Threshold signing.** All EVM (EIP-712) and Bitcoin (PSBT Taproot Schnorr) signatures require a 2-of-3 quorum across independent TEE instances.
+- **Keys never leave the TEE.** BIP-39 key generation and all signing operations happen inside each enclave, with no persistent storage or shell access.
+- **In-enclave RGB validation.** Every RGB consignment is validated inside the enclave before signing, cross-checking amounts against calldata and commission.
+- **In-enclave SPV verification.** Bitcoin block headers are relayed into the TEE via the BTC Relay service, enabling the enclave to independently verify transaction inclusion without trusting any external data source.
 - **Memory safety.** Secrets are zeroized on drop; the codebase enforces `#![deny(unsafe_code)]`.
+
+### Enclave Signer
+
+The Enclave Signer (`utexo-bridge-enclave-signer`) is the base cryptographic microservice from which each Federated Signer Node is derived. It runs inside an **AWS Nitro Enclave** — an isolated compute environment with no persistent storage, no shell access, and network access limited to a vsock proxy allowlisted to an Esplora indexer and the BTC Relay.
+
+### RGB Multisig Bridge
+
+The RGB Multisig Bridge coordinates multi-party custody of RGB assets across three cosigner nodes, using a 2-of-3 threshold for both colored (RGB) and vanilla UTXO outputs. It operates through a dedicated coordination hub and is independent of the Federated Signer Nodes, providing a separate trust boundary for RGB asset issuance and redemption.
+
+### BTC Relay
+
+The BTC Relay (`btc-relayer`) streams Bitcoin block headers to the Federated Signer Nodes. Inside each enclave, headers are validated against a hardcoded checkpoint block and the signet challenge script — both baked in at compile time and bound to the enclave's PCR0 attestation measurement. This allows the TEE to perform SPV proofs without relying on any external indexer for header data.
 
 ## Transfer Flow
 
@@ -42,36 +63,47 @@ The following steps describe a complete atomic transfer:
 1. User deposits funds on the source chain (`FundsIn`).
 2. The source Connector detects the on-chain event and notifies the Bridge orchestrator.
 3. The Bridge orchestrator instructs the destination Connector to release funds (`FundsOut`).
-4. The Enclave Signer signs the `FundsOut` transaction inside the TEE before broadcast.
+4. The Federated Signer Nodes sign the `FundsOut` transaction inside their respective TEEs; a 2-of-3 quorum is required before broadcast.
 5. Transfer is marked complete once finality is confirmed.
 
 **Example — Ethereum → Bitcoin RGB layer:**
 
-1. User submits a `FundsIn` transaction on the Ethereum smart contract.
-2. The Ethereum Connector detects the event and notifies the orchestrator.
-3. The orchestrator instructs the Bitcoin Connector to prepare a `FundsOut` PSBT.
-4. The Enclave Signer validates the RGB consignment against Esplora and signs the PSBT using Taproot Schnorr.
-5. The signed transaction is broadcast to Bitcoin. Once confirmed, TUSDT appears in the user's RGB wallet.
+1. User submits a USDT transfer from their Ethereum wallet. The USDT0 / LayerZero protocol bridges it to USDT0 on Arbitrum transparently.
+2. User submits a `FundsIn` transaction on the Arbitrum smart contract, locking USDT0.
+3. The Arbitrum Connector detects the event and notifies the orchestrator.
+4. The orchestrator instructs the Bitcoin Connector to prepare a `FundsOut` PSBT.
+5. The Federated Signer Nodes validate the RGB consignment and SPV proof inside their enclaves; 2 of 3 sign the PSBT using Taproot Schnorr.
+6. The signed transaction is broadcast to Bitcoin. Once confirmed, USDT appears in the user's RGB wallet.
 
 ## Supported Networks
 
 | Network | Type | Direction |
 | --- | --- | --- |
-| Ethereum | EVM (secp256k1) | Inbound & Outbound |
-| Tron | EVM-compatible | Inbound & Outbound |
+| Arbitrum | EVM (secp256k1) | Inbound & Outbound |
 | Bitcoin (RGB layer) | Taproot / Schnorr | Inbound & Outbound |
+
+USDT from **Ethereum**, **Tron**, and **Solana** is supported at the user level via the USDT0 / LayerZero protocol, which handles conversion to USDT0 on Arbitrum transparently before the funds reach the Utexo Bridge contract.
 
 ## Supported Assets
 
 | Asset | Source Network | Representation on Bitcoin |
 | --- | --- | --- |
-| USDT | Ethereum, Tron | RGB USDT (TUSDT) |
+| USDT | Ethereum, Tron, Solana (via USDT0) | RGB USDT |
+| USDT0 | Arbitrum | RGB USDT |
+
+## Fees
+
+Commissions are managed on-chain through the `CommissionManager` contract. For token transfers (USDT, USDT0), fees can be applied on both `FundsIn` and `FundsOut`. For native currency, fees are only taken on `FundsIn` — charging on `FundsOut` is not applicable since that leg is triggered by the protocol rather than the user. The current fee rate is **0.4%** across supported networks.
 
 ## Security
 
-The Enclave Signer is the security boundary of the Bridge. It runs inside an AWS Nitro Enclave, ensuring that the private keys used to sign EVM and Bitcoin transactions are never accessible outside the hardware boundary — not to the Bridge orchestrator, not to infrastructure operators, and not to any external service.
+Signing authority is distributed across three independent Federated Signer Nodes, each running inside its own AWS Nitro Enclave. No single node can produce a valid signature unilaterally — a **2-of-3 threshold** is required for every EVM and Bitcoin transaction. This eliminates single-point-of-failure risks for key compromise, infrastructure access, and operator collusion.
 
-The Esplora indexer connection via vsock proxy is the only network interface allowed from within the enclave. This limits the attack surface to a single, auditable read-only data source used exclusively for RGB consignment validation.
+The Esplora indexer connection via vsock proxy is the only network interface allowed from within each enclave for RGB consignment validation. Bitcoin header data arrives via the BTC Relay, which feeds headers for in-enclave SPV verification against a compile-time checkpoint — limiting the attack surface to a small, auditable set of read-only data sources.
+
+**Burn replay protection.** The TEE extracts a `burnId` from each RGB consignment before signing. This identifier is passed as a `FundsOut` parameter and stored by the smart contract, which rejects any `FundsOut` call reusing a previously seen `burnId`.
+
+**Public attestation.** The enclave binary is reproducibly buildable, and each node publishes a verifiable attestation binding its public key to the PCR0 measurement of the deployed code. A `VERIFY.md` document provides step-by-step guidance for independently confirming that the keys held inside the EVM smart contract were generated and remain inside a genuine Nitro Enclave.
 
 ## Guide
 
