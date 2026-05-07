@@ -1,15 +1,15 @@
 ---
 title: 'Utexo SDK Reference'
-description: 'Complete method reference for the @utexo/rgb-sdk package — wallet management, RGB asset operations, Lightning payments, on-chain interactions, and core workflows.'
+description: 'Complete method reference for the @utexo/rgb-sdk Node.js package — wallet management, RGB asset operations, Lightning payments, async payments, on-chain interactions, and core workflows.'
 sidebarTitle: 'Utexo SDK'
 ---
 
-The `@utexo/rgb-sdk` package is the underlying SDK used by RGB client applications built on the Utexo stack. It provides a complete set of bindings for wallet management, RGB asset operations, Lightning payments, and on-chain Bitcoin interactions.
+The `@utexo/rgb-sdk` package is the Node.js SDK for applications built on the Utexo stack. It provides a complete set of bindings for wallet management, RGB asset operations, Lightning payments, async payments, and on-chain Bitcoin interactions. It is built on top of `@utexo/rgb-sdk-core`, the shared foundation used by all three Utexo SDK platforms.
 
 All operations are performed locally using client-side validation. Private keys and mnemonics are never transmitted to remote servers during normal execution.
 
 <Warning>
-  This SDK is designed for **Node.js only** and is not browser-compatible.
+  This SDK is designed for **Node.js only** and is not browser-compatible. For browser environments use `@utexo/rgb-sdk-web`; for iOS and Android use `@utexo/rgb-sdk-rn`.
 </Warning>
 
 ## Installation
@@ -20,17 +20,22 @@ npm install @utexo/rgb-sdk
 
 ## Initialisation
 
-The primary wallet class is `UTEXOWallet`. Initialise it with a mnemonic (or seed) and optional `{ network, dataDir }` configuration, then call `await wallet.initialize()` before use.
+The primary wallet class is `UTEXOWallet`. Initialise it with a mnemonic and a configuration object, then call `await wallet.initialize()` before use.
 
 ```js
 const { UTEXOWallet, generateKeys } = require('@utexo/rgb-sdk');
 
 // 1. Generate wallet keys
-const keys = await generateKeys('testnet');
+const keys = await generateKeys('utexo');
 console.log('Mnemonic:', keys.mnemonic); // Store securely
 
 // 2. Initialise wallet
-const wallet = new UTEXOWallet(keys.mnemonic, { network: 'testnet' });
+const wallet = new UTEXOWallet(keys.mnemonic, {
+  network: 'utexo',       // 'mainnet' | 'testnet' | 'utexo'
+  dataDir: './wallet',
+  lspBaseUrl: '...',      // optional — enables async (offline) payments
+  lspBearerToken: '...'   // optional — required when lspBaseUrl is set
+});
 await wallet.initialize();
 
 // 3. Get a deposit address
@@ -40,13 +45,17 @@ const address = await wallet.getAddress();
 const balance = await wallet.getBtcBalance();
 ```
 
+`lspBaseUrl` and `lspBearerToken` are optional. Omitting them has no effect on synchronous payment flows — async payment capability is strictly opt-in.
+
 ## Networks
 
-| Environment | RGB Transport Endpoint | Bitcoin Indexer |
-|---|---|---|
-| Mainnet | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
-| Testnet | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
-| Signet | `rpcs://rgb-proxy-utexo.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
+| Environment | Identifier | RGB Transport Endpoint | Bitcoin Indexer |
+|---|---|---|---|
+| Mainnet | `mainnet` | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
+| Testnet | `testnet` | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
+| Utexo (Signet) | `utexo` | `rpcs://rgb-proxy-utexo.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
+
+Pass the identifier string in the `network` field of the init config. `utexo` is the default environment for development and testing.
 
 ## Wallet Methods
 
@@ -58,7 +67,7 @@ const balance = await wallet.getBtcBalance();
     - `getXpub()` — Get vanilla and colored xpubs
   </Accordion>
   <Accordion title="Wallet Initialisation & State">
-    - `getAddress()` — Get deposit address (async)
+    - `getAddress()` — Get deposit address; supports address reuse with keychain rotation (addresses remain stable while keys rotate underneath)
     - `getBtcBalance()` — Get on-chain BTC balance (async)
     - `refreshWallet()` — Sync and refresh wallet state
     - `listUnspents()` — List unspent UTXOs
@@ -156,14 +165,30 @@ await wallet.syncWallet();
 
 <AccordionGroup>
   <Accordion title="Creating Lightning Invoices">
-    - `createLightningInvoice(params)` — Create a Lightning invoice for receiving
+    - `createLightningInvoice(params)` — Create a standard BOLT11 Lightning invoice for receiving
   </Accordion>
   <Accordion title="Paying Lightning Invoices">
-    Payments follow a begin → sign → end flow:
+    Synchronous payments follow a begin → sign → end flow:
 
     - `payLightningInvoiceBegin(params)` — Start Lightning payment (returns unsigned PSBT)
     - `payLightningInvoiceEnd(params)` — Finalise Lightning payment with signed PSBT
-    - `payLightningInvoice(params, mnemonic?)` — Complete Lightning payment (begin → sign → end)
+    - `payLightningInvoice(params, mnemonic?)` — Complete Lightning payment in a single call (begin → sign → end)
+  </Accordion>
+  <Accordion title="Async Payments (HODL Invoices)">
+    Async payments allow funds to be sent to an offline recipient. The LSP holds the payment via a HODL invoice until the recipient comes online to collect. This requires `lspBaseUrl` and `lspBearerToken` to be set in the wallet init config.
+
+    The inbound leg (receiving while offline) is fully operational. The outbound leg (initiating a HODL payment as sender) is in active development.
+
+    A payment hash reuse guard is enforced to prevent the same hash from being claimed across both inbound and outbound flows.
+
+    <Note>
+      HODL invoice support is being integrated into the Node.js SDK via the UniFFI bindings layer. Refer to release notes for method availability as this ships.
+    </Note>
+  </Accordion>
+  <Accordion title="Lightning Addresses">
+    When LSP integration is configured, recipients receive a stable, human-readable Lightning Address rather than a per-transfer invoice or QR code. The address remains consistent across payments while the underlying invoice and routing state are managed by the LSP.
+
+    Lightning Addresses are provisioned automatically when `lspBaseUrl` is set — no additional method calls are required to activate them.
   </Accordion>
   <Accordion title="Payment Status">
     - `getLightningSendRequest(lnInvoice)` — Get status of a Lightning send request
@@ -182,21 +207,23 @@ await wallet.syncWallet();
 
 By using this SDK, developers have full control over transfer orchestration, UTXO selection, invoice lifecycle, and signing policy.
 
+The SDK supports an **external signer** architecture: key management can be handled entirely outside the node, keeping signing logic isolated from the rest of the application. This is the recommended approach for custody-grade and enterprise deployments where key isolation is a hard requirement.
+
 <Info>
   Private keys and mnemonics should be stored securely and never logged or transmitted. Use environment variables or a secrets manager to handle mnemonic storage:
 
   ```js
-  const keys = await generateKeys('testnet');
+  const keys = await generateKeys('utexo');
   const mnemonic = keys.mnemonic; // Sensitive — protect at rest
 
   // Store mnemonic securely for later restoration
   const storedMnemonic = process.env.WALLET_MNEMONIC;
-  const restoredKeys = await deriveKeysFromMnemonic('testnet', storedMnemonic);
+  const restoredKeys = await deriveKeysFromMnemonic('utexo', storedMnemonic);
   ```
 </Info>
 
 ## Further Reading
 
-- [SDK Overview](/product-suite/sdk) — Execution model, network environments, and integration entry points.
+- [SDK Overview](/product-suite/sdk) — SDK family, execution model, network environments, and integration entry points.
 - [Product Suite](/getting-started/product-suite) — How the SDK fits into the full Utexo product surface.
 - [Architecture](/getting-started/architecture) — The Bitcoin + Lightning + RGB stack the SDK operates on.
