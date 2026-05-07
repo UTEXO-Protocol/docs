@@ -1,29 +1,70 @@
 ---
-title: "The Problem"
+title: 'The Problem'
+description: 'Why existing stablecoin payment infrastructure fails for business settlement, and what properties Bitcoin uniquely provides to solve it.'
+sidebarTitle: 'The Problem'
 ---
-
-Why Existing Stablecoin Rails Fail for Business Settlement
 
 Stablecoins are already used at global scale for payments, treasury operations, remittances, and internal settlement. USDT has become the dominant settlement asset across both crypto-native and cross-border payment flows.
 
-Most stablecoin activity today runs on public blockchains with dynamic fee markets: transaction costs are determined by congestion and blockspace demand, which makes execution costs unpredictable. Fees change continuously and cannot be fixed in advance.
+But the infrastructure carrying those stablecoins was not designed for business-grade settlement. It introduces three structural failure modes that make it operationally unsuitable for payment providers, exchanges, and financial operators.
+
+## Unpredictable Execution Costs
+
+Most stablecoin activity today runs on public blockchains with dynamic fee markets. Transaction costs are determined by congestion and blockspace demand, making execution costs unpredictable by design. Fees change continuously and cannot be fixed in advance.
 
 During periods of high usage, costs can increase by orders of magnitude.
 
-For payment providers, this breaks the basic requirements of a payment rail: there is no fixed unit economics, no deterministic pricing model, and no way to offer flat fees to merchants or users.
+For payment providers, this breaks the basic requirements of a payment rail:
 
-As a result, blockchain networks with variable fee markets are unsuitable as primary settlement infrastructure for payment businesses.
+- No fixed unit economics
+- No deterministic pricing model
+- No ability to offer flat fees to merchants or users
 
-Another blocker for B2B adoption concerns privacy: all major stablecoin networks today operate on transparent public ledgers.
+<Warning>
+  Blockchain networks with variable fee markets are structurally unsuitable as primary settlement infrastructure for payment businesses. Unit economics cannot be modelled or guaranteed.
+</Warning>
 
-Every transaction exposes balances, counterparties, and payment flows. For businesses, this leaks sensitive commercial information such as supplier relationships, customer volumes, treasury movements, and internal settlement activity.
+## No Settlement Privacy
 
-This level of transparency is incompatible with payroll, B2B payments, PSP settlement, and enterprise treasury operations.
+All major stablecoin networks operate on transparent public ledgers. Every transaction exposes balances, counterparties, and payment flows to any observer.
+
+For businesses, this means:
+
+- Supplier relationships, customer volumes, treasury movements, and internal settlement activity are publicly visible
+- Payroll, B2B payments, PSP settlement, and enterprise treasury operations leak commercially sensitive data
+- Competitive intelligence can be extracted directly from on-chain activity
+
+This level of transparency is incompatible with the operational requirements of financial operators handling confidential business flows.
+
+## Forced Dependency on Alternative Chains
 
 Bitcoin offers properties that payment operators already value: deterministic finality, strong censorship resistance, regulatory clarity, and the deepest global liquidity base of any blockchain network.
 
-But despite this, there is currently no way to use USDT on Bitcoin in a way that is suitable for production payment systems, which require predictable execution costs, private settlement, and enterprise-grade security.
+But there is currently no way to use USDT natively on Bitcoin in a form that is suitable for production payment systems. The required properties — predictable execution costs, private settlement, and enterprise-grade security — are absent.
 
-Stablecoin settlement is therefore forced onto alternative chains or custodial platforms, introducing additional trust assumptions, counterparty risk, and external execution dependencies.
+Stablecoin settlement is therefore forced onto alternative chains or custodial platforms, introducing:
 
-Utexo exists to make stablecoin settlement costs predictable, independent of blockspace congestion while preserving Bitcoin's security model.
+- Additional trust assumptions
+- Counterparty risk
+- External execution dependencies
+- Loss of Bitcoin’s security guarantees
+
+## What Utexo Solves
+
+<Info>
+  Utexo exists to make stablecoin settlement costs predictable and private, independent of blockspace congestion, while preserving Bitcoin’s security model. It brings USDT settlement natively to Bitcoin without requiring alternative chains, custodians, or smart contract platforms.
+</Info>
+
+The three failure modes above are addressed directly by the Utexo architecture:
+
+| Failure Mode | Utexo Response |
+|---|---|
+| Unpredictable fees | Fixed, protocol-level fee schedule |
+| Public execution | Off-chain settlement with cryptographic privacy |
+| Alternative chain dependency | Bitcoin + RGB + Lightning — no external L1 required |
+
+## Further Reading
+
+- [Architecture](/getting-started/architecture) — How Bitcoin, the Lightning Network, RGB, and Utexo address these failure modes at the protocol level.
+- [What is Utexo?](/what-utexo-is) — The Utexo framework and its four core design principles.
+- [Quickstart](/getting-started/quickstart) — Integrate Utexo and process your first stablecoin payment.

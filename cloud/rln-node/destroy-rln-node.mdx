@@ -1,12 +1,31 @@
 ---
 title: "Destroy your Node"
+sidebarTitle: "Destroy your Node"
+description: "Permanently decommission an RLN node on Utexo Cloud."
 ---
 
-1. **Initiate Node Destruction**
-   To begin the destruction process, navigate to the specific node's page by accessing `/nodes/{nodeId}`.
-2. **Check Node Status**
-   Ensure that the node is in a `RUNNING` status. Nodes in this state are eligible for destruction.
-3. **Destroy the Node**
-   Click the **"Destroy"** button available on the page. This action will initiate the destruction process, and the node's status will change to `IN_PROGRESS` to indicate that the destruction is underway.
-4. **Final Status Update**
-   Once the node has been successfully destroyed, the status will update to `DESTROYED`. This confirms that the node has been decommissioned and all associated resources have been properly cleaned up.
+<Warning>
+  Node destruction is **permanent and irreversible**. All associated resources will be cleaned up and cannot be recovered. Back up your node state before proceeding. See [Node Backup / Restore](/cloud/rln-node/node-backup-restore).
+</Warning>
+
+## Steps
+
+### 1. Navigate to the Node Page
+
+Access the node you want to destroy at:
+
+```
+/nodes/{nodeId}
+```
+
+### 2. Check Node Status
+
+Ensure the node is in `RUNNING` status. Only nodes in a running state are eligible for destruction.
+
+### 3. Destroy the Node
+
+Click the **Destroy** button on the node page. This action initiates the destruction process and the node's status changes to `IN_PROGRESS`.
+
+### 4. Confirm Destruction
+
+Once the node has been successfully destroyed, the status updates to `DESTROYED`. This confirms that the node has been decommissioned and all associated resources have been cleaned up.

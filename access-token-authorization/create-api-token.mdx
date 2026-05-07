@@ -1,12 +1,44 @@
 ---
 title: "Create API Token"
+description: "Generate an access token to authenticate requests to the Utexo Cloud API."
 ---
 
-1. **Navigate to the API Tokens page and create an access token**
-   Go to the API Tokens page and choose "Create Access Token".
-2. **Provide a token name**
-   Input a name for the token. This helps manage multiple tokens.
-3. **Revoking a token**
-   Tokens on this platform do not expire. They remain valid until manually revoked.
-   - To revoke an access token, return to the API Tokens section, find the token item, and click the **"Revoke"** button for that token.
-   - Revoking a token immediately deactivates it and prevents any further API access using that token.
+## Overview
+
+Access tokens are used to authenticate requests to the [Cloud API](/access-token-authorization/cloud-api). Tokens do not expire and remain valid until manually revoked, so treat them like passwords.
+
+## Creating a Token
+
+1. **Navigate to the API Tokens page** \
+   Go to the API Tokens page in your Utexo Cloud dashboard and click **"Create Access Token"**.
+
+2. **Provide a token name** \
+   Enter a descriptive name for the token. Using meaningful names (e.g., `production-server`, `dev-laptop`) helps you identify and manage multiple tokens.
+
+3. **Copy and store the token securely** \
+   The token is shown once. Store it in a secrets manager or environment variable immediately.
+
+## Using the Token
+
+Export the token as an environment variable and include it in API requests:
+
+```bash
+export CLOUD_API_TOKEN="<your_token>"
+
+curl -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
+  "https://cloud-api.thunderstack.org/api/nodes"
+```
+
+See the [Cloud API reference](/access-token-authorization/cloud-api) for all available endpoints.
+
+## Revoking a Token
+
+<Warning>
+Revoking a token immediately deactivates it and prevents any further API access using that token.
+</Warning>
+
+To revoke a token:
+
+1. Return to the **API Tokens** section in your dashboard.
+2. Find the token item you want to revoke.
+3. Click the **"Revoke"** button for that token.

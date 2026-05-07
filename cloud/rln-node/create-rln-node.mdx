@@ -1,46 +1,73 @@
 ---
 title: "Create RLN Node"
+sidebarTitle: "Create RLN Node"
+description: "Provision a new RGB Lightning Node on the Utexo Cloud dashboard."
 ---
 
-### Initiate RLN Node Creation
+## Prerequisites
 
-- Navigate to the `/nodes` page. Here you'll see an overview of your current nodes and the option to create new ones.
+Before creating a node, ensure you have:
 
-- Click the "Create Node" button. This redirects you to a page where you can begin the node creation process.
+1. An active Utexo Cloud account at [cloud.utexo.com](https://cloud.utexo.com)
+2. A [Cloud API token](/access-token-authorization/create-api-token) (required for API-based operations)
 
-### Configure Your RLN Node
+## Steps
 
-- On the redirected page, fill out the node creation form by entering a unique name for your new node. This name helps you identify the node in your dashboard.
-- After entering a name, click the "Create" button to submit the form and start the node creation process.
+### 1. Initiate Node Creation
 
-On the Regtest Network, block mining doesn't happen automatically. Manually mine blocks using the provided curl commands whenever you want the chain to advance or confirm activity.
+Navigate to the `/nodes` page. You will see an overview of your current nodes and the option to create new ones.
+
+Click the **Create Node** button to open the node creation form.
+
+### 2. Configure Your RLN Node
+
+Enter a unique name for your new node. This name identifies the node in your dashboard.
+
+Click **Create** to submit the form and begin provisioning.
+
+### 3. Monitor Node Creation Status
+
+After submitting, a new entry appears in the nodes table with a status of `IN_PROGRESS`. During this phase, no operations can be performed on the node.
+
+Visit `/nodes/{nodeId}` to view detailed information: current status, build progress, endpoint details, and configuration options.
+
+| Status | Meaning |
+| --- | --- |
+| `IN_PROGRESS` | Node is under construction. No interactions are available. |
+| `RUNNING` | Node is fully operational. |
+| `PAUSED` | Node has been paused. |
+| `FAILED` | Node encountered an error during provisioning. |
+
+### 4. Final Verification
+
+Once the status changes to `RUNNING`, verify the node appears correctly in your dashboard and that you can access its features and settings.
+
+<Info>
+  After a node reaches `RUNNING` status, connect to it via mTLS or API token. See [Connect to RLN Node](/cloud/rln-node/connect-rln-node) for details.
+</Info>
+
+## Regtest Network (Testing Only)
+
+<Warning>
+  The following applies only to nodes on the **Regtest** network for development and testing. Do not use these commands on Mainnet nodes.
+</Warning>
+
+On Regtest, blocks are not mined automatically. Use your node's Bitcoin Core RPC endpoint to advance the chain manually.
 
 To mine blocks:
 
-```text
-curl --location 'http://18.119.98.232:5000/execute' \
+```bash
+curl --location '{YOUR_NODE_RPC_ENDPOINT}/execute' \
   --header 'Content-Type: application/json' \
   --data '{ "args": "mine 10" }'
 ```
 
-If you need test BTC, use the `sendtoaddress` command (acts like a local faucet), then manually mine a block with the curl command above to confirm it:
+To get test BTC (local faucet), send to an address and mine a block to confirm:
 
-```text
-curl --location 'http://18.119.98.232:5000/execute' \
+```bash
+curl --location '{YOUR_NODE_RPC_ENDPOINT}/execute' \
   --header 'Content-Type: application/json' \
   --data '{ "args": "sendtoaddress <address> 0.1" }'
 ```
 
-### Monitor Node Creation Status
-
-- After submitting the form, a new item is added to the nodes table on the `/nodes` page. Initially it will display a status of IN\_PROGRESS while the node is being built. During this phase you cannot perform operations with the node.
-- You can view detailed information by visiting `/nodes/{nodeId}`. That page shows current status, build progress, endpoint details, and other configurable options so you can monitor the node's setup process.
-
-#### Understanding statuses
-
-- **IN\_PROGRESS**: Node is under construction. No interactions can be made.
-- **RUNNING**: Node has been successfully built and is fully operational.
-
-### Final Verification
-
-- Once the status changes to RUNNING, verify the node appears correctly in your dashboard and that you can access its features and settings.
+Replace `{YOUR_NODE_RPC_ENDPOINT}` with the RPC endpoint visible on your node's dashboard page.

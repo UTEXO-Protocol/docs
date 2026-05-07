@@ -1,44 +1,59 @@
 ---
 title: "Connect to RLN Node"
+sidebarTitle: "Connect to RLN Node"
+description: "Connect securely to your RGB Lightning Node via mTLS or API token."
 ---
 
-## Connecting to Node with mTLS
+Once your RLN node is in `RUNNING` status, you can connect to it using one of two methods: **mTLS** (certificate-based) or **API token** (bearer authentication).
 
-Follow these detailed steps to establish a secure connection to your node using the provided mTLS credentials:
+## Option 1: Connect via mTLS
 
-### Access Node Connection Details
+### 1. Access Node Connection Details
 
-- Navigate to the Connect Page: open your web browser and go to the /connect page. This page provides the connection details for your node. URL: `https://www.thunderstack.org/{nodeId}/connect`
+Navigate to the Connect page for your node:
 
-- View Connection Details: the connect page displays the unique endpoint URL for your node, along with the private key and certificate required for the mTLS connection. These credentials are automatically generated for your session and are required to establish a secure connection.
-
-### Obtain Connection Credentials and URL
-
-- Download Credentials from the /connect page:
-  - Private Key: a `.key` file (e.g., `privateKey.key`) containing your private key.
-  - Certificate: a `.pem` file (e.g., `certificate.pem`) containing your public key certificate.
-- Copy Endpoint URL: the page will display the unique endpoint URL formatted like: `https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/`
-
-### Prepare the Request
-
-- Save the downloaded files in a secure location on your computer. You will reference these files when making requests.
-- Use the example curl command shown on the /connect page as a template. Modify the example by replacing placeholders with the actual paths to your saved key and certificate files.
-
-- Example pattern (replace paths/placeholders accordingly):
-
-```text
-curl --key /path/to/privateKey.key --cert /path/to/certificate.pem https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/
+```
+https://www.thunderstack.org/{nodeId}/connect
 ```
 
-## Connecting to Node with API token
+This page displays the unique endpoint URL for your node, along with the private key and certificate required for the mTLS connection. These credentials are automatically generated for your session.
 
-Follow these steps to connect using an API token.
+### 2. Obtain Connection Credentials
 
-- Example usage with curl:
+From the `/connect` page, download:
 
-```text
+- **Private Key**: a `.key` file (e.g., `privateKey.key`) containing your private key
+- **Certificate**: a `.pem` file (e.g., `certificate.pem`) containing your public key certificate
+- **Endpoint URL**: formatted as `https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/`
+
+<Warning>
+  Store your private key in a secure location. Do not share it or commit it to version control.
+</Warning>
+
+### 3. Make a Request
+
+Use the downloaded credentials with `curl`:
+
+```bash
+curl --key /path/to/privateKey.key \
+  --cert /path/to/certificate.pem \
+  https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/
+```
+
+Replace the paths and endpoint with the values from your `/connect` page.
+
+## Option 2: Connect via API Token
+
+API token authentication is simpler to use for programmatic integrations.
+
+```bash
 export CLOUD_API_TOKEN=<your_token>
-curl -H 'Authorization: Bearer ${CLOUD_API_TOKEN}' https://node-api.thunderstack.org/<user_id>/<node_id>
+curl -H 'Authorization: Bearer ${CLOUD_API_TOKEN}' \
+  https://node-api.thunderstack.org/<user_id>/<node_id>
 ```
 
-- Follow this link to obtain CLOUD\_API\_TOKEN.
+To obtain a `CLOUD_API_TOKEN`, see [Create API Token](/access-token-authorization/create-api-token).
+
+<Info>
+  Both mTLS and API token authentication give equivalent access to the node's REST API. mTLS is preferred in production environments where certificate-based trust is required.
+</Info>

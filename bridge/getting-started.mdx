@@ -1,99 +1,122 @@
 ---
 title: "Getting Started"
+description: "Transfer USDT between Ethereum and the Bitcoin RGB layer using the Utexo Bridge."
 ---
 
-# Getting Started
+This guide walks you through both directions of a bridge transfer: depositing USDT from an EVM wallet onto the Bitcoin RGB layer and withdrawing it back. USDT from Ethereum, Tron, and Solana is supported — under the hood, it is routed through the USDT0 / LayerZero protocol to Arbitrum before being locked and minted as RGB USDT on Bitcoin. This routing is handled transparently; from your wallet, the experience is the same regardless of which network you connect from.
 
-## How Ethereum → RGB Transfers Work
+<Info>
+  All transfers are atomic and non-custodial. Signing authority is distributed across three independent Federated Signer Nodes, each running inside an AWS Nitro Enclave, using a 2-of-3 threshold — no single node can produce a valid signature unilaterally.
+</Info>
 
-When transferring USDT from the Ethereum network to RGB, you receive an equivalent TUSDT token in the RGB network. The transfer is made through Utexo, with transactions signed in MetaMask and an RGB invoice used as the recipient address.
+## Prerequisites
 
-### 🔧 Requirements Before You Start
+Before initiating a transfer, ensure you have the following ready.
 
-**MetaMask**
+**MetaMask (browser extension)**
 
-- ETH balance (to pay for gas fees).
-- USDT balance (the amount you will transfer).
+- ETH balance to cover Arbitrum gas fees.
+- USDT balance for the amount you want to bridge.
 
-**IRIS Wallet (Mobile App)**
+**TRIBE Wallet (mobile app)**
 
-- BTC balance (to pay the RGB transaction fee).
-- Connect RGB Wallet on the Bridge — you can do this in two ways:
-  - Click CONNECT RGB WALLET at the bottom of the bridge form.
-  - Open the wallet list in the top-right corner of the bridge page and click the power button next to RGBWallet.
+- BTC balance to cover the RGB transaction fee on the Bitcoin side.
+- Your TRIBE Wallet connected to the Bridge. You can connect it in two ways:
+  - Click **CONNECT RGB WALLET** at the bottom of the bridge form.
+  - Open the wallet list in the top-right corner of the bridge page and click the power button next to **RGBWallet**.
 
-### 1. Enter the transfer details
+---
 
-**Enter the amount** — In the Amount field, enter the number of USDT tokens to transfer.
+## Ethereum → Bitcoin (RGB)
 
-**Enter the destination address** — In the Destination field, paste an RGB invoice generated in the IRIS Wallet mobile app:
+This direction moves USDT from your EVM wallet to the Bitcoin RGB layer, where you receive an equivalent RGB USDT token.
 
-- Ensure your wallet has a BTC balance to cover the transaction fee.
-- Open IRIS Wallet → select Receive assets.
-- Generate the invoice and copy it.
-- Paste this invoice into the Destination field on Utexo.
+### Step 1 — Enter the transfer details
 
-### 2. Review and confirm the transaction
+On [bridge.utexo.com](https://bridge.utexo.com), set:
 
-After filling in the form, a **Transaction Preview** will appear showing:
+- **Send:** Blockchain – Ethereum (or Tron / Solana), Token – USDT.
+- **Receive:** Blockchain – Bitcoin (RGB), Token – USDT.
 
-- **You will receive** — estimated amount of TUSDT after fees.
-- **Estimated gas fee** — Ethereum network gas fee at live market rates.
-- **Bridge commission** — fixed % fee charged by Utexo.
+In the **Amount** field, enter the number of USDT tokens to transfer.
 
-Click **Transfer**. MetaMask will request confirmation in three stages:
+In the **Destination** field, paste an RGB invoice generated in TRIBE Wallet:
 
-**Approve token spending** — A MetaMask popup will appear asking you to approve USDT spending. Click Confirm.
+1. Open TRIBE Wallet and ensure your BTC balance can cover the network fee.
+2. Select **Receive assets**.
+3. Generate an invoice for the USDT asset and copy it.
+4. Paste the invoice into the **Destination** field on the Bridge.
 
-**Confirm the transaction** — Wait 2–10 seconds for the second MetaMask popup. Review the details and click Confirm to complete the transfer.
+### Step 2 — Review and confirm
 
-### 3. Wait for TUSDT to be credited
+After filling in the form, a **Transaction Preview** appears with:
 
-In the IRIS Wallet mobile app, wait until the TUSDT tokens are credited to your balance.
+- **You will receive** — estimated USDT amount after fees.
+- **Estimated gas fee** — live Arbitrum network gas cost.
+- **Bridge commission** — fixed percentage fee charged by Utexo.
 
-This may take longer than usual due to high Bitcoin network congestion.
+Click **Transfer**. MetaMask will prompt you through two confirmation steps:
 
-## How RGB → Ethereum Transfers Work (TUSDT → USDT)
+1. **Approve token spending** — Authorises the Bridge contract to spend your USDT. Click **Confirm**.
+2. **Confirm the transaction** — Wait 2–10 seconds for the second MetaMask prompt. Review the details and click **Confirm** to submit.
 
-### 1. Prepare the transaction on the bridge
+### Step 3 — Wait for USDT to arrive
 
-On Utexo, set:
+Open TRIBE Wallet and monitor your USDT balance. Settlement time depends on Bitcoin network congestion. During periods of high congestion, confirmation may take longer than usual.
 
-- **Send:** Blockchain – RGB, Token – TUSDT.
-- **Receive:** Blockchain – Ethereum, Token – USDT.
+<Tip>
+  In TRIBE Wallet, a completed Ethereum → Bitcoin transfer is highlighted in **green** (asset credit).
+</Tip>
 
-Enter the **Amount** of TUSDT you want to send.
+---
 
-In the **Destination address** field, enter your Ethereum address (MetaMask).
+## Bitcoin (RGB) → Ethereum
 
-Review the preview section — it will display: **You will receive** — estimated amount of USDT after fees. **Estimated gas fee** and Commission.
+This direction burns USDT on the Bitcoin RGB layer and releases the equivalent USDT on Ethereum.
 
-Click **TRANSFER**.
+### Step 1 — Enter the transfer details
 
-### 2. Pay the RGB invoice
+On [bridge.utexo.com](https://bridge.utexo.com), set:
 
-Once the bridge generates the RGB invoice (popup with QR code), open the IRIS Wallet mobile app.
+- **Send:** Blockchain – Bitcoin (RGB), Token – USDT.
+- **Receive:** Blockchain – Ethereum (or Tron / Solana), Token – USDT.
 
-- Go to your TUSDT token.
-- Tap **Send**.
-- Tap the QR scanner icon and scan the QR code from the Utexo popup.
-- Confirm sending in IRIS Wallet by pressing Send.
+In the **Amount** field, enter the amount of USDT you want to withdraw.
 
-### 3. Check transaction status in IRIS Wallet
+In the **Destination address** field, enter your EVM wallet address (for example, from MetaMask).
 
-After sending, the transaction will first appear with the status **WAITING\_COUNTERPARTY**.
+Review the **Transaction Preview**:
 
-Refresh your wallet (tap the refresh icon).
+- **You will receive** — estimated USDT amount after fees.
+- **Estimated gas fee** and **Commission**.
 
-Once refreshed, the transaction status should change to **WAITING\_CONFIRMATIONS**, meaning it is now being processed on the Bitcoin network.
+Click **Transfer**.
 
-### 🔧 Additional notes
+### Step 2 — Pay the RGB invoice
 
-Transaction time may vary depending on Bitcoin network congestion — in some cases, it may take longer than expected.
+The Bridge generates an RGB invoice displayed as a popup with a QR code. Open TRIBE Wallet:
 
-In IRIS Wallet, a finalized transaction is highlighted in:
+1. Navigate to your **USDT** token.
+2. Tap **Send**.
+3. Tap the **QR scanner** icon and scan the QR code from the Bridge popup.
+4. Review the transfer details and tap **Send** to confirm.
 
-- **Red** – for RGB → Ethereum transfers (asset deduction).
-- **Green** – for Ethereum → RGB transfers (asset credit).
+### Step 3 — Monitor the transaction status
 
-You're all set! Enjoy smooth and secure cross-chain transfers with Utexo.
+After sending, the transaction appears in TRIBE Wallet with the status **WAITING\_COUNTERPARTY**.
+
+Refresh your wallet (tap the refresh icon). Once the Bitcoin network picks up the transaction, the status changes to **WAITING\_CONFIRMATIONS**. When confirmations are complete, the USDT is released to your EVM address.
+
+<Tip>
+  In TRIBE Wallet, a completed Bitcoin → Ethereum transfer is highlighted in **red** (asset deduction from the RGB layer).
+</Tip>
+
+---
+
+## Fees
+
+| Fee type | Description |
+| --- | --- |
+| **Arbitrum gas fee** | Variable; priced at live market rates at the time of signing. |
+| **Bridge commission** | Fixed percentage of the transferred amount, charged by Utexo. Shown in the Transaction Preview before you confirm. |
+| **Bitcoin RGB fee** | Small BTC amount deducted from your TRIBE Wallet to settle the RGB transaction on-chain. |

@@ -1,70 +1,117 @@
 ---
 title: "RGB Lightning Node API"
+description: "REST JSON API reference for interacting with running RGB Lightning Node instances."
 ---
 
-## RGB Lightning Node API
+## Overview
 
-Once nodes are running, they can be operated via REST JSON APIs.
+Once an RLN node is running on Utexo Cloud, it exposes a REST JSON API that can be called directly to perform Lightning and RGB operations — channel management, asset issuance, payments, peer connections, and more.
 
-For example, using curl:
+### Base URL
 
-```text
-curl -X POST -H "Content-type: application/json" -d '{"ticker": "USDT", "name": "Tether", "amounts": [666], "precision": 0}' http://localhost:3001/issueasset
+Each node has a unique endpoint URL visible on its dashboard page (`/nodes/{nodeId}`). Connections can be made via mTLS or API token. See [Connect to RLN Node](/cloud/rln-node/connect-rln-node) for details.
+
+### Example Request
+
+```bash
+curl -X POST \
+  -H "Content-type: application/json" \
+  -d '{"ticker": "USDT", "name": "Tether", "amounts": [666], "precision": 0}' \
+  https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/issueasset
 ```
 
-The node currently exposes the following APIs:
+## Available Endpoints
 
-- /address (POST)
-- /assetbalance (POST)
-- /assetmetadata (POST)
-- /backup (POST)
-- /btcbalance (POST)
-- /changepassword (POST)
-- /checkindexerurl (POST)
-- /checkproxyendpoint (POST)
-- /closechannel (POST)
-- /connectpeer (POST)
-- /createutxos (POST)
-- /decodelninvoice (POST)
-- /decodergbinvoice (POST)
-- /disconnectpeer (POST)
-- /estimatefee (POST)
-- /failtransfers (POST)
-- /getassetmedia (POST)
-- /getchannelid (POST)
-- /init (POST)
-- /invoicestatus (POST)
-- /issueassetcfa (POST)
-- /issueassetnia (POST)
-- /issueassetuda (POST)
-- /keysend (POST)
-- /listassets (POST)
-- /listchannels (GET)
-- /listpayments (GET)
-- /listpeers (GET)
-- /listswaps (GET)
-- /listtransactions (POST)
-- /listtransfers (POST)
-- /listunspents (POST)
-- /lninvoice (POST)
-- /lock (POST)
-- /makerexecute (POST)
-- /makerinit (POST)
-- /networkinfo (GET)
-- /nodeinfo (GET)
-- /openchannel (POST)
-- /postassetmedia (POST)
-- /refreshtransfers (POST)
-- /restore (POST)
-- /rgbinvoice (POST)
-- /sendasset (POST)
-- /sendbtc (POST)
-- /sendonionmessage (POST)
-- /sendpayment (POST)
-- /shutdown (POST)
-- /signmessage (POST)
-- /sync (POST)
-- /taker (POST)
-- /unlock (POST)
+The node exposes the following REST endpoints, all using `POST` unless noted:
 
-To get more details about the available APIs see the OpenAPI specification. A Swagger UI is available at https://rgb-tools.github.io/rgb-lightning-node
+### Wallet & Balances
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/address` | POST | Generate a new on-chain address |
+| `/btcbalance` | POST | Get BTC balance |
+| `/assetbalance` | POST | Get RGB asset balance |
+| `/listunspents` | POST | List unspent outputs |
+| `/createutxos` | POST | Create UTXOs for RGB use |
+
+### Asset Management
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/issueassetnia` | POST | Issue a NIA (non-inflatable) asset |
+| `/issueassetcfa` | POST | Issue a CFA (collectible) asset |
+| `/issueassetuda` | POST | Issue a UDA (unique digital asset) |
+| `/listassets` | POST | List all RGB assets |
+| `/assetmetadata` | POST | Get metadata for an asset |
+| `/getassetmedia` | POST | Retrieve asset media |
+| `/postassetmedia` | POST | Upload asset media |
+| `/sendasset` | POST | Send an RGB asset |
+| `/listtransfers` | POST | List RGB transfers |
+| `/refreshtransfers` | POST | Refresh pending transfers |
+| `/failtransfers` | POST | Mark transfers as failed |
+
+### Payments & Invoices
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/lninvoice` | POST | Create a Lightning invoice |
+| `/rgbinvoice` | POST | Create an RGB invoice |
+| `/decodelninvoice` | POST | Decode a Lightning invoice |
+| `/decodergbinvoice` | POST | Decode an RGB invoice |
+| `/invoicestatus` | POST | Check invoice status |
+| `/sendpayment` | POST | Send a Lightning payment |
+| `/keysend` | POST | Send a keysend payment |
+| `/listpayments` | GET | List all payments |
+| `/listtransactions` | POST | List on-chain transactions |
+
+### Channels
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/openchannel` | POST | Open a Lightning channel |
+| `/closechannel` | POST | Close a Lightning channel |
+| `/listchannels` | GET | List all channels |
+| `/getchannelid` | POST | Get channel ID |
+
+### Peers & Network
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/connectpeer` | POST | Connect to a peer |
+| `/disconnectpeer` | POST | Disconnect from a peer |
+| `/listpeers` | GET | List connected peers |
+| `/networkinfo` | GET | Get network information |
+| `/nodeinfo` | GET | Get node information |
+| `/checkindexerurl` | POST | Verify indexer URL |
+| `/checkproxyendpoint` | POST | Verify proxy endpoint |
+| `/estimatefee` | POST | Estimate transaction fee |
+| `/signmessage` | POST | Sign a message with node key |
+| `/sendonionmessage` | POST | Send an onion message |
+
+### Swaps
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/makerinit` | POST | Initialize as swap maker |
+| `/makerexecute` | POST | Execute swap as maker |
+| `/taker` | POST | Participate as swap taker |
+| `/listswaps` | GET | List all swaps |
+
+### Node Lifecycle
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/init` | POST | Initialize node after creation |
+| `/unlock` | POST | Unlock node with password |
+| `/lock` | POST | Lock node |
+| `/changepassword` | POST | Change node password |
+| `/backup` | POST | Trigger a node backup |
+| `/restore` | POST | Restore node from backup |
+| `/sync` | POST | Sync node state |
+| `/shutdown` | POST | Shut down the node |
+
+## Full API Reference
+
+For complete parameter definitions and response schemas, see the OpenAPI specification and interactive Swagger UI:
+
+[https://rgb-tools.github.io/rgb-lightning-node](https://rgb-tools.github.io/rgb-lightning-node)

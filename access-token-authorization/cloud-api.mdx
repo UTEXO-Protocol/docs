@@ -1,10 +1,11 @@
 ---
-title: "Cloud Api"
+title: "Cloud API"
+description: "Manage Utexo Cloud RLN nodes programmatically over a REST JSON API."
 ---
 
-## Cloud API
+## Overview
 
-Manage Cloud nodes over a REST JSON API.
+The Utexo Cloud API allows you to manage RGB Lightning Node instances programmatically — creating, querying, upgrading, destroying nodes, and managing their settings.
 
 ## Base URL
 
@@ -14,35 +15,34 @@ https://cloud-api.thunderstack.org
 
 ## Authentication
 
-All endpoints use bearer auth.
+All endpoints require bearer token authentication. First [create an API token](/access-token-authorization/create-api-token), then export it:
 
-```text
+```bash
 export CLOUD_API_TOKEN="<your_token>"
 ```
 
-Each request must include:
+Include the token in every request:
 
-```text
+```bash
 -H "Authorization: Bearer ${CLOUD_API_TOKEN}"
 ```
 
-Examples below use `curl` and show paths relative to the base URL.
+## Endpoints
 
-## List nodes
+### List Nodes
 
 `GET /api/nodes`
 
 Returns all nodes and their build history.
 
-```text
+```bash
 curl -s \
   -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
   "https://cloud-api.thunderstack.org/api/nodes"
 ```
 
-Example response:
-
-```text
+<Accordion title="Example response">
+```json
 {
   "nodes": [
     {
@@ -52,20 +52,32 @@ Example response:
       "status": "RUNNING",
       "initialized": true,
       "invoke_url": "<url>",
-      "settings": { "webhookUrl": "<url>" },
-      "builds": [{ "buildNumber": 1, "buildStatus": "SUCCESS", "buildComplete": true, "timestamp": "<iso8601>" }]
+      "settings": {
+        "webhookUrl": "<url>"
+      },
+      "builds": [{
+        "buildNumber": 1,
+        "buildStatus": "SUCCESS",
+        "buildComplete": true,
+        "timestamp": "<timestamp>"
+      }]
     }
   ]
 }
 ```
+</Accordion>
 
-## Create a node
+### Create a Node
 
 `POST /api/nodes`
 
-Body fields: `name` (string, required), `network` (string, required): regtest or testnet, `settings` (object, optional): webhookUrl
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | Yes | Unique name for the node |
+| `network` | string | Yes | `regtest` or `testnet` |
+| `settings.webhookUrl` | string | No | URL to receive webhook events |
 
-```text
+```bash
 curl -s \
   -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
   -H "Content-Type: application/json" \
@@ -73,23 +85,39 @@ curl -s \
   "https://cloud-api.thunderstack.org/api/nodes"
 ```
 
-Example response: `{ "data": { "nodeId": "<node_id>", "name": "my-node", "network": "regtest", "status": "STARTING" }, "message": "<message>" }`
+<Accordion title="Example response">
+```json
+{
+  "data": {
+    "nodeId": "<node_id>",
+    "name": "my-node",
+    "network": "regtest",
+    "status": "STARTING"
+  },
+  "message": ""
+}
+```
+</Accordion>
 
-## Get a node
+### Get a Node
 
 `GET /api/nodes/{id}`
 
-```text
+```bash
 curl -s \
   -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
   "https://cloud-api.thunderstack.org/api/nodes/<node_id>"
 ```
 
-## Destroy a node
+### Destroy a Node
 
-`DELETE /api/nodes` — Body: `destroyNodeId` (string, required). This endpoint expects a JSON body on a DELETE request.
+`DELETE /api/nodes`
 
-```text
+<Warning>
+This action is irreversible. Ensure you have a backup before destroying a node.
+</Warning>
+
+```bash
 curl -s -X DELETE \
   -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
   -H "Content-Type: application/json" \
@@ -97,92 +125,92 @@ curl -s -X DELETE \
   "https://cloud-api.thunderstack.org/api/nodes"
 ```
 
-## Webhooks: public key
+### Update Node Settings
 
-`GET /api/webhook-public-key` — Returns the public key used to verify webhook signatures.
+`POST /api/nodes/{id}/settings`
 
-```text
-curl -s \
-  -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
-  "https://cloud-api.thunderstack.org/api/webhook-public-key"
-```
+Update node settings, such as the webhook URL.
 
-Example response: `{ "data": "<public_key>" }`
-
-## RLN images: latest version
-
-`GET /api/nodes/latest-rln-image`
-
-```text
-curl -s \
-  -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
-  "https://cloud-api.thunderstack.org/api/nodes/latest-rln-image"
-```
-
-Example response: `{ "data": "<rln_version>" }`
-
-## RLN images: upgrade node
-
-`POST /api/nodes/{id}/upgrade`
-
-```text
+```bash
 curl -s -X POST \
   -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
-  "https://cloud-api.thunderstack.org/api/nodes/<node_id>/upgrade"
-```
-
-## Node settings: update
-
-`POST /api/nodes/{id}/settings` — Use this to change node settings like `webhookUrl`.
-
-```text
-curl -s -X POST \
-  -H "Authorization: Bearer ${THUNDERSTACK_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{ "settings": { "webhookUrl": "https://example.com/webhooks/thunderstack" } }' \
   "https://cloud-api.thunderstack.org/api/nodes/<node_id>/settings"
 ```
 
-## Node lifecycle: start
+### Node Lifecycle: Start
 
 `POST /api/nodes/{id}/start`
 
-```text
+```bash
 curl -s -X POST \
   -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
   "https://cloud-api.thunderstack.org/api/nodes/<node_id>/start"
 ```
 
-## Node lifecycle: stop
+### Node Lifecycle: Stop
 
 `POST /api/nodes/{id}/stop`
 
-```text
+```bash
 curl -s -X POST \
   -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
   "https://cloud-api.thunderstack.org/api/nodes/<node_id>/stop"
 ```
 
-## Logs: trigger export
+### Upgrade Node
 
-`POST /api/nodes/{id}/logs` — Starts a log export job for a node.
+`POST /api/nodes/{id}/upgrade`
 
-```text
+Upgrades the node to the latest RLN image version.
+
+```bash
+curl -s -X POST \
+  -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
+  "https://cloud-api.thunderstack.org/api/nodes/<node_id>/upgrade"
+```
+
+### Get Latest RLN Image Version
+
+`GET /api/nodes/latest-rln-image`
+
+```bash
+curl -s \
+  -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
+  "https://cloud-api.thunderstack.org/api/nodes/latest-rln-image"
+```
+
+### Webhooks: Get Public Key
+
+`GET /api/webhook-public-key`
+
+Returns the public key used to verify webhook signatures. See [Webhooks](/cloud/webhooks) for details.
+
+```bash
+curl -s \
+  -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
+  "https://cloud-api.thunderstack.org/api/webhook-public-key"
+```
+
+### Logs: Trigger Export
+
+`POST /api/nodes/{id}/logs`
+
+Starts a log export job for a node. Returns a `taskId`.
+
+```bash
 curl -s -X POST \
   -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
   "https://cloud-api.thunderstack.org/api/nodes/<node_id>/logs"
 ```
 
-Example response: `{ "taskId": "<task_id>" }`
-
-## Logs: get download URLs
+### Logs: Get Download URLs
 
 `GET /api/nodes/{id}/logs?taskId={taskId}`
 
-```text
+```bash
 curl -s \
   -H "Authorization: Bearer ${CLOUD_API_TOKEN}" \
   "https://cloud-api.thunderstack.org/api/nodes/<node_id>/logs?taskId=<task_id>"
 ```
-
-Example response: `{ "data": ["<presigned_url>"] }`

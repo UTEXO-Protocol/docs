@@ -1,17 +1,52 @@
 ---
-title: "SDK"
+title: 'SDK'
+description: 'Overview of the Utexo SDK — a Node.js client library and REST API for native USDT transfers and RGB asset operations on Bitcoin.'
+sidebarTitle: 'SDK'
 ---
 
-## Overview
+The Utexo SDK provides programmatic access to the Utexo execution layer, enabling applications to send and receive native USDT on Bitcoin through RGB and Lightning without operating nodes, managing channels, or handling protocol-level infrastructure.
 
-Our SDK allows applications to support native USDT transfers and other RGB assets on Bitcoin without operating Bitcoin nodes, managing Lightning liquidity, or maintaining RGB state infrastructure.
+It exposes a clean set of async methods organised around wallet management, asset operations, Lightning payments, and on-chain interactions. All operations are performed locally using client-side validation — no shared state is sent to a central server during normal execution.
 
-The  SDK provide programmatic access to:
+## What the SDK Provides
 
-- RGB privacy-preserving asset issuance, transfers, and state transitions
-- Lightning execution, routing and failure recovery
-- Balance tracking, transaction status and audit logs
+- **Wallet management** — key generation, derivation, initialisation, backup, and restore (including VSS cloud backup)
+- **RGB asset operations** — asset issuance, blind invoices, witness invoices, asset transfers, and balance queries
+- **Lightning payments** — invoice creation, payment execution (begin → sign → end flow), and payment status queries
+- **On-chain interactions** — deposit address generation, BTC balance queries, on-chain withdrawal
+- **UTXO management** — UTXO creation, listing, and state sync
 
-The SDK enables non-custodial, client-side validated flows, without requiring developers to operate Lightning nodes or manage RGB infrastructure directly.
+## Execution Model
 
-All API calls execute with predefined costs and latency characteristics, and can be integrated into existing backend systems or user-facing applications.
+The SDK uses the `@utexo/rgb-sdk` package. The primary entry point is `UTEXOWallet`, which is initialised with a mnemonic and optional `{ network, dataDir }` configuration.
+
+Key execution properties:
+
+- All operations are **non-custodial** — the SDK never transmits private keys or mnemonics
+- All API calls execute with **predefined costs and latency** — no fee auction or gas estimation required
+- The SDK is **Node.js only** — it is not browser-compatible
+- Payments follow a **begin → sign → end** flow for Lightning and a **begin → sign → end** flow for on-chain withdrawals, separating unsigned PSBT generation from signing
+
+## Networks
+
+The SDK supports three environments:
+
+| Environment | RGB Transport | Bitcoin Indexer |
+|---|---|---|
+| Mainnet | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
+| Testnet | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
+| Signet | `rpcs://rgb-proxy-utexo.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
+
+## In This Section
+
+<CardGroup cols={1}>
+  <Card title="Utexo SDK Reference" icon="book" href="/sdk/utexo-sdk">
+    Complete method reference for UTEXOWallet: wallet methods, Lightning methods, on-chain methods, core workflows, and security model.
+  </Card>
+</CardGroup>
+
+## Further Reading
+
+- [Product Suite](/getting-started/product-suite) — How the SDK fits into the full Utexo product surface.
+- [Architecture](/getting-started/architecture) — The Bitcoin + Lightning + RGB stack the SDK operates on.
+- [Quickstart](/getting-started/quickstart) — Step-by-step guide to your first Utexo integration.

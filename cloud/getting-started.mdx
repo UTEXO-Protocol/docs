@@ -1,15 +1,35 @@
 ---
-title: "Getting Started"
+title: "Node Management"
+description: "Create, connect, upgrade, back up, and destroy RGB Lightning Nodes on Utexo Cloud."
 ---
 
-# Getting Started
+## Overview
 
-Create, connect, upgrade, back up, and destroy RLN nodes on Thunderstack.
+Utexo Cloud (powered by Thunderstack) provides a managed environment for running RGB Lightning Nodes (RLN). These guides cover the full lifecycle of an RLN node — from creation through decommissioning.
 
-Use these guides to manage an RLN node end to end.
+## Guides
 
-- **Create an RLN node** — [Create RLN Node](/cloud/rln-node/create-rln-node)
-- **Connect securely (mTLS or API token)** — [Connect to RLN Node](/cloud/rln-node/connect-rln-node)
-- **Upgrade to the latest RLN image** — [Upgrade RLN Node](/cloud/rln-node/upgrade-rln-node)
-- **Back up and restore node state** — [Node Backup/Restore](/cloud/rln-node/node-backup-restore)
-- **Decommission a node** — [Destroy your Node](/cloud/rln-node/destroy-rln-node)
+<CardGroup cols={2}>
+  <Card title="Create RLN Node" icon="server" href="/cloud/rln-node/create-rln-node">
+    Provision a new RGB Lightning Node on the Cloud dashboard.
+  </Card>
+  <Card title="Connect to RLN Node" icon="plug" href="/cloud/rln-node/connect-rln-node">
+    Connect securely via mTLS or API token.
+  </Card>
+  <Card title="Upgrade RLN Node" icon="arrow-up" href="/cloud/rln-node/upgrade-rln-node">
+    Update your node to the latest RLN image.
+  </Card>
+  <Card title="Node Backup / Restore" icon="database" href="/cloud/rln-node/node-backup-restore">
+    Back up and restore node state.
+  </Card>
+  <Card title="Destroy your Node" icon="trash" href="/cloud/rln-node/destroy-rln-node">
+    Permanently decommission a node.
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+Before creating a node, ensure you have:
+
+1. An active Utexo Cloud account at [cloud.utexo.com](https://cloud.utexo.com)
+2. A [Cloud API token](/access-token-authorization/create-api-token) (required for API-based operations)

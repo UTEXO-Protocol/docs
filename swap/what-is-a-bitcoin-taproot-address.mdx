@@ -1,17 +1,53 @@
 ---
-title: "What Is A Bitcoin Taproot Address"
+title: "What Is a Bitcoin Taproot Address"
+sidebarTitle: "What Is a Bitcoin Taproot Address"
+description: "A reference on Bitcoin Taproot (P2TR) addresses, how they work, and why they are used with Utexo swaps."
 ---
 
-# What Is a Bitcoin Taproot Address
+A Bitcoin Taproot address (also called a Pay-to-Taproot or P2TR address) is a Bitcoin address type introduced in November 2021 with the Taproot upgrade. Taproot addresses start with `bc1p` on mainnet and `tb1p` on testnet.
 
-A Bitcoin Taproot address is a relatively new kind of Bitcoin address. Also known as Pay-to-Taproot (P2TR) addresses, it leverages the Taproot protocol to provide a more efficient mechanism for transacting with Bitcoin.
+## Why Taproot Matters for Utexo
 
-Taproot is the latest Bitcoin address format designed to enhance privacy, scalability, and scripting capabilities. Addresses in this format start with "bc1p."
+The Utexo Swap DEX uses Taproot addresses in two ways:
 
-Taproot allows the aggregation of multiple signatures, making complex transactions more efficient and cost-effective.
+- **HTLC deposit addresses** - The BTC deposit address generated for each BTC-to-RGB swap is a P2TR Hash Time-Locked Contract. Sending BTC to a non-P2TR address would not satisfy the HTLC conditions.
+- **BTC receive address (RGB-to-BTC swaps)** - When you receive BTC after swapping an RGB asset, using a Taproot address improves privacy because Taproot outputs are indistinguishable from ordinary key-path spends on the blockchain.
 
-Taproot has enabled new smart contract functionalities on Bitcoin, paving the way for the emergence of Ordinals and Bitcoin-native tokens like BRC-20 and Runes.
+## Properties
 
-**Example Taproot Address:** bc1pavlmkapyn630588yvykxuhhwgzke7d7h0lcgca8a9uczcrct8elq7aqmt8
+| Property | Value |
+| --- | --- |
+| Address prefix | `bc1p` (mainnet), `tb1p` (testnet) |
+| Script type | P2TR (Pay-to-Taproot) |
+| Signature scheme | Schnorr (BIP-340) |
+| Key aggregation | Yes - multiple keys can be aggregated into one |
+| Privacy | Spend conditions are hidden until the output is spent |
+| Fee efficiency | Lower fees than P2SH and P2WSH for complex scripts |
 
-Learn what Bitcoin Taproot addresses are, how they work, and what you can do with them in this beginner's guide.
+## Example Taproot Address
+
+```
+bc1pavlmkapyn630588yvykxuhhwgzke7d7h0lcgca8a9uczcrct8elq7aqmt8
+```
+
+## Address Types Compared
+
+| Format | Prefix | Type | Notes |
+| --- | --- | --- | --- |
+| Legacy | `1...` | P2PKH | Oldest format; highest fees |
+| SegWit (native) | `bc1q...` | P2WPKH | Widely supported; lower fees |
+| Taproot | `bc1p...` | P2TR | Recommended for Utexo swaps; best privacy |
+
+## Do I Need a Taproot Address?
+
+For **BTC-to-RGB swaps**: Utexo generates the deposit address automatically - it will always be a P2TR address. You do not need to generate one yourself.
+
+For **RGB-to-BTC swaps**: You provide the BTC receive address. Any standard Bitcoin address format works, but a Taproot address is recommended for privacy.
+
+If your Bitcoin wallet does not support Taproot addresses, a native SegWit (`bc1q...`) address will also work for receiving BTC.
+
+## Next Steps
+
+- [Create Wallet](/swap/create-wallet) - Set up Tribe Wallet for RGB asset swaps
+- [Swap BTC to RGB](/swap/swap-btc-to-rgb) - Convert BTC to an RGB asset
+- [Swap RGB to BTC](/swap/swap-rgb-to-btc) - Convert an RGB asset back to BTC
