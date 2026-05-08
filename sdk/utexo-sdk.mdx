@@ -1,6 +1,6 @@
 ---
 title: 'Utexo SDK Reference'
-description: 'Complete method reference for the @utexo/rgb-sdk Node.js package — wallet management, RGB asset operations, Lightning payments, async payments, on-chain interactions, and core workflows.'
+description: 'Complete method reference for the @utexo/rgb-sdk Node.js package — wallet management, RGB asset operations, UTXO management, Lightning payments, on-chain interactions, backup and restore.'
 sidebarTitle: 'Utexo SDK'
 ---
 
@@ -23,7 +23,7 @@ npm install @utexo/rgb-sdk
 The primary wallet class is `UTEXOWallet`. Initialise it with a mnemonic and a configuration object, then call `await wallet.initialize()` before use.
 
 ```js
-const { UTEXOWallet, generateKeys } = require('@utexo/rgb-sdk');
+import { UTEXOWallet, generateKeys } from '@utexo/rgb-sdk';
 
 // 1. Generate wallet keys
 const keys = await generateKeys('utexo');
@@ -31,9 +31,9 @@ console.log('Mnemonic:', keys.mnemonic); // Store securely
 
 // 2. Initialise wallet
 const wallet = new UTEXOWallet(keys.mnemonic, {
-  network: 'utexo',       // 'mainnet' | 'testnet' | 'utexo'
+  network: 'utexo',        // 'mainnet' | 'testnet' | 'utexo'
   dataDir: './wallet',
-  lspBaseUrl: '...',      // optional — enables async (offline) payments
+  lspBaseUrl: '...',       // optional — enables async (offline) payments
   lspBearerToken: '...'   // optional — required when lspBaseUrl is set
 });
 await wallet.initialize();
@@ -57,145 +57,234 @@ const balance = await wallet.getBtcBalance();
 
 Pass the identifier string in the `network` field of the init config. `utexo` is the default environment for development and testing.
 
+## Vanilla vs Colored Addresses
+
+The SDK maintains two separate derivation paths:
+
+- **Vanilla** — the standard Bitcoin path. `getAddress()` returns a vanilla bech32 receive address used for on-chain BTC funding, withdrawals, and fee payments.
+- **Colored** — the RGB-specific path. Colored outputs anchor RGB asset allocations to Bitcoin UTXOs. This path is used internally by `createUtxos()` and all RGB transfer operations.
+
+`getXpub()` returns both:
+- `accountXpubVanilla` — the extended public key for the vanilla (BTC) derivation path
+- `accountXpubColored` — the extended public key for the colored (RGB) derivation path
+
+`getBtcBalance()` returns separate balance objects for each path, each containing:
+- `settled` — confirmed, final balance
+- `future` — expected balance after pending operations confirm
+- `spendable` — currently usable amount for new operations
+
+### Address Rotation
+
+By default, each call to `getAddress()` rotates to a new receive address (new HD derivation index). This improves privacy by reducing address reuse and matches HD wallet best practices. If your application requires a stable deposit address, persist one generated address and reuse it in your UI or service layer.
+
 ## Wallet Methods
 
-<AccordionGroup>
-  <Accordion title="Key Generation & Derivation">
-    - `generateKeys(network?)` — Generate new wallet keys (returns mnemonic, xpubs, master fingerprint)
-    - `deriveKeysFromMnemonic(network, mnemonic)` — Derive wallet keys from an existing mnemonic
-    - `deriveKeysFromSeed(network, seed)` — Derive wallet keys from a BIP39 seed
-    - `getXpub()` — Get vanilla and colored xpubs
-  </Accordion>
-  <Accordion title="Wallet Initialisation & State">
-    - `getAddress()` — Get deposit address; supports address reuse with keychain rotation (addresses remain stable while keys rotate underneath)
-    - `getBtcBalance()` — Get on-chain BTC balance (async)
-    - `refreshWallet()` — Sync and refresh wallet state
-    - `listUnspents()` — List unspent UTXOs
-    - `listAssets()` — List RGB assets held
-    - `getAssetBalance(assetId)` — Get balance for a specific asset
-  </Accordion>
-  <Accordion title="Backup & Restore">
-    - `restoreUtxoWalletFromBackup({ backupPath, password, targetDir })` — Restore wallet from a file backup
-    - `restoreUtxoWalletFromVss({ mnemonic, targetDir, config?, vssServerUrl? })` — Restore wallet from VSS cloud backup
-    - `createBackup({ backupPath, password })` — Create an encrypted wallet backup
-  </Accordion>
-  <Accordion title="Transaction History">
-    - `listTransactions()` — List BTC-level transactions
-    - `listTransfers(assetId?)` — List RGB transfer history for an asset
-  </Accordion>
-</AccordionGroup>
+### Key Generation and Derivation
+
+- `generateKeys(network?)` — Generate new wallet keys. Returns mnemonic, `xpub`, `xpriv`, `accountXpubVanilla`, and `accountXpubColored`.
+- `deriveKeysFromMnemonic(network, mnemonic)` — Derive wallet keys from an existing BIP39 mnemonic
+- `deriveKeysFromSeed(network, seed)` — Derive wallet keys from a BIP39 seed
+- `restoreKeys(network, mnemonic)` — Legacy alias for `deriveKeysFromMnemonic`
+- `getXpub()` — Get vanilla and colored xpubs (`accountXpubVanilla`, `accountXpubColored`)
+- `getXprivFromMnemonic(network, mnemonic)` — Derive the extended private key (`xpriv`) from a mnemonic. Treat with the same sensitivity as the mnemonic itself.
+
+### Wallet State
+
+- `getAddress()` — Get a receive address; rotates to a new HD index on each call for privacy
+- `getBtcBalance()` — Get on-chain BTC balance split by `vanilla` and `colored` paths, each with `settled`, `future`, `spendable`
+- `refreshWallet()` — Update RGB transfer state (consignments and transfer status progression)
+- `syncWallet()` — Update chain and UTXO state (funding confirmations, spendable BTC)
+- `listUnspents()` — List unspent UTXOs
+- `listAssets()` — List RGB assets held in the wallet
+- `getAssetBalance(assetId)` — Get balance for a specific RGB asset
+- `listTransactions()` — List BTC-level transactions
+- `listTransfers(assetId?)` — List RGB transfer history. Transfer statuses: `WaitingCounterparty`, `WaitingConfirmations`, `Settled`, `Failed`
+- `dispose()` — Clean up wallet resources
+
+<Note>
+  Use `syncWallet()` after funding or UTXO creation to update chain state. Use `refreshWallet()` after `send()` to update RGB transfer status on both sender and receiver sides.
+</Note>
+
+## Backup and Restore
+
+Backups are recommended after every significant state change: UTXO creation, asset issuance, and transfers.
+
+### File Backup
+
+Creates an encrypted local backup containing both `layer1` and `utexo` state files.
+
+```js
+await wallet.createBackup({
+  backupPath: './backups',
+  password: 'strong-password',
+});
+```
+
+Restore from a file backup:
+
+```js
+import { restoreUtxoWalletFromBackup } from '@utexo/rgb-sdk';
+
+await restoreUtxoWalletFromBackup({
+  backupPath: './backups',
+  password: 'strong-password',
+  targetDir: './restored',
+});
+```
+
+### VSS Backup
+
+Pushes wallet state to a remote Verifiable Secret Sharing (VSS) server. The backup is keyed to the wallet mnemonic and can be restored on any device.
+
+```js
+import { restoreUtxoWalletFromVss } from '@utexo/rgb-sdk';
+
+// Get deterministic VSS config derived from mnemonic and defaults
+const vssConfig = await wallet.getDefaultVssConfig();
+
+// Export wallet state to VSS
+await wallet.vssBackup(vssConfig);
+
+// Check backup status
+const info = await wallet.vssBackupInfo(vssConfig);
+console.log(info); // { backupExists, serverVersion, backupRequired }
+
+// Restore from VSS into a fresh local directory
+const restored = await restoreUtxoWalletFromVss({
+  mnemonic: keys.mnemonic,
+  targetDir: './restored-from-vss',
+  config: vssConfig,
+  networkPreset: 'utexo',
+});
+
+// Re-open wallet from restored data
+const restoredWallet = new UTEXOWallet(keys.mnemonic, {
+  network: 'utexo',
+  dataDir: restored.targetDir,
+});
+await restoredWallet.initialize();
+```
+
+| Method | Description |
+|---|---|
+| `createBackup({ backupPath, password })` | Create encrypted local backup |
+| `restoreUtxoWalletFromBackup({ backupPath, password, targetDir })` | Restore wallet from file backup |
+| `vssBackup(config?)` | Push wallet state to VSS remote |
+| `vssBackupInfo(config?)` | Check backup status on VSS server |
+| `getDefaultVssConfig()` | Get deterministic VSS config from mnemonic |
+| `restoreUtxoWalletFromVss({ mnemonic, targetDir, config?, networkPreset })` | Restore wallet from VSS |
+
+## Private Key Export
+
+The SDK exposes a utility to derive the extended private key from a mnemonic:
+
+```js
+import { getXprivFromMnemonic } from '@utexo/rgb-sdk';
+
+const xpriv = await getXprivFromMnemonic('utexo', keys.mnemonic);
+console.log('xpriv:', xpriv);
+```
+
+<Warning>
+  `xpriv` is the account root private key. All child private and public keys can be derived from it. Treat it with the same sensitivity as your mnemonic — never log or transmit it in production.
+</Warning>
 
 ## RGB Asset Methods
 
-<AccordionGroup>
-  <Accordion title="Asset Issuance">
-    Issue a new Non-Inflationary Asset (NIA) on RGB:
+Issue a new Non-Inflationary Asset (NIA) on RGB:
 
-    ```js
-    const asset = await wallet.issueAssetNia({
-      ticker: 'USD Token',
-      name: 'USDT',
-      amounts: [1000, 500],
-      precision: 6
-    });
-    ```
-  </Accordion>
-  <Accordion title="Receiving Assets (Blind & Witness Invoices)">
-    Generate a blinded or witness UTXO invoice for receiving:
+```js
+const asset = await wallet.issueAssetNia({
+  ticker: 'USDT',
+  name: 'Tether USD (Test)',
+  amounts: [1000000],
+  precision: 6
+});
+const assetId = asset.assetId;
+```
 
-    ```js
-    // Blinded invoice
-    const receiveData = await receiverWallet.blindReceive({
-      assetId,
-      amount: 100,
-      minConfirmations: 3,
-      durationSeconds: 2000
-    });
+### Invoice Types: Blinded vs Witness
 
-    // Witness invoice
-    const receiveData = await receiverWallet.witnessReceive({
-      assetId,
-      amount: 100,
-      minConfirmations: 3,
-      durationSeconds: 2000
-    });
-    ```
+RGB receive flows support two invoice styles:
 
-    - `blindReceive({ assetId, amount, minConfirmations?, durationSeconds? })` — Generate blinded UTXO for receiving
-    - `witnessReceive({ assetId, amount, minConfirmations?, durationSeconds? })` — Generate witness UTXO for receiving
-  </Accordion>
-  <Accordion title="Sending Assets">
-    Complete an RGB asset transfer (begin → sign → end):
+- **Blinded invoice** (`blindReceive`) — most common flow. The receiver creates a blinded recipient endpoint; the sender pays the invoice directly. Use for standard app-to-app RGB transfers.
+- **Witness invoice** (`witnessReceive`) — the receiver binds the transfer to witness data. The sender must provide `witnessData` (at minimum `amountSat`) in `send()`. Use when your integration explicitly requires witness-bound receive semantics.
 
-    ```js
-    // Receiver: create invoice
-    const receiveData = await receiverWallet.blindReceive({ assetId, amount: 100,
-      minConfirmations: 3, durationSeconds: 2000
-    });
+```js
+// Blinded invoice
+const receiveData = await receiverWallet.blindReceive({
+  assetId,
+  amount: 5000,             // RGB asset base units
+  minConfirmations: 1,      // minimum Bitcoin confirmation depth
+  durationSeconds: 3600,    // invoice lifetime in seconds
+});
 
-    // Sender: complete send
-    await senderWallet.send({
-      invoice: receiveData.invoice,
-      assetId,
-      amount: 100
-    });
+// Witness invoice
+const witnessReceiveData = await receiverWallet.witnessReceive({
+  assetId,
+  amount: 2000,
+  minConfirmations: 1,
+  durationSeconds: 3600,
+});
+```
 
-    // Refresh both wallets
-    await senderWallet.refreshWallet();
-    await receiverWallet.refreshWallet();
-    ```
+Complete an RGB asset transfer:
 
-    - `send({ invoice, assetId, amount, witnessData? })` — Complete send (begin → sign → end)
-    - `signPsbt(psbt, mnemonic?)` — Sign a PSBT using wallet mnemonic (async)
-  </Accordion>
-</AccordionGroup>
+```js
+// Sender: send via blinded invoice
+await senderWallet.send({
+  invoice: receiveData.invoice,
+  assetId,
+  amount: 5000,
+});
+
+// Sender: send via witness invoice (witnessData required)
+await senderWallet.send({
+  invoice: witnessReceiveData.invoice,
+  assetId,
+  amount: 2000,
+  witnessData: { amountSat: 1000 },
+});
+
+// Refresh both wallets after transfer
+await senderWallet.refreshWallet();
+await receiverWallet.refreshWallet();
+```
+
+- `blindReceive({ assetId, amount, minConfirmations?, durationSeconds? })` — Generate blinded UTXO invoice
+- `witnessReceive({ assetId, amount, minConfirmations?, durationSeconds? })` — Generate witness UTXO invoice
+- `send({ invoice, assetId, amount, witnessData? })` — Complete send (begin → sign → end)
+- `signPsbt(psbt, mnemonic?)` — Sign a PSBT using wallet mnemonic
 
 ## UTXO Management
 
-Create UTXOs in a single atomic call (begin → sign → end):
+Before issuing or receiving RGB assets, the wallet must have colored UTXOs prepared. Create them after funding the vanilla address:
 
 ```js
-const count = await wallet.createUtxos({ num: 5, size: 1000 });
+const created = await wallet.createUtxos({ num: 5, size: 1000 });
 await wallet.syncWallet();
+console.log('UTXOs created:', created);
 ```
 
-- `createUtxos({ num?, size?, upTo? })` — Create UTXOs (async; combines begin, sign, end)
+- `createUtxos({ num?, size?, upTo? })` — Create colored UTXOs (combines begin, sign, end internally)
 
 ## Lightning Methods
 
-<AccordionGroup>
-  <Accordion title="Creating Lightning Invoices">
-    - `createLightningInvoice(params)` — Create a standard BOLT11 Lightning invoice for receiving
-  </Accordion>
-  <Accordion title="Paying Lightning Invoices">
-    Synchronous payments follow a begin → sign → end flow:
+- `createLightningInvoice(params)` — Create a standard BOLT11 Lightning invoice for receiving
 
-    - `payLightningInvoiceBegin(params)` — Start Lightning payment (returns unsigned PSBT)
-    - `payLightningInvoiceEnd(params)` — Finalise Lightning payment with signed PSBT
-    - `payLightningInvoice(params, mnemonic?)` — Complete Lightning payment in a single call (begin → sign → end)
-  </Accordion>
-  <Accordion title="Async Payments (HODL Invoices)">
-    Async payments allow funds to be sent to an offline recipient. The LSP holds the payment via a HODL invoice until the recipient comes online to collect. This requires `lspBaseUrl` and `lspBearerToken` to be set in the wallet init config.
+Synchronous payments follow a begin → sign → end flow:
 
-    The inbound leg (receiving while offline) is fully operational. The outbound leg (initiating a HODL payment as sender) is in active development.
+- `payLightningInvoiceBegin(params)` — Start Lightning payment (returns unsigned PSBT)
+- `payLightningInvoiceEnd(params)` — Finalise Lightning payment with signed PSBT
+- `payLightningInvoice(params, mnemonic?)` — Complete Lightning payment in a single call
 
-    A payment hash reuse guard is enforced to prevent the same hash from being claimed across both inbound and outbound flows.
+Async payments allow funds to be sent to an offline recipient. The LSP holds the payment via a HODL invoice until the recipient comes online to collect. Requires `lspBaseUrl` and `lspBearerToken` in the wallet init config. The inbound leg (receiving while offline) is fully operational; the outbound leg is in active development.
 
-    <Note>
-      HODL invoice support is being integrated into the Node.js SDK via the UniFFI bindings layer. Refer to release notes for method availability as this ships.
-    </Note>
-  </Accordion>
-  <Accordion title="Lightning Addresses">
-    When LSP integration is configured, recipients receive a stable, human-readable Lightning Address rather than a per-transfer invoice or QR code. The address remains consistent across payments while the underlying invoice and routing state are managed by the LSP.
+When LSP integration is configured, recipients receive a stable Lightning Address rather than a per-transfer invoice. The address is provisioned automatically — no additional method calls are required.
 
-    Lightning Addresses are provisioned automatically when `lspBaseUrl` is set — no additional method calls are required to activate them.
-  </Accordion>
-  <Accordion title="Payment Status">
-    - `getLightningSendRequest(lnInvoice)` — Get status of a Lightning send request
-    - `getLightningReceiveRequest(lnInvoice)` — Get status of a Lightning receive request
-    - `listLightningPayments()` — List all Lightning payments
-  </Accordion>
-</AccordionGroup>
+- `getLightningSendRequest(lnInvoice)` — Get status of a Lightning send request
+- `getLightningReceiveRequest(lnInvoice)` — Get status of a Lightning receive request
+- `listLightningPayments()` — List all Lightning payments
 
 ## On-chain Methods
 
@@ -205,25 +294,21 @@ await wallet.syncWallet();
 
 ## Security
 
-By using this SDK, developers have full control over transfer orchestration, UTXO selection, invoice lifecycle, and signing policy.
+By using this SDK, developers have full control over transfer orchestration, UTXO selection, invoice lifecycle, and signing policy. The SDK supports an **external signer** architecture: key management can be handled entirely outside the node, keeping signing logic isolated from the rest of the application. This is the recommended approach for custody-grade and enterprise deployments where key isolation is a hard requirement.
 
-The SDK supports an **external signer** architecture: key management can be handled entirely outside the node, keeping signing logic isolated from the rest of the application. This is the recommended approach for custody-grade and enterprise deployments where key isolation is a hard requirement.
+Private keys and mnemonics should be stored securely and never logged or transmitted. Use environment variables or a secrets manager for mnemonic storage:
 
-<Info>
-  Private keys and mnemonics should be stored securely and never logged or transmitted. Use environment variables or a secrets manager to handle mnemonic storage:
+```js
+const keys = await generateKeys('utexo');
+const mnemonic = keys.mnemonic; // Sensitive — protect at rest
 
-  ```js
-  const keys = await generateKeys('utexo');
-  const mnemonic = keys.mnemonic; // Sensitive — protect at rest
-
-  // Store mnemonic securely for later restoration
-  const storedMnemonic = process.env.WALLET_MNEMONIC;
-  const restoredKeys = await deriveKeysFromMnemonic('utexo', storedMnemonic);
-  ```
-</Info>
+// Restore from stored mnemonic
+const storedMnemonic = process.env.WALLET_MNEMONIC;
+const restoredKeys = await deriveKeysFromMnemonic('utexo', storedMnemonic);
+```
 
 ## Further Reading
 
-- [SDK Overview](/product-suite/sdk) — SDK family, execution model, network environments, and integration entry points.
+- [SDK Overview](/product-suite/sdk) — SDK family, key concepts, execution model, and network environments.
 - [Product Suite](/getting-started/product-suite) — How the SDK fits into the full Utexo product surface.
-- [Architecture](/getting-started/architecture) — The Bitcoin + Lightning + RGB stack the SDK operates on.
+- [Architecture](/getting-started/architecture) — The Bitcoin + RGB stack the SDK operates on.
