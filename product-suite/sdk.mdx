@@ -1,52 +1,109 @@
 ---
 title: 'SDK'
-description: 'Overview of the Utexo SDK — a Node.js client library and REST API for native USDT transfers and RGB asset operations on Bitcoin.'
+description: 'Overview of the Utexo SDK family — Node.js, Web, and React Native client libraries for RGB asset operations and on-chain Bitcoin interactions.'
 sidebarTitle: 'SDK'
 ---
 
-The Utexo SDK provides programmatic access to the Utexo execution layer, enabling applications to send and receive native USDT on Bitcoin through RGB and Lightning without operating nodes, managing channels, or handling protocol-level infrastructure.
+The Utexo SDK provides programmatic access to the Utexo execution layer, enabling applications to issue, transfer, and receive RGB assets on Bitcoin without operating nodes, managing channels, or handling protocol-level infrastructure.
 
-It exposes a clean set of async methods organised around wallet management, asset operations, Lightning payments, and on-chain interactions. All operations are performed locally using client-side validation — no shared state is sent to a central server during normal execution.
+It exposes a clean set of async methods organised around wallet management, RGB asset operations, on-chain Bitcoin interactions, and Lightning payments. All operations are performed locally using client-side validation — no shared state is sent to a central server during normal execution.
+
+## SDK Family
+
+The Utexo SDK is available across three platforms, all built on a shared core package (`@utexo/rgb-sdk-core`) that ensures consistent behaviour and a unified API surface:
+
+| Package | Platform | Use case |
+|---|---|---|
+| `@utexo/rgb-sdk` | Node.js | Server-side integrations, backends, custody services |
+| `@utexo/rgb-sdk-web` | Browser / JS/TS | Web apps, embedded wallets, client-side validation via WASM |
+| `@utexo/rgb-sdk-rn` | React Native | iOS and Android mobile applications |
+
+All three packages ship at version `1.0.0-beta.9`. The shared `@utexo/rgb-sdk-core` package contains common interfaces, base classes, unified types, transport configuration, and UTEXO network mappings — changes to the core propagate across all three platforms simultaneously.
+
+This page covers `@utexo/rgb-sdk` (Node.js). Refer to the Web SDK and React Native SDK reference pages for platform-specific details.
 
 ## What the SDK Provides
 
-- **Wallet management** — key generation, derivation, initialisation, backup, and restore (including VSS cloud backup)
-- **RGB asset operations** — asset issuance, blind invoices, witness invoices, asset transfers, and balance queries
-- **Lightning payments** — invoice creation, payment execution (begin → sign → end flow), and payment status queries
+- **Wallet management** — key generation, derivation, initialisation, backup, and restore (including VSS cloud backup); address rotation following HD wallet best practices
+- **RGB asset operations** — asset issuance, blinded and witness invoices, asset transfers, and balance queries
+- **Lightning payments** — invoice creation, synchronous payment execution (begin → sign → end flow), HODL invoice support for offline recipients, Lightning Address integration, and payment status queries
+- **Async payments** — LSP-routed delivery so recipients can collect payments when they come online; inbound leg fully operational, outbound leg in active development
 - **On-chain interactions** — deposit address generation, BTC balance queries, on-chain withdrawal
 - **UTXO management** — UTXO creation, listing, and state sync
 
+## Key Concepts
+
+### Vanilla vs Colored Addresses
+
+The SDK operates two distinct address and key derivation paths:
+
+- **Vanilla** — the standard Bitcoin derivation path. Vanilla outputs hold regular BTC and are used for fee payments, on-chain withdrawals, and funding operations. `getAddress()` returns a vanilla bech32 receive address.
+- **Colored** — the RGB-specific derivation path. Colored outputs carry RGB asset allocations anchored to Bitcoin UTXOs. This path is used internally when creating UTXOs for RGB operations.
+
+`getXpub()` returns both the vanilla xpub (`accountXpubVanilla`) and the colored xpub (`accountXpubColored`). `getBtcBalance()` returns separate balances for each path, each with `settled`, `future`, and `spendable` fields.
+
+<Note>
+  Before issuing or receiving RGB assets, the wallet must have colored UTXOs prepared. Call `createUtxos()` after funding the vanilla address to set up the UTXO structure required for RGB allocations.
+</Note>
+
+### Invoice Types: Blinded vs Witness
+
+RGB receive flows support two invoice styles:
+
+- **Blinded invoice** (`blindReceive`) — the most common flow. The receiver creates a blinded recipient endpoint; the sender pays the invoice directly. Use this for standard app-to-app RGB transfers.
+- **Witness invoice** (`witnessReceive`) — the receiver binds the transfer to witness data. The sender must provide `witnessData` (at minimum `amountSat`) in the `send()` call. Use this when your integration explicitly requires witness-bound receive semantics.
+
+### Backup and Restore
+
+The SDK provides two backup mechanisms for wallet state. Backups are recommended after every significant state change (UTXO creation, asset issuance, transfer):
+
+- **File backup** (`createBackup`) — creates an encrypted local backup containing both `layer1` and `utexo` state files. Restore with `restoreUtxoWalletFromBackup()`.
+- **VSS backup** (`vssBackup`) — pushes wallet state to a remote Verifiable Secret Sharing server. The backup is keyed to the wallet mnemonic. Restore with `restoreUtxoWalletFromVss()`. Call `vssBackupInfo()` to check backup existence and whether a new backup is required.
+
+### Private Key Export
+
+The SDK exposes `getXprivFromMnemonic(network, mnemonic)` to derive the extended private key (`xpriv`) from a mnemonic. This is the account root private key material from which all child keys can be derived. Treat `xpriv` with the same sensitivity as the mnemonic itself — do not log or transmit it in production.
+
 ## Execution Model
 
-The SDK uses the `@utexo/rgb-sdk` package. The primary entry point is `UTEXOWallet`, which is initialised with a mnemonic and optional `{ network, dataDir }` configuration.
+The SDK uses the `@utexo/rgb-sdk` package, built on top of `@utexo/rgb-sdk-core`. The primary entry point is `UTEXOWallet`, which is initialised with a mnemonic and a configuration object.
+
+```ts
+const wallet = new UTEXOWallet(mnemonic, {
+  network: 'utexo',   // 'mainnet' | 'testnet' | 'utexo'
+  dataDir: './wallet',
+  lspBaseUrl: '...',  // optional — enables async payments
+  lspBearerToken: '...' // optional — required when lspBaseUrl is set
+})
+```
 
 Key execution properties:
 
 - All operations are **non-custodial** — the SDK never transmits private keys or mnemonics
 - All API calls execute with **predefined costs and latency** — no fee auction or gas estimation required
-- The SDK is **Node.js only** — it is not browser-compatible
-- Payments follow a **begin → sign → end** flow for Lightning and a **begin → sign → end** flow for on-chain withdrawals, separating unsigned PSBT generation from signing
+- The SDK is **Node.js only** — it is not browser-compatible; use `@utexo/rgb-sdk-web` for browser environments
+- Payments follow a **begin → sign → end** flow for both Lightning and on-chain withdrawals, separating unsigned PSBT generation from signing
+- **External signer support** — key management can be handled entirely outside the node, meeting the isolation requirements of custody-grade and enterprise deployments
+- **Async payments** are opt-in via `lspBaseUrl` and `lspBearerToken` — omitting these fields has no impact on existing synchronous flows
 
 ## Networks
 
-The SDK supports three environments:
+The SDK supports three environments. Pass the identifier in the `network` field of the init config.
 
-| Environment | RGB Transport | Bitcoin Indexer |
-|---|---|---|
-| Mainnet | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
-| Testnet | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
-| Signet | `rpcs://rgb-proxy-utexo.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
+| Environment | Identifier | RGB Transport | Bitcoin Indexer |
+|---|---|---|---|
+| Mainnet | `mainnet` | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
+| Testnet | `testnet` | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
+| Utexo (Signet) | `utexo` | `rpcs://rgb-proxy-utexo.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
+
+The `utexo` identifier maps to the Utexo-operated signet environment. It is the default network for development and testing.
 
 ## In This Section
 
-<CardGroup cols={1}>
-  <Card title="Utexo SDK Reference" icon="book" href="/sdk/utexo-sdk">
-    Complete method reference for UTEXOWallet: wallet methods, Lightning methods, on-chain methods, core workflows, and security model.
-  </Card>
-</CardGroup>
+Complete method reference for UTEXOWallet: wallet methods, RGB asset methods, UTXO management, Lightning methods, on-chain methods, backup and restore, and security model.
 
 ## Further Reading
 
 - [Product Suite](/getting-started/product-suite) — How the SDK fits into the full Utexo product surface.
-- [Architecture](/getting-started/architecture) — The Bitcoin + Lightning + RGB stack the SDK operates on.
+- [Architecture](/getting-started/architecture) — The Bitcoin + RGB stack the SDK operates on.
 - [Quickstart](/getting-started/quickstart) — Step-by-step guide to your first Utexo integration.

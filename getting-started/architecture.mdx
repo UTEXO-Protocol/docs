@@ -6,8 +6,8 @@ sidebarTitle: "Architecture"
 
 Utexo is built on a layered stack. Each layer has a distinct and non-overlapping role. Together they deliver the properties that make Bitcoin-native stablecoin settlement viable for production payment systems: deterministic costs, settlement privacy, and Bitcoin-backed security. The Bridge and Swap layers extend this stack outward — connecting external EVM-based networks and enabling non-custodial BTC/USDT exchange on Bitcoin.
 
-<Frame caption="Utexo Protocol Architecture">
-  ![Screenshot 2026 05 07 At 00 18 02](/images/Screenshot-2026-05-07-at-00.18.02.png)
+<Frame caption="Utexo Architecture">
+  ![Screenshot 2026 05 12 At 09 45 02](/images/Screenshot-2026-05-12-at-09.45.02.png)
 </Frame>
 
 ## Stack Overview
@@ -19,7 +19,6 @@ Utexo is built on a layered stack. Each layer has a distinct and non-overlapping
 | RGB | Asset issuance and client-side validation | Stablecoin creation, privacy-preserving transfers, Bitcoin-secured ownership |
 | Utexo | Execution and coordination layer | Routing, liquidity, fee management, SDK/API abstraction |
 | Bridge | USDT Cross-chain connectivity | Atomic, non-custodial inbound and outbound transfers between Ethereum, Tron, and the RGB layer |
-| Bridge | Cross-chain connectivity | Atomic, non-custodial inbound and outbound transfers between Arbitrum and the RGB layer, with Ethereum, Tron, and Solana supported via USDT0 |
 | Swap | Cross-chain swap | Non-custodial BTC ↔ USDT swaps on Bitcoin and Lightning via the HotPot intent protocol |
 
 In the Utexo model, ownership proofs are validated locally by users' wallets (client-side validation), while actual payments occur through bidirectional Lightning channels. There is no global state to synchronise. Each transaction is a direct peer-to-peer exchange verified by cryptographic commitments.
