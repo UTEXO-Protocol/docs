@@ -113,8 +113,6 @@ This SDK is designed for **Node.js** and is not browser-compatible. Use it in No
 
 ## Basic Usage
 
-{% stepper %}
-{% step %}
 ### Generate wallet keys
 
 ```javascript
@@ -124,42 +122,28 @@ const { UTEXOWallet, generateKeys } = require('@utexo/rgb-sdk');
 const keys = await generateKeys('testnet');
 console.log('Mnemonic:', keys.mnemonic); // Store securely!
 ```
-{% endstep %}
-
-{% step %}
 ### Initialize wallet
 
 ```javascript
 const wallet = new UTEXOWallet(keys.mnemonic, { network: 'testnet' });
 await wallet.initialize();
 ```
-{% endstep %}
-
-{% step %}
 ### Get a derived deposit address
 
 ```javascript
 const address = await wallet.getAddress();
 console.log('Wallet address:', address);
 ```
-{% endstep %}
-
-{% step %}
 ### Check balance
 
 ```javascript
 const balance = await wallet.getBtcBalance();
 console.log('BTC Balance:', balance);
 ```
-{% endstep %}
-{% endstepper %}
-
 ## Core Workflows
 
 ### Wallet Initialization
 
-{% stepper %}
-{% step %}
 ### Generate keys and initialize
 
 ```javascript
@@ -177,9 +161,6 @@ const walletWithDir = new UTEXOWallet(keys.mnemonic, { network: 'testnet', dataD
 await walletWithDir.initialize();
 
 ```
-{% endstep %}
-
-{% step %}
 ### Restore from mnemonic
 
 ```javascript
@@ -200,13 +181,8 @@ const { targetDir: vssDir } = await restoreUtxoWalletFromVss({
 const fromVss = new UTEXOWallet(keys.mnemonic, { dataDir: vssDir, network: 'testnet' });
 await fromVss.initialize();
 ```
-{% endstep %}
-{% endstepper %}
-
 ### UTXO Management
 
-{% stepper %}
-{% step %}
 ### Begin UTXO creation
 
 ```javascript
@@ -215,18 +191,12 @@ const count = await wallet.createUtxos({ num: 5, size: 1000 });
 await wallet.syncWallet();
 console.log('Created ' + count + ' UTXOs');
 ```
-{% endstep %}
-
-{% step %}
 ### Sign PSBT
 
 ```javascript
 const psbt = await wallet.createUtxosBegin({ num: 5, size: 1000 });
 const signedPsbt = await wallet.signPsbt(psbt);
 ```
-{% endstep %}
-
-{% step %}
 ### Finalize UTXO creation
 
 ```javascript
@@ -234,9 +204,6 @@ const utxosCreated = await wallet.createUtxosEnd({ signedPsbt });
 await wallet.syncWallet();
 console.log('Created ' + utxosCreated + ' UTXOs');
 ```
-{% endstep %}
-{% endstepper %}
-
 ### Asset Issuance
 
 ```javascript
@@ -253,8 +220,6 @@ console.log('Asset issued:', asset.asset?.assetId);
 
 ### Asset Transfers
 
-{% stepper %}
-{% step %}
 ### Create blind receive (receiver)
 
 ```javascript
@@ -268,9 +233,6 @@ const receiveData = receiverWallet.blindReceive({
 // For witness invoices, sender must pass witnessData when sending
 const witnessData = await receiverWallet.witnessReceive({ assetId, amount: 50 });
 ```
-{% endstep %}
-
-{% step %}
 ### Begin transfer (sender builds PSBT)
 
 ```javascript
@@ -281,25 +243,16 @@ const sendPsbt = await senderWallet.sendBegin({
     amount: 100
 });
 ```
-{% endstep %}
-
-{% step %}
 ### Sign the PSBT
 
 ```javascript
 const signedSendPsbt = await senderWallet.signPsbt(sendPsbt);
 ```
-{% endstep %}
-
-{% step %}
 ### Finalize transfer
 
 ```javascript
 await senderWallet.sendEnd({ signedPsbt: signedSendPsbt });
 ```
-{% endstep %}
-
-{% step %}
 ### Alternative: Complete send in one call
 
 ```javascript
@@ -311,9 +264,6 @@ await senderWallet.send({
     witnessData: { amountSat: 1000 }
 });
 ```
-{% endstep %}
-
-{% step %}
 ### Refresh wallets to sync transfer
 
 ```javascript
@@ -322,9 +272,6 @@ await senderWallet.refreshWallet();
 await receiverWallet.refreshWallet();
 const transfers = await receiverWallet.listTransfers(assetId);
 ```
-{% endstep %}
-{% endstepper %}
-
 ### Balance and Asset Management
 
 ```javascript
@@ -349,8 +296,6 @@ const transfers = await wallet.listTransfers(assetId);
 
 ## Setup wallet and issue asset
 
-{% stepper %}
-{% step %}
 ### Generate and initialize wallet
 
 ```javascript
@@ -381,9 +326,6 @@ async function demo() {
     await wallet.dispose();
 }
 ```
-{% endstep %}
-{% endstepper %}
-
 ## Security
 
 ### Key Management
