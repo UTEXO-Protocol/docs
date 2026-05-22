@@ -184,7 +184,7 @@ await manager.disconnect();
 
 ## Using with `wdk-wallet-rgb`
 
-Both packages are built on `rgb-lib`, so the on-chain experience — UTXO management, asset state, and RGB operations — is consistent between them. Developers familiar with `wdk-wallet-rgb` will find the on-chain behaviour works the same way in `wdk-rgb-lightning`.
+Both packages wrap `rgb-lib`, so their on-chain APIs — UTXO management, asset state, RGB operations — behave the same way, and developers familiar with `wdk-wallet-rgb` will find equivalent calls in `wdk-rgb-lightning`. Each package owns its own rgb-lib instance and its own data directory, though, and they do not share state at runtime: if you need a unified on-chain view across the Lightning node and the on-chain wallet, query each separately and merge in app code.
 
 The packages are kept separate because LDK's `KeysManager` currently owns its own seed, which conflicts with WDK's convention where the secret manager holds the seed. Consolidation is planned once the required upstream LDK changes land.
 

@@ -13,7 +13,7 @@ The Wallet Development Kit (WDK) is a set of packages that expose RGB capabiliti
 | `@utexo/wdk-wallet-rgb` | Node.js & Bare | RGB asset management — issuance, transfers, inventory, backup | Stable |
 | `@utexo/wdk-rgb-lightning` | Node.js & Bare | RGB Lightning node — channels, invoices, payments | Alpha skeleton |
 
-Both packages are built on `rgb-lib`, so the on-chain experience — UTXO management, asset state, and RGB operations — is consistent between them.
+Both packages wrap `rgb-lib`, so their on-chain APIs behave the same way — though each owns its own rgb-lib instance and data directory, so state is not shared at runtime.
 
 The packages are currently separate because LDK's `KeysManager` owns its own seed, which conflicts with WDK's convention where the secret manager holds the seed. Consolidation is planned once the required upstream LDK changes land.
 
