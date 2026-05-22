@@ -24,30 +24,6 @@ Use the WDK packages when:
 
 If you are building from scratch, the `@utexo/rgb-sdk` family (`rgb-sdk`, `rgb-sdk-web`, `rgb-sdk-rn`) provides a higher-level API and is easier to integrate end-to-end.
 
-## Architecture
-
-```
-                ┌─────────────────────────────────────┐
-                │          Your Wallet App             │
-                └──────────────┬──────────────────────┘
-                               │
-              ┌────────────────┴────────────────┐
-              │                                 │
-   ┌──────────▼──────────┐         ┌────────────▼──────────────┐
-   │  WalletManagerRgb   │         │  WalletManagerRgbLightning │
-   │  (wdk-wallet-rgb)   │         │  (wdk-rgb-lightning)       │
-   └──────────┬──────────┘         └────────────┬──────────────┘
-              │                                 │
-   ┌──────────▼──────────┐         ┌────────────▼──────────────┐
-   │   @utexo/rgb-lib    │         │  rgb-lightning-node-bare   │
-   │   (native addon)    │         │  (Rust C-FFI / LDK)        │
-   └─────────────────────┘         └───────────────────────────┘
-              │                                 │
-              └─────────────┬───────────────────┘
-                            │
-                    Shared  dataDir  (SQLite)
-```
-
 ## Shared `dataDir`
 
 Both packages accept a `dataDir` configuration option pointing to the same directory. The RGB wallet stores its state in that directory and the Lightning node stores its LDK state alongside it. No explicit coordination is needed — they use separate subdirectories within the shared root.

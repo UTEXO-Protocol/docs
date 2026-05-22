@@ -29,17 +29,11 @@
         "pages": [
           "getting-started/product-suite",
           {
-            "group": "SDK",
+            "group": "Utexo SDK",
             "pages": [
               "product-suite/sdk",
               "sdk/utexo-sdk",
-              {
-                "group": "React Native",
-                "pages": [
-                  "sdk/react-native-sdk",
-                  "sdk/react-native-migration"
-                ]
-              },
+              "sdk/react-native-sdk",
               "sdk/web-sdk",
               {
                 "group": "WDK",

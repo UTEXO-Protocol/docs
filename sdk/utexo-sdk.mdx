@@ -1,7 +1,7 @@
 ---
 title: 'Utexo SDK Reference'
 description: 'Complete method reference for the @utexo/rgb-sdk Node.js package — wallet management, RGB asset operations, UTXO management, Lightning payments, on-chain interactions, backup and restore.'
-sidebarTitle: 'Utexo SDK'
+sidebarTitle: 'Node.js'
 ---
 
 The `@utexo/rgb-sdk` package is the Node.js SDK for applications built on the Utexo stack. It provides a complete set of bindings for wallet management, RGB asset operations, Lightning payments, async payments, and on-chain Bitcoin interactions. It is built on top of `@utexo/rgb-sdk-core`, the shared foundation used by all three Utexo SDK platforms.
@@ -53,7 +53,7 @@ const balance = await wallet.getBtcBalance();
 |---|---|---|---|
 | Mainnet | `mainnet` | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
 | Testnet | `testnet` | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
-| Utexo (Signet) | `utexo` | `rpcs://rgb-proxy-utexo.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
+| Utexo (Signet) | `utexo` | `rpcs://rgb-proxy.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
 
 Pass the identifier string in the `network` field of the init config. `utexo` is the default environment for development and testing.
 
