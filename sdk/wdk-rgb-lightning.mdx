@@ -1,0 +1,196 @@
+---
+title: 'wdk-rgb-lightning Reference'
+description: 'Complete reference for @utexo/wdk-rgb-lightning — WDK module for RGB Lightning channels, invoices, and payments. Alpha skeleton.'
+sidebarTitle: 'wdk-rgb-lightning'
+---
+
+`@utexo/wdk-rgb-lightning` is a WDK module for the RGB Lightning Node, enabling channels, invoices, payments, and swaps for RGB assets over the Lightning Network. It wraps `@utexo/rgb-lightning-node-bare`, which interfaces with Rust C-FFI bindings using LDK and tokio.
+
+<Warning>
+  This package is an **alpha skeleton**. Layers A and B are complete and operational. Layer C (full wiring) is in progress. Some methods are still in active development (🚧) or paused (⏸) — review the status column before depending on a specific method in production.
+</Warning>
+
+## Why a Separate Package
+
+The RGB Lightning Node manages its own seed through LDK's `KeysManager`, which conflicts with the WDK convention where the secret manager owns the seed. `wdk-rgb-lightning` provides a WDK-compatible wrapper and coordination layer. Consolidation with `wdk-wallet-rgb` is planned once upstream improvements from LDK are merged.
+
+## Installation
+
+```bash
+npm install @utexo/wdk-rgb-lightning
+```
+
+## Configuration
+
+`WalletManagerRgbLightning` requires the seed mnemonic at construction time (not at unlock) because LDK's `KeysManager` initialises the seed during node creation.
+
+| Option | Type | Description |
+|---|---|---|
+| `network` | `string` | Bitcoin network: `'mainnet'`, `'testnet'`, `'utexo'`, `'regtest'` |
+| `dataDir` | `string` | Directory for node state persistence |
+| `daemonPort` | `number` | RLN daemon HTTP port |
+| `ldkPort` | `number` | LDK peer-to-peer port |
+
+## Classes
+
+### `WalletManagerRgbLightning`
+
+```typescript
+import { WalletManagerRgbLightning } from '@utexo/wdk-rgb-lightning';
+
+const manager = new WalletManagerRgbLightning(mnemonic, {
+  network: 'utexo',
+  dataDir: '/path/to/wallet-data',
+  daemonPort: 9735,
+  ldkPort: 9736,
+});
+```
+
+#### Methods
+
+| Method | Description |
+|---|---|
+| `getAccount(unlockParams)` | Unlock the node and return a `WalletAccountRgbLightning` |
+| `disconnect()` | Shut down the node and release resources |
+
+#### `unlockParams`
+
+| Field | Type | Description |
+|---|---|---|
+| `bitcoindRpcUsername` | `string` | Bitcoin RPC username |
+| `bitcoindRpcPassword` | `string` | Bitcoin RPC password |
+| `bitcoindRpcHost` | `string` | Bitcoin RPC host |
+| `bitcoindRpcPort` | `number` | Bitcoin RPC port |
+| `indexerUrl` | `string?` | Electrum indexer URL |
+| `proxyEndpoint` | `string?` | RGB proxy endpoint |
+
+```typescript
+const account = await manager.getAccount({
+  bitcoindRpcUsername: 'user',
+  bitcoindRpcPassword: 'password',
+  bitcoindRpcHost: '127.0.0.1',
+  bitcoindRpcPort: 18443,
+  indexerUrl: '127.0.0.1:50001',
+  proxyEndpoint: 'rpc://127.0.0.1:3000/json-rpc',
+});
+```
+
+---
+
+### `WalletAccountRgbLightning`
+
+The account instance returned by `getAccount()`.
+
+#### Node Info
+
+| Method | Status | Description |
+|---|---|---|
+| `getNodeInfo()` | ✅ | Node pubkey, channel counts, sync status |
+| `getNetworkInfo()` | ✅ | Network-level info |
+
+#### Peers
+
+| Method | Status | Description |
+|---|---|---|
+| `connectPeer(peerPubkeyAndAddr)` | ✅ | Connect to a peer (`pubkey@host:port`) |
+| `disconnectPeer(peerPubkey)` | ✅ | Disconnect a peer |
+| `listPeers()` | ✅ | List connected peers |
+
+#### Channels
+
+| Method | Status | Description |
+|---|---|---|
+| `openChannel({ peerPubkeyAndOptAddr, capacitySat, pushMsat, public, withAnchors, assetId?, assetAmount? })` | ✅ | Open a BTC or RGB asset channel |
+| `closeChannel(channelId, peerPubkey, force)` | ✅ | Close a channel (cooperative or force) |
+| `listChannels()` | ✅ | List open channels |
+
+#### Invoices & Payments
+
+| Method | Status | Description |
+|---|---|---|
+| `createLnInvoice({ amountSats?, expirySeconds? })` | ✅ | Create a BTC Lightning invoice |
+| `createRgbInvoice({ assetId, amount, expirySeconds? })` | ✅ | Create an RGB asset Lightning invoice |
+| `payLnInvoice({ invoice, amount? })` | ✅ | Pay a Lightning invoice |
+| `payRgbInvoice({ invoice, assetId })` | ✅ | Pay an RGB Lightning invoice |
+| `decodeLnInvoice(invoice)` | ✅ | Decode a Lightning invoice |
+| `listPayments()` | ✅ | List all Lightning payments |
+| `keysend({ destPubkey, amtMsat, assetId?, assetAmount? })` | 🚧 WIP | Spontaneous keysend payment |
+
+#### Balances & Address
+
+| Method | Status | Description |
+|---|---|---|
+| `btcBalance(skipSync?)` | ✅ | BTC balance (vanilla + colored) |
+| `address()` | ✅ | On-chain deposit address |
+| `listAssets()` | 🚧 WIP | List RGB assets held by the node |
+| `assetBalance(assetId)` | 🚧 WIP | Balance for a specific RGB asset |
+
+#### Swaps & HODL
+
+| Method | Status | Description |
+|---|---|---|
+| `createSwap(params)` | ⏸ Paused | Atomic swap initiation |
+| `executeSwap(params)` | ⏸ Paused | Swap execution |
+| `createHodlInvoice(params)` | ⏸ Paused | HODL invoice creation |
+| `settleHodlInvoice(params)` | ⏸ Paused | HODL invoice settlement |
+
+**Status legend**: ✅ complete · 🚧 in active development · ⏸ paused
+
+## Usage Example
+
+```typescript
+import { WalletManagerRgbLightning } from '@utexo/wdk-rgb-lightning';
+
+const manager = new WalletManagerRgbLightning(mnemonic, {
+  network: 'utexo',
+  dataDir: '/path/to/wallet-data',
+  daemonPort: 9735,
+  ldkPort: 9736,
+});
+
+const account = await manager.getAccount({
+  bitcoindRpcUsername: 'user',
+  bitcoindRpcPassword: 'password',
+  bitcoindRpcHost: '127.0.0.1',
+  bitcoindRpcPort: 18443,
+});
+
+// Get node info
+const info = await account.getNodeInfo();
+console.log('Node pubkey:', info.pubkey);
+
+// Connect to a peer and open a channel
+await account.connectPeer(`${peerPubkey}@127.0.0.1:9736`);
+await account.openChannel({
+  peerPubkeyAndOptAddr: `${peerPubkey}@127.0.0.1:9736`,
+  capacitySat: 500_000,
+  pushMsat: 0,
+  public: false,
+  withAnchors: true,
+  assetId: null,
+  assetAmount: null,
+});
+
+// Create and pay a Lightning invoice
+const { invoice } = await receiverAccount.createLnInvoice({
+  amountSats: 1000,
+  expirySeconds: 900,
+});
+await account.payLnInvoice({ invoice });
+
+// Shutdown
+await manager.disconnect();
+```
+
+## Using with `wdk-wallet-rgb`
+
+Both packages are built on `rgb-lib`, so the on-chain experience — UTXO management, asset state, and RGB operations — is consistent between them. Developers familiar with `wdk-wallet-rgb` will find the on-chain behaviour works the same way in `wdk-rgb-lightning`.
+
+The packages are kept separate because LDK's `KeysManager` currently owns its own seed, which conflicts with WDK's convention where the secret manager holds the seed. Consolidation is planned once the required upstream LDK changes land.
+
+## Further Reading
+
+- [WDK Overview](/sdk/wdk-overview)
+- [wdk-wallet-rgb Reference](/sdk/wdk-wallet-rgb)
+- [SDK Overview](/product-suite/sdk)
+

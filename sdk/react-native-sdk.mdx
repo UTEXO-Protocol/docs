@@ -1,0 +1,467 @@
+---
+title: 'React Native SDK Reference'
+description: 'Complete reference for @utexo/rgb-sdk-rn — on-device Lightning node, RGB asset management, and Lightning payments for iOS and Android.'
+sidebarTitle: 'React Native'
+---
+
+The `@utexo/rgb-sdk-rn` package is the React Native SDK for iOS and Android applications built on the Utexo stack. Unlike the Node.js and Web SDKs, it embeds a full **RGB Lightning Node (RLN)** directly on-device — a native LDK-based node that runs locally without requiring a remote node or server.
+
+<Warning>
+  This SDK is designed for **React Native (iOS and Android) only**. For Node.js use `@utexo/rgb-sdk`; for browser environments use `@utexo/rgb-sdk-web`.
+</Warning>
+
+## What You Can Do
+
+- Run a full Lightning node on-device (iOS and Android) via RLN
+- Open Lightning channels and send/receive BTC or RGB asset payments over Lightning
+- Issue, transfer, and manage RGB assets (NIA, CFA, IFA, UDA)
+- Manage UTXOs and perform on-chain BTC sends
+- Use a hardware-wallet-style **external signer** or a simple **password signer**
+- Restart the node on the same `UTEXOWallet` instance without recreating it
+
+## Installation
+
+```bash
+npm install @utexo/rgb-sdk-rn
+```
+
+### iOS Setup
+
+The native framework (`RGBLightningNode.xcframework`) is downloaded and extracted automatically during `postinstall`.
+
+```bash
+cd ios && pod install
+```
+
+### Android Setup
+
+Requires `minSdkVersion` 24. The native binding (`com.utexo:rgb-lightning-node-android`) is published to Maven Central and resolved by Gradle automatically — no extra repository configuration needed.
+
+## Primary Class: `UTEXOWallet`
+
+`UTEXOWallet` is the main entry point. It implements `IWalletManager` and `IUTEXOProtocol`, owns the on-device RLN node lifecycle, and abstracts both signer types behind a single consistent API.
+
+### Construction
+
+```typescript
+import {
+  UTEXOWallet,
+  NativeExternalRLNSigner,
+  PasswordRLNSigner,
+  generateKeys,
+  type UTEXOWalletNodeParams,
+} from '@utexo/rgb-sdk-rn';
+
+const keys = await generateKeys('regtest');
+
+const wallet = new UTEXOWallet(
+  {
+    storageDirPath: '/path/to/node-storage',
+    daemonListeningPort: 9735,
+    ldkPeerListeningPort: 9736,
+    network: 'regtest',
+    xpubVan: keys.accountXpubVanilla,
+    xpubCol: keys.accountXpubColored,
+    masterFingerprint: keys.masterFingerprint,
+  },
+  new NativeExternalRLNSigner(keys.mnemonic, 'regtest'),
+);
+```
+
+#### `UTEXOWalletNodeParams`
+
+| Field | Type | Description |
+|---|---|---|
+| `storageDirPath` | `string` | Directory where the node persists its data |
+| `daemonListeningPort` | `number` | RLN daemon HTTP port |
+| `ldkPeerListeningPort` | `number` | LDK peer-to-peer port |
+| `network` | `string` | Bitcoin network (`'regtest'`, `'testnet'`, `'mainnet'`, …) |
+| `xpubVan` | `string` | Vanilla (BTC) account xpub |
+| `xpubCol` | `string` | Colored (RGB) account xpub |
+| `masterFingerprint` | `string` | BIP32 master fingerprint |
+| `maxMediaUploadSizeMb` | `number?` | Max media upload size in MB (default 20) |
+| `enableVirtualChannelsV0` | `boolean?` | Enable virtual channel support |
+
+## Signers
+
+A signer encapsulates how the private key material is provided to the node. Pass one to the `UTEXOWallet` constructor. On the first call to `init()`, the wallet calls `initNode` on the signer; on every subsequent `unlock()` or `reinit()` it calls `unlockNode` automatically.
+
+### `NativeExternalRLNSigner` (recommended)
+
+Uses a native hardware-style external signer. Keys never leave the device key store. Accepts a mnemonic string **or** raw BIP39 seed bytes.
+
+```typescript
+import { NativeExternalRLNSigner } from '@utexo/rgb-sdk-rn';
+
+// From mnemonic
+const signer = new NativeExternalRLNSigner(keys.mnemonic, 'regtest');
+
+// From raw seed bytes
+const signer = new NativeExternalRLNSigner(seedBytes, 'regtest');
+
+// Relaxed policy (useful for testing environments)
+const signer = new NativeExternalRLNSigner(keys.mnemonic, 'regtest', true);
+```
+
+### `PasswordRLNSigner`
+
+Classic password-based authentication. The mnemonic is only needed for the first-time `init()` call (written to disk), then cleared from memory.
+
+```typescript
+import { PasswordRLNSigner } from '@utexo/rgb-sdk-rn';
+
+// First init — provide mnemonic
+const signer = new PasswordRLNSigner('my-secure-password', keys.mnemonic);
+
+// Subsequent unlocks — mnemonic not required
+const signer = new PasswordRLNSigner('my-secure-password');
+```
+
+## Lifecycle
+
+A `UTEXOWallet` goes through four phases:
+
+| Phase | Method | When to call |
+|---|---|---|
+| First-time setup | `init()` | Once per new wallet — writes key material to `storageDirPath` |
+| Connect & unlock | `unlock(params)` | Every start (first run and restarts) — connects to bitcoind, electrum, and proxy |
+| Graceful stop | `shutdown()` | When pausing the node — state preserved on disk |
+| Full teardown | `destroy()` | On logout or in `finally` blocks — shutdown + destroyNode + release signer |
+
+`initialize()` is a backward-compatible alias for `init()`. `reinit(params)` combines `shutdown()` + `init()` + `unlock()` in one call for restarts on the same instance.
+
+```typescript
+const unlockParams = {
+  bitcoindRpcUsername: 'user',
+  bitcoindRpcPassword: 'password',
+  bitcoindRpcHost: '127.0.0.1',
+  bitcoindRpcPort: 18443,
+  indexerUrl: '127.0.0.1:50001',
+  proxyEndpoint: 'rpc://127.0.0.1:3000/json-rpc',
+};
+
+// First run
+await wallet.init();
+await wallet.unlock(unlockParams);
+
+// Graceful restart (same instance — no new UTEXOWallet needed)
+await wallet.shutdown();
+await wallet.reinit(unlockParams);
+
+// Final cleanup
+await wallet.destroy();
+```
+
+#### `IRLNUnlockParams`
+
+| Field | Type | Description |
+|---|---|---|
+| `bitcoindRpcUsername` | `string` | Bitcoin RPC username |
+| `bitcoindRpcPassword` | `string` | Bitcoin RPC password |
+| `bitcoindRpcHost` | `string` | Bitcoin RPC host |
+| `bitcoindRpcPort` | `number` | Bitcoin RPC port |
+| `indexerUrl` | `string?` | Electrum indexer URL (e.g. `'127.0.0.1:50001'`) |
+| `proxyEndpoint` | `string?` | RGB proxy endpoint (e.g. `'rpc://host:3000/json-rpc'`) |
+| `announceAddresses` | `string[]?` | Public addresses to announce to the network |
+| `announceAlias` | `string \| null?` | Node alias |
+
+## Method Reference
+
+### Balance & Address
+
+| Method | Description |
+|---|---|
+| `getBtcBalance()` | BTC balance split by `vanilla` and `colored` paths, each with `settled`, `future`, `spendable` |
+| `getAddress()` | Current on-chain deposit address |
+| `getXpub()` | Returns `{ xpubVan, xpubCol }` |
+| `getNetwork()` | Configured network string |
+
+### UTXO Management
+
+| Method | Description |
+|---|---|
+| `createUtxos({ upTo?, num?, size?, feeRate? })` | Create colored UTXOs for RGB operations |
+| `listUnspents()` | List unspent UTXOs with RGB allocations (`outpoint`, `btcAmount`, `colorable`, `rgbAllocations`) |
+
+<Note>
+  Call `syncWallet()` after funding and again after `createUtxos()` to update chain state before RGB operations.
+</Note>
+
+### RGB Assets
+
+| Method | Description |
+|---|---|
+| `listAssets()` | All RGB assets held by the node (NIA, CFA, IFA, UDA) |
+| `getAssetBalance(assetId)` | Balance for a specific RGB asset |
+| `issueAssetNia({ ticker, name, precision, amounts })` | Issue a Non-Inflationary Asset |
+| `issueAssetIfa({ ticker, name, precision, amounts, inflationAmounts, rejectListUrl })` | Issue an Inflatable Asset |
+| `blindReceive({ assetId?, amount?, durationSeconds?, minConfirmations? })` | Create a blinded RGB invoice. Omit `assetId`/`amount` if the receiver doesn't hold the asset yet |
+| `witnessReceive({ assetId?, amount?, durationSeconds?, minConfirmations? })` | Create a witness RGB invoice |
+| `send({ invoice, assetId?, amount, donation?, feeRate?, minConfirmations?, skipSync?, witnessData? })` | RGB transfer — decodes invoice and sends. `witnessData: { amountSat, blinding? }` required for witness sends |
+| `decodeRGBInvoice({ invoice })` | Decode an RGB invoice |
+
+### BTC Sends
+
+| Method | Description |
+|---|---|
+| `sendBtc({ address, amount, feeRate, skipSync? })` | On-chain BTC send |
+
+### Transactions & Transfers
+
+| Method | Description |
+|---|---|
+| `listTransactions()` | On-chain transaction history |
+| `listTransfers(assetId?)` | RGB transfer history. Statuses: `WaitingCounterparty`, `WaitingConfirmations`, `Settled`, `Failed` |
+| `failTransfers(params)` | Mark pending transfers as failed |
+| `refreshWallet()` | Refresh RGB transfer state (consignments, status progression) |
+| `syncWallet()` | Sync blockchain and UTXO state |
+
+### Fees & Backup
+
+| Method | Description |
+|---|---|
+| `estimateFeeRate(blocks)` | Fee rate estimate for target confirmation depth |
+| `createBackup({ backupPath, password })` | Encrypted local backup |
+
+### Lightning
+
+| Method | Description |
+|---|---|
+| `createLightningInvoice({ amountSats?, asset, expirySeconds? })` | Create a Lightning invoice (BTC or RGB asset) |
+| `payLightningInvoice({ lnInvoice, amount?, assetId? })` | Pay a Lightning invoice |
+| `getLightningSendRequest(paymentHash)` | Poll send status: `'WaitingCounterparty'` → `'Settled'` or `'Failed'` |
+| `getLightningReceiveRequest(invoice)` | Poll receive status |
+| `listLightningPayments()` | List all Lightning payments |
+
+### On-chain RGB
+
+| Method | Description |
+|---|---|
+| `onchainReceive({ assetId?, amount?, durationSeconds?, minConfirmations?, witness? })` | RGB invoice — witness by default (`witness: true`). Pass `witness: false` for a blinded invoice |
+| `onchainSend({ invoice, assetId?, amount?, donation?, feeRate?, minConfirmations?, skipSync?, witnessData? })` | RGB send via decoded invoice |
+| `listOnchainTransfers(assetId?)` | RGB on-chain transfer history |
+
+### Node Info
+
+| Method | Description |
+|---|---|
+| `getNodeInfo()` | Node pubkey, channel counts, sync status |
+| `getNetworkInfo()` | Network-level info |
+
+### Peers
+
+| Method | Description |
+|---|---|
+| `connectPeer(peerPubkeyAndAddr)` | Connect to a peer using `pubkey@host:port` format |
+| `disconnectPeer(peerPubkey)` | Disconnect a peer |
+| `listPeers()` | List connected peers |
+
+### Channels
+
+| Method | Description |
+|---|---|
+| `openChannel({ peerPubkeyAndOptAddr, capacitySat, pushMsat, public, withAnchors, assetId?, assetAmount? })` | Open a channel (BTC or RGB asset) |
+| `closeChannel(channelId, peerPubkey, force)` | Close a channel (cooperative or force) |
+| `listChannels()` | List open channels |
+| `getChannelId(temporaryChannelId)` | Resolve temporary → permanent channel ID |
+
+### Payments
+
+| Method | Description |
+|---|---|
+| `keysend(destPubkey, amtMsat, assetId?, assetAmount?)` | Spontaneous keysend payment |
+| `decodeLnInvoice(invoice)` | Decode a Lightning invoice |
+| `invoiceStatus(invoice)` | Raw invoice status |
+
+### Utility
+
+| Method | Description |
+|---|---|
+| `checkIndexerUrl(url)` | Validate an Electrum indexer URL |
+| `checkProxyEndpoint(endpoint)` | Validate an RGB proxy endpoint |
+
+## Core Workflows
+
+### First-Time Wallet Init
+
+```typescript
+import {
+  UTEXOWallet,
+  NativeExternalRLNSigner,
+  generateKeys,
+} from '@utexo/rgb-sdk-rn';
+import * as FileSystem from 'expo-file-system/legacy';
+
+const network = 'regtest';
+const keys = await generateKeys(network);
+
+const storageDir = `${FileSystem.documentDirectory}my-node`.replace('file://', '');
+await FileSystem.makeDirectoryAsync(storageDir, { intermediates: true });
+
+const wallet = new UTEXOWallet(
+  {
+    storageDirPath: storageDir,
+    daemonListeningPort: 9735,
+    ldkPeerListeningPort: 9736,
+    network,
+    xpubVan: keys.accountXpubVanilla,
+    xpubCol: keys.accountXpubColored,
+    masterFingerprint: keys.masterFingerprint,
+  },
+  new NativeExternalRLNSigner(keys.mnemonic, network),
+);
+
+const unlockParams = {
+  bitcoindRpcUsername: 'user',
+  bitcoindRpcPassword: 'password',
+  bitcoindRpcHost: '127.0.0.1',
+  bitcoindRpcPort: 18443,
+  indexerUrl: '127.0.0.1:50001',
+  proxyEndpoint: 'rpc://127.0.0.1:3000/json-rpc',
+};
+
+await wallet.init();
+await wallet.unlock(unlockParams);
+```
+
+### App Restart (Existing Node)
+
+```typescript
+// The node was previously init'd and shut down.
+// Call reinit() on the same instance — no new UTEXOWallet() needed.
+await wallet.reinit(unlockParams);
+```
+
+### Issue an RGB Asset
+
+```typescript
+// Fund the node address, mine blocks, then:
+await wallet.syncWallet();
+await wallet.createUtxos({ upTo: false, num: 10, feeRate: 1.5 });
+
+const asset = await wallet.issueAssetNia({
+  ticker: 'DEMO',
+  name: 'Demo Token',
+  precision: 2,
+  amounts: [1000],
+});
+console.log('Asset ID:', asset.assetId);
+```
+
+### Open a Lightning Channel
+
+```typescript
+await wallet.connectPeer(`${peerPubkey}@127.0.0.1:9736`);
+
+const { temporaryChannelId } = await wallet.openChannel({
+  peerPubkeyAndOptAddr: `${peerPubkey}@127.0.0.1:9736`,
+  capacitySat: 500_000,
+  pushMsat: 0,
+  public: false,
+  withAnchors: true,
+  assetId: null,
+  assetAmount: null,
+});
+
+// Poll until the channel is usable (mine 6 blocks)
+let usable = false;
+while (!usable) {
+  await wallet.syncWallet();
+  const info = await wallet.getNodeInfo();
+  usable = (info.numUsableChannels ?? 0) >= 1;
+  if (!usable) await new Promise(r => setTimeout(r, 2000));
+}
+```
+
+### Lightning Payment
+
+```typescript
+// Receiver creates invoice
+const { lnInvoice } = await receiverWallet.createLightningInvoice({
+  amountSats: 3000,
+  expirySeconds: 900,
+  asset: { assetId: '', amount: 0 }, // BTC-only: empty assetId
+});
+
+// Sender pays
+const { txid: paymentHash } = await senderWallet.payLightningInvoice({ lnInvoice });
+
+// Poll until settled
+let status = null;
+while (status !== 'Settled') {
+  await senderWallet.syncWallet();
+  status = await senderWallet.getLightningSendRequest(paymentHash);
+  if (status === 'Failed') throw new Error('Payment failed');
+  if (status !== 'Settled') await new Promise(r => setTimeout(r, 2000));
+}
+```
+
+### RGB Asset Payment over Lightning
+
+```typescript
+// Receiver creates invoice for 10 asset units
+const { lnInvoice } = await receiverWallet.createLightningInvoice({
+  expirySeconds: 900,
+  asset: { assetId, amount: 10 },
+});
+
+// Sender pays
+const { txid: paymentHash } = await senderWallet.payLightningInvoice({
+  lnInvoice,
+  assetId,
+});
+```
+
+### Full Cleanup
+
+```typescript
+try {
+  // ... wallet operations ...
+} finally {
+  await wallet.destroy(); // shutdown + destroyNode + signer.dispose
+}
+```
+
+## Standalone Helpers
+
+| Function | Description |
+|---|---|
+| `generateKeys(network?)` | Generate mnemonic, xpubs, master fingerprint |
+| `createWallet(network?)` | Alias for `generateKeys` |
+| `deriveKeysFromMnemonic(network, mnemonic)` | Derive keys from an existing BIP39 mnemonic |
+| `deriveKeysFromSeed(network, seed)` | Derive keys from BIP39 seed bytes |
+| `signMessage` / `verifyMessage` | Schnorr message signing (no wallet required) |
+
+## RLN Manager (Advanced)
+
+`RLNManager` and `createRLNManager` expose the raw RLN node API for advanced use cases requiring full node lifecycle control without the `UTEXOWallet` wrapper. All methods map 1:1 to the underlying native module calls.
+
+```typescript
+import { createRLNManager } from '@utexo/rgb-sdk-rn';
+
+const rln = createRLNManager();
+await rln.rlnCreateNode({ storageDirPath, daemonListeningPort, ldkPeerListeningPort, network });
+await rln.rlnInitNode(password, mnemonic);
+await rln.rlnUnlockNode({ password, ...connectionParams });
+// ...
+await rln.rlnShutdown();
+await rln.rlnDestroyNode();
+```
+
+## Demo App
+
+A full working demo is available at [rgb-sdk-rn-playground](https://github.com/UTEXO-Protocol/rgb-sdk-rn-demo). It demonstrates the complete `UTEXOWallet` lifecycle, both signer types, node restart via `reinit()`, and raw `RLNManager` flows for comparison.
+
+```bash
+git clone https://github.com/UTEXO-Protocol/rgb-sdk-rn-demo
+cd rgb-sdk-rn-demo
+npm install && npm run prebuild
+cd ios && LANG=en_US.UTF-8 pod install && cd ..
+npm run ios:release   # or npm run android:release
+```
+
+## Further Reading
+
+- [SDK Overview](/product-suite/sdk) — SDK family, key concepts, and execution model.
+- [Architecture](/getting-started/architecture) — The Bitcoin + RGB + Lightning stack the SDK operates on.
+

@@ -1,0 +1,35 @@
+---
+title: 'WDK Overview'
+description: 'Overview of the Utexo Wallet Development Kit — WDK abstractions over RGB asset management and RGB Lightning for wallet builders.'
+sidebarTitle: 'Overview'
+---
+
+The Wallet Development Kit (WDK) is a set of packages that expose RGB capabilities through standardised wallet abstraction interfaces. Where the `@utexo/rgb-sdk` family targets application developers building end-to-end flows, the WDK targets **wallet infrastructure builders** who already use WDK-compatible account and signing abstractions and want to add RGB support without reimplementing the protocol layer.
+
+## WDK Packages
+
+| Package | Platform | Description | Status |
+|---|---|---|---|
+| `@utexo/wdk-wallet-rgb` | Node.js & Bare | RGB asset management — issuance, transfers, inventory, backup | Stable |
+| `@utexo/wdk-rgb-lightning` | Node.js & Bare | RGB Lightning node — channels, invoices, payments | Alpha skeleton |
+
+Both packages are built on `rgb-lib`, so the on-chain experience — UTXO management, asset state, and RGB operations — is consistent between them.
+
+The packages are currently separate because LDK's `KeysManager` owns its own seed, which conflicts with WDK's convention where the secret manager holds the seed. Consolidation is planned once the required upstream LDK changes land.
+
+## When to Use the WDK
+
+Use the WDK packages when:
+- Your application already builds on WDK-style account and manager abstractions
+- You want to plug RGB or RGB Lightning into an existing wallet architecture without adopting the full `UTEXOWallet` lifecycle
+- You need lower-level control over account management, signing policy, and key derivation
+
+If you are building from scratch, the `@utexo/rgb-sdk` family (`rgb-sdk`, `rgb-sdk-web`, `rgb-sdk-rn`) provides a higher-level API and is easier to integrate end-to-end.
+
+
+## Further Reading
+
+- [wdk-wallet-rgb Reference](/sdk/wdk-wallet-rgb) — Full API for RGB asset management
+- [wdk-rgb-lightning Reference](/sdk/wdk-rgb-lightning) — Full API for RGB Lightning
+- [SDK Overview](/product-suite/sdk) — How the WDK fits into the broader Utexo SDK family
+

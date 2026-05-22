@@ -1,0 +1,285 @@
+---
+title: 'Web SDK Reference'
+description: 'Complete reference for @utexo/rgb-sdk-web — browser-native RGB asset management via WebAssembly, no server required.'
+sidebarTitle: 'Web'
+---
+
+The `@utexo/rgb-sdk-web` package is the browser SDK for the Utexo stack. All operations run locally via **WebAssembly** — no server, no Node.js, no native binaries required. Wallet state persists to **IndexedDB** automatically and survives page refresh.
+
+<Warning>
+  This SDK is designed for **browser environments only**. It is not compatible with Node.js (use `@utexo/rgb-sdk`) or React Native (use `@utexo/rgb-sdk-rn`).
+
+  **Lightning support is not yet available** in the Web SDK. It will be included in the next major release.
+</Warning>
+
+## Requirements
+
+- Modern browser: Chrome, Firefox, Safari, Edge
+- ESM-only bundler: Vite, Webpack 5, Rollup, or esbuild — CommonJS is not supported
+- No backend or server required
+
+## Installation
+
+```bash
+npm install @utexo/rgb-sdk-web
+```
+
+## Initialisation
+
+The primary class is `UTEXOWallet`. WASM initialises automatically inside the static `create()` factory — no manual `initWasm()` call needed.
+
+```typescript
+import { UTEXOWallet, generateKeys } from '@utexo/rgb-sdk-web';
+
+// 1. Generate wallet keys
+const keys = await generateKeys('utexo');
+console.log('Mnemonic:', keys.mnemonic); // Store securely
+
+// 2. Create wallet — WASM loads automatically
+const wallet = await UTEXOWallet.create(keys.mnemonic, {
+  network: 'utexo',      // 'mainnet' | 'testnet' | 'utexo'
+  vssServerUrl: '...',   // optional — enables VSS cloud backup
+  reuseAddresses: false, // optional — set true to disable address rotation
+});
+
+// 3. Get a deposit address
+const address = await wallet.getAddress();
+
+// 4. Check BTC balance
+const balance = await wallet.getBtcBalance();
+```
+
+## Networks
+
+| Environment | Identifier | Use case |
+|---|---|---|
+| Mainnet | `mainnet` | Production |
+| Testnet | `testnet` | Pre-production testing |
+| Utexo (Signet) | `utexo` | Development and integration testing |
+
+## Storage
+
+Unlike the Node.js SDK, there is no `dataDir` option. The browser SDK persists wallet state to **IndexedDB** automatically. State survives page refresh and browser restarts without any additional configuration.
+
+## Vanilla vs Colored Addresses
+
+The SDK operates two separate derivation paths, consistent with the Node.js and React Native SDKs:
+
+- **Vanilla** — standard Bitcoin derivation path for BTC receives, fee payments, and on-chain withdrawals. `getAddress()` returns a vanilla bech32 receive address.
+- **Colored** — RGB-specific derivation path. Used internally when creating UTXOs for RGB asset allocations.
+
+`getBtcBalance()` returns separate balances for each path, each with `settled`, `future`, and `spendable` fields.
+
+### Address Rotation
+
+By default, `getAddress()` rotates to a new derivation index on each call. To disable rotation and return the same address every time, pass `reuseAddresses: true` in the config. You can also rotate manually:
+
+- `rotateVanillaAddress()` — advance the vanilla address index
+- `rotateColoredAddress()` — advance the colored address index
+
+## Wallet Methods
+
+### Key Generation
+
+- `generateKeys(network?)` — Generate new wallet keys. Returns `mnemonic`, `xpub`, `accountXpubVanilla`, `accountXpubColored`.
+- `deriveKeysFromMnemonic(network, mnemonic)` — Derive keys from an existing BIP39 mnemonic.
+
+### Wallet State
+
+| Method | Description |
+|---|---|
+| `getAddress()` | Get a receive address; rotates to a new HD index by default |
+| `rotateVanillaAddress()` | Manually advance the vanilla address index |
+| `rotateColoredAddress()` | Manually advance the colored address index |
+| `getBtcBalance()` | BTC balance split by `vanilla` and `colored` paths |
+| `listUnspents()` | List unspent UTXOs |
+| `listAssets()` | List RGB assets held in the wallet |
+| `getAssetBalance(assetId)` | Get balance for a specific RGB asset |
+| `listTransactions()` | List BTC-level transactions |
+| `listTransfers(assetId?)` | List RGB transfer history. Statuses: `WaitingCounterparty`, `WaitingConfirmations`, `Settled`, `Failed` |
+| `refreshWallet()` | Update RGB transfer state (consignments, status progression) |
+| `syncWallet()` | Update chain and UTXO state |
+| `dispose()` | Release wallet resources |
+
+<Note>
+  Call `syncWallet()` after funding or UTXO creation to update chain state. Call `refreshWallet()` after `send()` to update RGB transfer status on both sender and receiver sides.
+</Note>
+
+## UTXO Management
+
+Before issuing or receiving RGB assets, colored UTXOs must be created. Call `createUtxos()` after funding the vanilla address:
+
+```typescript
+await wallet.createUtxos({ num: 5 });
+await wallet.syncWallet();
+```
+
+- `createUtxos({ num?, size?, upTo? })` — Create colored UTXOs. Handles begin, sign, and end internally.
+
+## RGB Asset Methods
+
+### Issuing Assets
+
+```typescript
+// Non-Inflationary Asset (NIA)
+const asset = await wallet.issueAssetNia({
+  ticker: 'MYTOKEN',
+  name: 'My Token',
+  amounts: [1_000_000],
+  precision: 6,
+});
+
+// Inflatable Asset (IFA)
+const inflatable = await wallet.issueAssetIfa({
+  ticker: 'IFA',
+  name: 'Inflatable Token',
+  precision: 0,
+  amounts: [500],
+  inflationAmounts: [{ assetId: '', amount: 100 }],
+  rejectListUrl: '',
+});
+```
+
+| Method | Description |
+|---|---|
+| `issueAssetNia({ ticker, name, amounts, precision })` | Issue a Non-Inflationary Asset |
+| `issueAssetCfa({ name, amounts, precision, description?, fileDigest? })` | Issue a Collectible Fungible Asset |
+| `issueAssetUda({ name, precision, details?, fileDigest? })` | Issue a Unique Digital Asset (NFT) |
+| `issueAssetIfa({ ticker, name, precision, amounts, inflationAmounts, rejectListUrl })` | Issue an Inflatable Asset |
+
+### Receiving Assets
+
+RGB receive flows support two invoice styles:
+
+- **Blinded invoice** — most common. The receiver creates a blinded endpoint; the sender pays directly.
+- **Witness invoice** — the receiver binds the transfer to witness data. The sender must provide `witnessData` (at minimum `amountSat`) in `send()`.
+
+```typescript
+// Blinded invoice
+const receiveData = await wallet.blindReceive({
+  assetId,
+  amount: 5000,
+  minConfirmations: 1,
+  durationSeconds: 3600,
+});
+
+// Witness invoice
+const witnessData = await wallet.witnessReceive({
+  assetId,
+  amount: 2000,
+  minConfirmations: 1,
+  durationSeconds: 3600,
+});
+```
+
+| Method | Description |
+|---|---|
+| `blindReceive({ assetId?, amount?, minConfirmations?, durationSeconds? })` | Generate a blinded UTXO invoice |
+| `witnessReceive({ assetId?, amount?, minConfirmations?, durationSeconds? })` | Generate a witness invoice |
+| `decodeRgbInvoice(invoice)` | Decode an RGB invoice |
+
+### Sending Assets
+
+```typescript
+// Send via blinded invoice
+await wallet.send({
+  invoice: receiveData.invoice,
+  assetId,
+  amount: 5000,
+});
+
+// Send via witness invoice — witnessData required
+await wallet.send({
+  invoice: witnessData.invoice,
+  assetId,
+  amount: 2000,
+  witnessData: { amountSat: 1000 },
+});
+
+await wallet.refreshWallet(); // update transfer status after send
+```
+
+- `send({ invoice, assetId, amount, witnessData? })` — Complete an RGB transfer (begin → sign → end)
+- `sendBtc({ address, amount, feeRate? })` — On-chain BTC send with PSBT signing
+
+## Backup and Restore
+
+Backups are recommended after every significant state change: UTXO creation, asset issuance, and transfers.
+
+### File Backup
+
+Creates an encrypted backup as raw bytes. Store or download the bytes — there is no file path in the browser.
+
+```typescript
+// Export encrypted backup bytes
+const backupBytes = await wallet.createBackup({ password: 'strong-password' });
+
+// Restore from backup bytes
+await UTEXOWallet.restoreFromBackup(backupBytes, { password: 'strong-password' });
+
+// Re-open wallet after restore
+const restoredWallet = await UTEXOWallet.create(mnemonic, { network: 'utexo' });
+```
+
+### VSS Backup
+
+Pushes wallet state to a remote Verifiable Secret Sharing server. Requires `vssServerUrl` in the wallet config.
+
+```typescript
+const wallet = await UTEXOWallet.create(mnemonic, {
+  network: 'utexo',
+  vssServerUrl: 'https://vss.example.com',
+});
+
+// Push state to VSS
+await wallet.vssBackup();
+
+// Check backup status
+const info = await wallet.vssBackupInfo();
+console.log(info); // { backupExists, serverVersion, backupRequired }
+
+// Restore from VSS
+await UTEXOWallet.restoreFromVss({
+  mnemonic,
+  config: { vssServerUrl: 'https://vss.example.com' },
+  networkPreset: 'utexo',
+});
+```
+
+| Method | Description |
+|---|---|
+| `createBackup({ password })` | Export encrypted backup as raw bytes |
+| `restoreFromBackup(bytes, { password })` | Restore wallet from encrypted bytes |
+| `vssBackup(config?)` | Push wallet state to VSS server |
+| `vssBackupInfo(config?)` | Check backup status on VSS server |
+| `restoreFromVss({ mnemonic, config?, networkPreset })` | Restore wallet from VSS |
+
+## Security
+
+The browser SDK is fully non-custodial. Private keys and mnemonics are never transmitted to remote servers. WASM runs in the browser's sandboxed environment.
+
+For hardware wallet or external signer support, use the manual `begin`/`end` send flow:
+
+```typescript
+// Begin — returns an unsigned PSBT
+const psbt = await wallet.sendBegin({ invoice, assetId, amount });
+
+// Sign externally (hardware wallet, etc.)
+const signedPsbt = await myHardwareWallet.sign(psbt);
+
+// End — broadcast the signed PSBT
+await wallet.sendEnd({ signedPsbt });
+```
+
+The same begin/end pattern applies to UTXO creation (`createUtxosBegin` / `createUtxosEnd`) and BTC sends.
+
+<Warning>
+  Store mnemonics securely and never log or transmit them. In browser environments, use the Web Crypto API or a secure vault rather than `localStorage`.
+</Warning>
+
+## Further Reading
+
+- [SDK Overview](/product-suite/sdk) — SDK family, key concepts, and execution model.
+- [Node.js SDK](/sdk/utexo-sdk) — Server-side SDK with the same core API surface.
+- [Architecture](/getting-started/architecture) — The Bitcoin + RGB stack the SDK operates on.
+
