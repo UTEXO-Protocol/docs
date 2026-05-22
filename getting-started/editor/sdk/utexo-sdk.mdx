@@ -147,9 +147,10 @@ console.log('Wallet address:', address);
 {% step %}
 ### Check balance
 
-<pre class="language-javascript"><code class="lang-javascript">const balance = await wallet.getBtcBalance();
-<a data-footnote-ref href="#user-content-fn-1">console.log('BTC Balance:', balance);</a>
-</code></pre>
+```javascript
+const balance = await wallet.getBtcBalance();
+console.log('BTC Balance:', balance);
+```
 {% endstep %}
 {% endstepper %}
 
@@ -181,8 +182,9 @@ await walletWithDir.initialize();
 {% step %}
 ### Restore from mnemonic
 
-<pre class="language-javascript"><code class="lang-javascript"><strong>// Restore from file backup (layer1 + lightning in one folder)
-</strong>const { targetDir } = restoreUtxoWalletFromBackup({
+```javascript
+// Restore from file backup (layer1 + lightning in one folder)
+const { targetDir } = restoreUtxoWalletFromBackup({
     backupPath: './backup-folder',
     password: 'your-password',
     targetDir: './restored-wallet',
@@ -197,7 +199,7 @@ const { targetDir: vssDir } = await restoreUtxoWalletFromVss({
 });
 const fromVss = new UTEXOWallet(keys.mnemonic, { dataDir: vssDir, network: 'testnet' });
 await fromVss.initialize();
-</code></pre>
+```
 {% endstep %}
 {% endstepper %}
 
@@ -427,5 +429,3 @@ const isValid = await verifyMessage({
 * [utexo-file-backup-restore](https://github.com/UTEXO-Protocol/rgb-sdk/blob/main/examples/utexo-file-backup-restore.mjs) – File backup and restore
 
 See [examples/README.md](https://github.com/UTEXO-Protocol/rgb-sdk/blob/main/examples/README.md) for run commands. CLI: [cli/](https://github.com/UTEXO-Protocol/rgb-sdk/blob/main/cli).
-
-[^1]: 
