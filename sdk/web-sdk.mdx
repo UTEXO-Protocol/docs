@@ -57,6 +57,19 @@ const balance = await wallet.getBtcBalance();
 | Testnet | `testnet` | Pre-production testing |
 | Utexo (Signet) | `utexo` | Development and integration testing |
 
+<Note>
+  **Utexo Network Faucet** — To get test BTC and RGB assets on the Utexo network, use the Telegram bot [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot).
+
+  | Command | Description |
+  |---|---|
+  | `/getbtc` | Send your Bitcoin address to receive test satoshis |
+  | `/getasset` | Send an RGB invoice to receive test RGB assets |
+  | `/getinvoice` | Get an RGB Lightning invoice to test paying |
+  | `/getnodeinfo` | Get the faucet node URI, asset ID, and ticker |
+
+  Limited to 2 requests per 24 hours per user.
+</Note>
+
 ## Storage
 
 Unlike the Node.js SDK, there is no `dataDir` option. The browser SDK persists wallet state to **IndexedDB** automatically. State survives page refresh and browser restarts without any additional configuration.
