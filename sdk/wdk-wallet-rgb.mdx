@@ -1,0 +1,231 @@
+---
+title: 'wdk-wallet-rgb Reference'
+description: 'Complete reference for @utexo/wdk-wallet-rgb — WDK-compatible RGB asset management for wallet builders.'
+sidebarTitle: 'wdk-wallet-rgb'
+---
+
+`@utexo/wdk-wallet-rgb` bridges the Wallet Development Kit (WDK) interfaces with the RGB ecosystem. It wraps the `@utexo/rgb-lib-bare` native addon and the `@utexo/rgb-sdk` Taproot signer inside standard WDK account abstractions, giving wallet builders first-class RGB support without reimplementing the protocol layer.
+
+## Installation
+
+```bash
+npm install @utexo/wdk-wallet-rgb
+```
+
+## Configuration
+
+| Option | Type | Description |
+|---|---|---|
+| `network` | `string` | Bitcoin network: `'mainnet'`, `'testnet'`, `'testnet4'`, `'signet'`, `'utexo'`, `'regtest'` |
+| `dataDir` | `string` | Path to a persistent directory for SQLite state storage |
+
+## Classes
+
+### `WalletManagerRgb`
+
+The top-level manager. Constructs account instances and manages the underlying `rgb-lib` state.
+
+```typescript
+import { WalletManagerRgb } from '@utexo/wdk-wallet-rgb';
+
+const manager = new WalletManagerRgb({
+  network: 'utexo',
+  dataDir: '/path/to/wallet-data',
+});
+```
+
+#### Methods
+
+| Method | Description |
+|---|---|
+| `getAccount(mnemonic)` | Derive a `WalletAccountRgb` from a BIP39 mnemonic |
+| `restoreFromBackup(backup, mnemonic)` | Restore wallet state from an encrypted backup, then return the account |
+| `getFeeRate()` | Get current fee rate estimate |
+| `dispose()` | Release native resources |
+
+```typescript
+const account = await manager.getAccount(mnemonic);
+
+// Or restore from backup first
+const account = await manager.restoreFromBackup(backupData, mnemonic);
+```
+
+---
+
+### `WalletAccountRgb`
+
+The primary account class. Implements the standard WDK account interface plus RGB-specific operations.
+
+#### Address & Signing (Standard WDK)
+
+| Method | Description |
+|---|---|
+| `getAddress()` | Get current receive address |
+| `sign(psbt)` | Sign a PSBT with the account's key material |
+| `sendBtc({ address, amount, feeRate })` | On-chain BTC send |
+
+#### RGB Assets
+
+```typescript
+// Issue a Non-Inflationary Asset
+const asset = await account.issueAssetNia({
+  ticker: 'MYTOKEN',
+  name: 'My Token',
+  precision: 6,
+  amounts: [1_000_000],
+});
+
+// Issue a Collectible Fungible Asset
+const cfa = await account.issueAssetCfa({
+  name: 'Collectible',
+  precision: 0,
+  amounts: [100],
+  description: 'A collectible token',
+  fileDigest: null,
+});
+
+// Issue a Unique Digital Asset (NFT)
+const uda = await account.issueAssetUda({
+  name: 'My NFT',
+  precision: 0,
+  details: 'metadata...',
+  fileDigest: null,
+});
+
+// Issue an Inflatable Asset
+const ifa = await account.issueAssetIfa({
+  ticker: 'IFA',
+  name: 'Inflatable',
+  precision: 0,
+  amounts: [500],
+  inflationAmounts: [{ assetId: '', amount: 100 }],
+  rejectListUrl: '',
+});
+```
+
+| Method | Description |
+|---|---|
+| `issueAssetNia({ ticker, name, precision, amounts })` | Issue a Non-Inflationary Asset |
+| `issueAssetCfa({ name, precision, amounts, description?, fileDigest? })` | Issue a Collectible Fungible Asset |
+| `issueAssetUda({ name, precision, details?, fileDigest? })` | Issue a Unique Digital Asset (NFT) |
+| `issueAssetIfa({ ticker, name, precision, amounts, inflationAmounts, rejectListUrl })` | Issue an Inflatable Asset |
+| `inflateAsset({ assetId, amounts })` | Inflate an existing IFA |
+
+#### Inventory & Balances
+
+| Method | Description |
+|---|---|
+| `listAssets()` | List all RGB assets in the wallet |
+| `getAssetBalance(assetId)` | Get balance for a specific asset |
+| `listTransfers(assetId?)` | List RGB transfer history. Statuses: `WaitingCounterparty`, `WaitingConfirmations`, `Settled`, `Failed` |
+| `listUnspents()` | List unspent UTXOs with RGB allocations |
+
+#### Transfers
+
+```typescript
+// Receive — blinded invoice
+const receiveData = await account.blindReceive({
+  assetId,
+  amount: 5000,
+  minConfirmations: 1,
+  durationSeconds: 3600,
+});
+
+// Send
+await account.transferAsset({
+  invoice: receiveData.invoice,
+  assetId,
+  amount: 5000,
+});
+```
+
+| Method | Description |
+|---|---|
+| `blindReceive({ assetId?, amount?, minConfirmations?, durationSeconds? })` | Generate a blinded RGB invoice |
+| `witnessReceive({ assetId?, amount?, minConfirmations?, durationSeconds? })` | Generate a witness RGB invoice |
+| `transferAsset({ invoice, assetId, amount, donation?, feeRate? })` | Execute an RGB asset transfer |
+| `decodeRgbInvoice(invoice)` | Decode an RGB invoice |
+
+#### UTXO Management
+
+| Method | Description |
+|---|---|
+| `createUtxos({ num?, size?, upTo? })` | Create colored UTXOs for RGB operations |
+| `syncWallet()` | Sync blockchain and UTXO state |
+| `refreshWallet()` | Refresh RGB transfer state |
+
+#### Backup
+
+| Method | Description |
+|---|---|
+| `createBackup({ backupPath, password })` | Create encrypted local backup |
+
+---
+
+### `WalletAccountReadOnlyRgb`
+
+A view-only account that does not hold private key material. Use for watch-only wallet UIs or balance dashboards.
+
+```typescript
+const readOnly = await manager.getReadOnlyAccount(xpub);
+```
+
+| Method | Description |
+|---|---|
+| `getBalance()` | BTC balance (vanilla + colored) |
+| `listAssets()` | List RGB assets |
+| `verifySignature({ message, signature, address })` | Verify a Schnorr or ECDSA signature |
+
+## Full Example
+
+```typescript
+import { WalletManagerRgb } from '@utexo/wdk-wallet-rgb';
+
+const manager = new WalletManagerRgb({
+  network: 'utexo',
+  dataDir: '/path/to/wallet-data',
+});
+
+const account = await manager.getAccount(mnemonic);
+
+// Fund address with BTC, then create UTXOs
+const address = await account.getAddress();
+// ... send BTC to address, wait for confirmation ...
+await account.syncWallet();
+await account.createUtxos({ num: 5 });
+
+// Issue an asset
+const asset = await account.issueAssetNia({
+  ticker: 'USDT',
+  name: 'Test USDT',
+  precision: 6,
+  amounts: [1_000_000],
+});
+
+// Create a receive invoice on another account
+const receiveData = await receiverAccount.blindReceive({
+  assetId: asset.assetId,
+  amount: 100,
+  minConfirmations: 1,
+  durationSeconds: 3600,
+});
+
+// Transfer
+await account.transferAsset({
+  invoice: receiveData.invoice,
+  assetId: asset.assetId,
+  amount: 100,
+});
+
+await account.refreshWallet();
+await receiverAccount.refreshWallet();
+
+// Cleanup
+manager.dispose();
+```
+
+## Further Reading
+
+- [WDK Overview](/sdk/wdk-overview)
+- [wdk-rgb-lightning](/sdk/wdk-rgb-lightning) — RGB Lightning for channels and payments
+- [SDK Overview](/product-suite/sdk)

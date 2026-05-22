@@ -32,7 +32,23 @@
             "group": "SDK",
             "pages": [
               "product-suite/sdk",
-              "sdk/utexo-sdk"
+              "sdk/utexo-sdk",
+              {
+                "group": "React Native",
+                "pages": [
+                  "sdk/react-native-sdk",
+                  "sdk/react-native-migration"
+                ]
+              },
+              "sdk/web-sdk",
+              {
+                "group": "WDK",
+                "pages": [
+                  "sdk/wdk-overview",
+                  "sdk/wdk-wallet-rgb",
+                  "sdk/wdk-rgb-lightning"
+                ]
+              }
             ]
           },
           {

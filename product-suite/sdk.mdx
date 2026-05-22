@@ -107,3 +107,22 @@ Complete method reference for UTEXOWallet: wallet methods, RGB asset methods, UT
 - [Product Suite](/getting-started/product-suite) — How the SDK fits into the full Utexo product surface.
 - [Architecture](/getting-started/architecture) — The Bitcoin + RGB stack the SDK operates on.
 - [Quickstart](/getting-started/quickstart) — Step-by-step guide to your first Utexo integration.
+
+## Platform SDKs
+
+| Page | Package | Platform |
+|---|---|---|
+| [Node.js SDK](/sdk/utexo-sdk) | `@utexo/rgb-sdk` | Node.js — server-side integrations and backends |
+| [React Native SDK](/sdk/react-native-sdk) | `@utexo/rgb-sdk-rn` | iOS and Android — full on-device Lightning node |
+| [Migration Guide](/sdk/react-native-migration) | — | Migrating from legacy `rgb-sdk-rn` to `@utexo/rgb-sdk-rn` |
+| [Web SDK](/sdk/web-sdk) | `@utexo/rgb-sdk-web` | Browser — WASM, no server required (Lightning coming soon) |
+
+## Wallet Development Kit (WDK)
+
+The WDK packages expose RGB capabilities through standard wallet abstraction interfaces for builders who already use WDK-compatible account and signing layers.
+
+| Page | Package | Status |
+|---|---|---|
+| [WDK Overview](/sdk/wdk-overview) | — | Shared architecture and `dataDir` coordination |
+| [wdk-wallet-rgb](/sdk/wdk-wallet-rgb) | `@utexo/wdk-wallet-rgb` | Stable — RGB asset management |
+| [wdk-rgb-lightning](/sdk/wdk-rgb-lightning) | `@utexo/wdk-rgb-lightning` | Alpha — RGB Lightning channels and payments |

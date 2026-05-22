@@ -1,0 +1,174 @@
+---
+title: 'React Native SDK Migration Guide'
+description: 'How to migrate from the legacy rgb-sdk-rn package to @utexo/rgb-sdk-rn.'
+sidebarTitle: 'Migration Guide'
+---
+
+This guide explains how to migrate from the legacy `rgb-sdk-rn` package to `@utexo/rgb-sdk-rn`. The new package runs `rgb-lib` locally via native bindings, eliminating the need for a remote RGB Node server. All wallet state is now stored on-device.
+
+## Privacy Recommendation
+
+<Warning>
+  If privacy is important for your users, we strongly recommend **creating a new wallet** with a fresh seed phrase in `@utexo/rgb-sdk-rn` and migrating assets via standard RGB transfers. This is the only way to fully eliminate historical metadata exposure.
+
+  Version 1 relied on an RGB Node server, which means wallet metadata (extended public keys, transaction graph) may have been exposed to the node operator. This exposure is permanent and cannot be reversed by upgrading alone.
+</Warning>
+
+If privacy is not a hard requirement, the state migration below restores balances and history using the same seed phrase.
+
+## Migration Overview
+
+1. **Backup** your wallet state using `rgb-sdk-rn` (old package)
+2. **Restore** the backup using `@utexo/rgb-sdk-rn` into a local directory
+3. **Initialize** the wallet in `@utexo/rgb-sdk-rn` pointing to the restored directory
+
+## Step 1 — Backup with `rgb-sdk-rn`
+
+Using the **old** package, create and download an encrypted backup:
+
+```javascript
+const { WalletManager } = require('rgb-sdk-rn');
+import RNFS from 'react-native-fs';
+
+const wallet = new WalletManager({
+  xpub_van: keys.account_xpub_vanilla,
+  xpub_col: keys.account_xpub_colored,
+  master_fingerprint: keys.master_fingerprint,
+  mnemonic: keys.mnemonic,
+  network: 'testnet',
+  rgb_node_endpoint: 'http://127.0.0.1:8000',
+});
+
+const backupResponse = await wallet.createBackup('your-password');
+// backupResponse: { message: string, download_url: string }
+
+const backupDir = `${RNFS.DocumentDirectoryPath}/backups`;
+await RNFS.mkdir(backupDir);
+
+await RNFS.downloadFile({
+  fromUrl: backupResponse.download_url,
+  toFile: `${backupDir}/wallet.backup`,
+}).promise;
+```
+
+## Step 2 — Restore with `@utexo/rgb-sdk-rn`
+
+Using the **new** package, restore the backup into a local directory. This must be called **before** creating the wallet instance:
+
+```javascript
+const { restoreFromBackup } = require('@utexo/rgb-sdk-rn');
+import RNFS from 'react-native-fs';
+
+const dataDir = `${RNFS.DocumentDirectoryPath}/restored-wallet`;
+await RNFS.mkdir(dataDir);
+
+await restoreFromBackup({
+  backupFilePath: `${RNFS.DocumentDirectoryPath}/backups/wallet.backup`,
+  password: 'your-password',
+  dataDir,
+});
+```
+
+## Step 3 — Initialize with `@utexo/rgb-sdk-rn`
+
+Create the wallet pointing to the restored directory:
+
+```javascript
+const { WalletManager } = require('@utexo/rgb-sdk-rn');
+
+const wallet = new WalletManager({
+  xpubVan: keys.accountXpubVanilla,        // was: xpub_van
+  xpubCol: keys.accountXpubColored,        // was: xpub_col
+  masterFingerprint: keys.masterFingerprint, // was: master_fingerprint
+  mnemonic: keys.mnemonic,
+  network: 'testnet',
+  dataDir,                                 // restored directory
+});
+
+await wallet.initialize(); // now async — must be called explicitly
+
+const address = await wallet.getAddress();
+const assets = await wallet.listAssets();
+```
+
+## Breaking Changes Summary
+
+### Package name
+
+```bash
+# Remove old
+npm uninstall rgb-sdk-rn
+
+# Install new
+npm install @utexo/rgb-sdk-rn
+```
+
+### Property names — `snake_case` → `camelCase`
+
+| Old | New |
+|---|---|
+| `xpub_van` | `xpubVan` |
+| `xpub_col` | `xpubCol` |
+| `master_fingerprint` | `masterFingerprint` |
+| `account_xpub_vanilla` | `accountXpubVanilla` |
+| `account_xpub_colored` | `accountXpubColored` |
+| `rgb_node_endpoint` | removed — no longer needed |
+
+### Method parameter names — `snake_case` → `camelCase`
+
+| Old | New |
+|---|---|
+| `up_to` | `upTo` |
+| `fee_rate` | `feeRate` |
+| `signed_psbt` | `signedPsbt` |
+| `min_confirmations` | `minConfirmations` |
+| `asset_id` | `assetId` |
+
+### Method changes
+
+| Old | New |
+|---|---|
+| `registerWallet()` | `initialize()` — now async, must be called explicitly |
+
+### Return value names — `snake_case` → `camelCase`
+
+| Old | New |
+|---|---|
+| `{ xpub_van, xpub_col }` | `{ xpubVan, xpubCol }` |
+| `{ fee_rate }` | `{ feeRate }` |
+
+### Backup / restore
+
+- `createBackup()` now requires a `backupPath` parameter
+- `restoreFromBackup()` is a top-level async function (must be called before creating the wallet instance)
+- Backup filenames automatically include the master fingerprint
+
+### New optional parameters
+
+| Parameter | Description |
+|---|---|
+| `transportEndpoint` | RGB transport endpoint (has sensible defaults per network) |
+| `indexerUrl` | Bitcoin indexer URL (has sensible defaults per network) |
+| `dataDir` | Local directory for wallet data (defaults to app data directory) |
+
+## What Stays the Same
+
+- Wallet keys (mnemonic, xpubs, master fingerprint) are unchanged
+- Asset balances and transfer history are preserved
+- All RGB assets and allocations are maintained
+- All methods remain async (React Native requirement)
+
+## Troubleshooting
+
+**Backup file not found** — Ensure you downloaded the backup from `download_url` using `rgb-sdk-rn` before migrating. Verify the file path and use a file system library like `react-native-fs`.
+
+**Restore directory doesn't exist** — Create the directory before calling `restoreFromBackup()`. Call `RNFS.mkdir()` with `{ intermediates: true }` if needed.
+
+**Wallet not found after restore** — Ensure the `dataDir` in `WalletManager` exactly matches the `dataDir` passed to `restoreFromBackup()`. Confirm `initialize()` is called after construction.
+
+**Indexer connection errors** — Verify `indexerUrl` is correct for your network. Default URLs are provided but can be overridden.
+
+## Further Reading
+
+- [React Native SDK Reference](/sdk/react-native-sdk)
+- [SDK Overview](/product-suite/sdk)
