@@ -29,7 +29,7 @@
         "pages": [
           "getting-started/product-suite",
           {
-            "group": "Utexo SDK",
+            "group": "SDK",
             "pages": [
               "product-suite/sdk",
               "sdk/utexo-sdk",
