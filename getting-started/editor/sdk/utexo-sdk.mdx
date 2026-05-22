@@ -213,7 +213,7 @@ await fromVss.initialize();
 // Option 1: Create UTXOs in one call (begin → sign → end)
 const count = await wallet.createUtxos({ num: 5, size: 1000 });
 await wallet.syncWallet();
-console.log(`Created ${count} UTXOs`);
+console.log('Created ' + count + ' UTXOs');
 ```
 {% endstep %}
 
@@ -232,7 +232,7 @@ const signedPsbt = await wallet.signPsbt(psbt);
 ```javascript
 const utxosCreated = await wallet.createUtxosEnd({ signedPsbt });
 await wallet.syncWallet();
-console.log(`Created ${utxosCreated} UTXOs`);
+console.log('Created ' + utxosCreated + ' UTXOs');
 ```
 {% endstep %}
 {% endstepper %}
