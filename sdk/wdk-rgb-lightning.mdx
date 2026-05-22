@@ -1,13 +1,13 @@
 ---
 title: 'wdk-rgb-lightning Reference'
-description: 'Complete reference for @utexo/wdk-rgb-lightning — WDK module for RGB Lightning channels, invoices, and payments. Alpha release.'
+description: 'Complete reference for @utexo/wdk-rgb-lightning — WDK module for RGB Lightning channels, invoices, and payments. Alpha skeleton.'
 sidebarTitle: 'wdk-rgb-lightning'
 ---
 
 `@utexo/wdk-rgb-lightning` is a WDK module for the RGB Lightning Node, enabling channels, invoices, payments, and swaps for RGB assets over the Lightning Network. It wraps `@utexo/rgb-lightning-node-bare`, which interfaces with Rust C-FFI bindings using LDK and tokio.
 
 <Warning>
-  This package is in **alpha**. Foundational layers are operational, but some methods are still in active development (🚧) or paused (⏸). Review the status column before depending on a specific method in production.
+  This package is an **alpha skeleton**. Layers A and B are complete and operational. Layer C (full wiring) is in progress. Some methods are still in active development (🚧) or paused (⏸) — review the status column before depending on a specific method in production.
 </Warning>
 
 ## Why a Separate Package
@@ -27,7 +27,7 @@ npm install @utexo/wdk-rgb-lightning
 | Option | Type | Description |
 |---|---|---|
 | `network` | `string` | Bitcoin network: `'mainnet'`, `'testnet'`, `'utexo'`, `'regtest'` |
-| `dataDir` | `string` | Shared storage directory (same as `wdk-wallet-rgb` if both are used) |
+| `dataDir` | `string` | Directory for node state persistence |
 | `daemonPort` | `number` | RLN daemon HTTP port |
 | `ldkPort` | `number` | LDK peer-to-peer port |
 
@@ -184,35 +184,9 @@ await manager.disconnect();
 
 ## Using with `wdk-wallet-rgb`
 
-Both packages share the same `dataDir`. Point them to the same directory to have the RGB wallet and Lightning node coexist:
+Both packages are built on `rgb-lib`, so the on-chain experience — UTXO management, asset state, and RGB operations — is consistent between them. Developers familiar with `wdk-wallet-rgb` will find the on-chain behaviour works the same way in `wdk-rgb-lightning`.
 
-```typescript
-import { WalletManagerRgb } from '@utexo/wdk-wallet-rgb';
-import { WalletManagerRgbLightning } from '@utexo/wdk-rgb-lightning';
-
-const dataDir = '/path/to/wallet-data';
-
-const rgbManager = new WalletManagerRgb({ network: 'utexo', dataDir });
-const lnManager = new WalletManagerRgbLightning(mnemonic, {
-  network: 'utexo',
-  dataDir, // same directory
-  daemonPort: 9735,
-  ldkPort: 9736,
-});
-
-const rgbAccount = await rgbManager.getAccount(mnemonic);
-const lnAccount = await lnManager.getAccount(unlockParams);
-
-// Issue an asset with the RGB wallet...
-const asset = await rgbAccount.issueAssetNia({ ... });
-
-// ...then open an RGB Lightning channel using that asset
-await lnAccount.openChannel({
-  ...,
-  assetId: asset.assetId,
-  assetAmount: 600,
-});
-```
+The packages are kept separate because LDK's `KeysManager` currently owns its own seed, which conflicts with WDK's convention where the secret manager holds the seed. Consolidation is planned once the required upstream LDK changes land.
 
 ## Further Reading
 
