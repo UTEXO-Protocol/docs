@@ -8,12 +8,12 @@ This page covers what you need before performing your first swap on the Utexo Sw
 
 ## What the Utexo Swap DEX Does
 
-The Utexo Swap DEX enables non-custodial exchange between native Bitcoin (BTC) and RGB-native assets on the Bitcoin mainnet. Swaps are atomic - they either complete in full or revert. There is no counterparty risk and no wrapped token involved.
+The Utexo Swap DEX enables cross-chain exchange between native Bitcoin (BTC) and RGB-native assets on the Bitcoin mainnet, powered by the [HotPot protocol](https://docs.hotpot.tech/). Swaps are executed via a decentralised intent-based system — they either complete in full or revert. There is no counterparty risk and no wrapped token involved.
 
 Supported swap directions:
 
-- **BTC to RGB asset** (e.g. RGB USDT) - Send on-chain BTC, receive an RGB asset in your RGB wallet
-- **RGB asset to BTC** (e.g. RGB USDT to BTC) - Send an RGB asset from RGB wallet, receive on-chain BTC
+- **BTC to RGB asset** (e.g. USDT on Bitcoin) — Send on-chain BTC, receive an RGB asset in your RGB wallet
+- **RGB asset to BTC** (e.g. USDT on Bitcoin to BTC) — Send an RGB asset from RGB wallet, receive on-chain BTC
 
 ## Prerequisites
 
@@ -37,7 +37,7 @@ Before you can use the Utexo Swap DEX, you need the following:
   </Accordion>
 
   <Accordion title="An RGB asset balance (for RGB-to-BTC swaps)">
-    To swap an RGB asset for BTC, your RGB wallet must hold a sufficient balance of the asset you want to swap (e.g. RGB USDT or SatoshiRamen).
+    To swap an RGB asset for BTC, your RGB wallet must hold a sufficient balance of the asset you want to swap (e.g. USDT on Bitcoin or SatoshiRamen).
 
     If you do not yet hold an RGB asset, you can acquire one by first swapping BTC for an RGB asset. See [Swap BTC to RGB](/swap/swap-btc-to-rgb).
   </Accordion>
@@ -53,19 +53,13 @@ Before you can use the Utexo Swap DEX, you need the following:
 
 If you are new to Bitcoin, the following reference pages explain the concepts you will encounter during a swap:
 
-- [What is a Bitcoin Taproot Address](/swap/what-is-a-bitcoin-taproot-address) - Address format, privacy properties, and when to use Taproot
-- [Create Wallet](/swap/create-wallet) - How to set up RGB wallet and create UTXOs
-- [What is a UTXO](/swap/what-is-utxo) - Why UTXOs matter for RGB asset delivery
-- [Get BTC](/swap/get-btc) - How to acquire BTC before your first swap
+- [What is a Bitcoin Taproot Address](/swap/what-is-a-bitcoin-taproot-address) — Address format, privacy properties, and when to use Taproot
+- [Create Wallet](/swap/create-wallet) — How to set up RGB wallet and create UTXOs
+- [What is a UTXO](/swap/what-is-utxo) — Why UTXOs matter for RGB asset delivery
+- [Get BTC](/swap/get-btc) — How to acquire BTC before your first swap
 
 ## Next Steps
 
-<CardGroup cols={2}>
-  <Card title="Swap BTC to RGB" icon="arrow-right-arrow-left" href="/swap/swap-btc-to-rgb">
-    Convert native BTC into RGB USDT or another RGB asset.
-  </Card>
+Convert native BTC into USDT on Bitcoin or another RGB asset.
 
-  <Card title="Swap RGB to BTC" icon="arrow-right-arrow-left" href="/swap/swap-rgb-to-btc">
-    Convert an RGB asset back to native BTC.
-  </Card>
-</CardGroup>
+Convert an RGB asset back to native BTC.
