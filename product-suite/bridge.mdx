@@ -1,31 +1,31 @@
 ---
 title: "Mint"
-sidebarTitle: "Bridge"
-description: "Cross-chain stablecoin transfers between Arbitrum, Ethereum, Tron, Solana and the Bitcoin RGB layer."
+sidebarTitle: "Mint"
+description: "Cross-chain stablecoin minting between Arbitrum, Ethereum, Tron, Solana and the Bitcoin RGB layer."
 ---
 
 <Frame>
   ![Screenshot 2026 05 06 At 23 43 56](/images/Screenshot-2026-05-06-at-23.43.56.png)
 </Frame>
 
-The Utexo Bridge is a cross-chain bridge that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron, or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as native RGB USDT on Bitcoin. Bridged USDT is represented on Bitcoin as native RGB USDT — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
+The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron, or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as native USDT on Bitcoin. Minted USDT is represented on Bitcoin as native USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
 
 ## How It Works
 
-The Bridge is composed of modular, stateless components that together coordinate a fully atomic transfer:
+The Mint is composed of modular, stateless components that together coordinate a fully cross-chain transfer:
 
 | Component | Role |
 | --- | --- |
-| **Bridge orchestrator** | Tracks all in-flight transfers, routes events between connectors, and drives transfers to completion or cancellation |
+| **Mint orchestrator** | Tracks all in-flight transfers, routes events between connectors, and drives transfers to completion or cancellation |
 | **Connectors** | Chain-specific gRPC services that monitor smart contracts for `FundsIn` events and issue `FundsOut` transactions on the destination chain |
 | **Federated Signer Nodes** | A set of three independent listener nodes, each running inside an AWS Nitro Enclave, that jointly sign transactions using a 2-of-3 threshold scheme |
 | **Enclave Signer** | Cryptographic microservice running inside an AWS Nitro Enclave; derives and holds private keys in a Trusted Execution Environment (TEE) so they never leave the hardware boundary |
 | **BTC Relay** | Lightweight Bitcoin header relay service that feeds block headers into the TEE for in-enclave SPV verification |
 | **REST Gateway** | Public API used by the web UI and external integrations |
 
-### Bridge Orchestrator
+### Mint Orchestrator
 
-The Bridge orchestrator is the central coordinator. It tracks all in-flight transfers in a persistent database, processes `FundsIn` events reported by Connectors, and instructs the appropriate destination Connector to issue a `FundsOut` transaction. If a transfer cannot be completed, the orchestrator drives it to safe cancellation.
+The Mint orchestrator is the central coordinator. It tracks all in-flight transfers in a persistent database, processes `FundsIn` events reported by Connectors, and instructs the appropriate destination Connector to issue a `FundsOut` transaction. If a transfer cannot be completed, the orchestrator drives it to safe cancellation.
 
 ### Connectors
 
@@ -53,22 +53,22 @@ The BTC Relay (`btc-relayer`) streams Bitcoin block headers to the Federated Sig
 
 ## Transfer Flow
 
-The following steps describe a complete atomic transfer:
+The following steps describe a complete cross-chain transfer:
 
 1. User deposits funds on the source chain (`FundsIn`).
-2. The source Connector detects the on-chain event and notifies the Bridge orchestrator.
-3. The Bridge orchestrator instructs the destination Connector to release funds (`FundsOut`).
+2. The source Connector detects the on-chain event and notifies the Mint orchestrator.
+3. The Mint orchestrator instructs the destination Connector to release funds (`FundsOut`).
 4. The Federated Signer Nodes sign the `FundsOut` transaction inside their respective TEEs; a 2-of-3 quorum is required before broadcast.
 5. Transfer is marked complete once finality is confirmed.
 
 **Example — Ethereum → Bitcoin RGB layer:**
 
-1. User submits a USDT transfer from their Ethereum wallet. The USDT0 / LayerZero protocol bridges it to USDT0 on Arbitrum transparently.
+1. User submits a USDT transfer from their Ethereum wallet. The USDT0 / LayerZero protocol mints it to USDT0 on Arbitrum transparently.
 2. User submits a `FundsIn` transaction on the Arbitrum smart contract, locking USDT0.
 3. The Arbitrum Connector detects the event and notifies the orchestrator.
 4. The orchestrator instructs the Bitcoin Connector to prepare a `FundsOut` PSBT.
 5. The Federated Signer Nodes validate the RGB consignment and SPV proof inside their enclaves; 2 of 3 sign the PSBT using Taproot Schnorr.
-6. The signed transaction is broadcast to Bitcoin. Once confirmed, USDT appears in the user's RGB wallet.
+6. The signed transaction is broadcast to Bitcoin. Once confirmed, USDT on Bitcoin appears in the user's RGB wallet.
 
 ## Supported Networks
 
@@ -102,18 +102,20 @@ The following steps describe a complete atomic transfer:
 | Unichain | EVM (secp256k1) | Inbound & Outbound |
 | XLayer | EVM (secp256k1) | Inbound & Outbound |
 
-USDT from **Ethereum**, **Tron**, and **Solana** is supported at the user level via the USDT0 / LayerZero protocol, which handles conversion to USDT0 on Arbitrum transparently before the funds reach the Utexo Bridge contract.
+USDT from **Ethereum**, **Tron**, and **Solana** is supported at the user level via the USDT0 / LayerZero protocol, which handles conversion to USDT0 on Arbitrum transparently before the funds reach the Utexo Mint contract.
 
 ## Supported Assets
 
 | Asset | Source Network | Representation on Bitcoin |
 | --- | --- | --- |
-| USDT | Ethereum, Tron, Solana (via USDT0) | RGB USDT |
-| USDT0 | Arbitrum | RGB USDT |
+| USDT | Ethereum, Tron, Solana (via USDT0) | USDT on Bitcoin |
+| USDT0 | Arbitrum | USDT on Bitcoin |
 
 ## Fees
 
-Commissions are managed on-chain through the `CommissionManager` contract. For token transfers (USDT, USDT0), fees can be applied on both `FundsIn` and `FundsOut`. For native currency, fees are only taken on `FundsIn` — charging on `FundsOut` is not applicable since that leg is triggered by the protocol rather than the user. The current fee rate is **0.4%** across supported networks.
+Commissions are managed on-chain through the `CommissionManager` contract. For token transfers (USDT, USDT0), fees can be applied on both `FundsIn` and `FundsOut`. For native currency, fees are only taken on `FundsIn` — charging on `FundsOut` is not applicable since that leg is triggered by the protocol rather than the user.
+
+The current fee rate is **0.4%** across supported networks.
 
 ## Security
 
@@ -127,8 +129,4 @@ The Esplora indexer connection via vsock proxy is the only network interface all
 
 ## Guide
 
-<CardGroup cols={1}>
-  <Card title="Getting Started" icon="arrow-right" href="/product-suite/bridge-getting-started">
-    Transfer USDT between Ethereum and the Bitcoin RGB layer.
-  </Card>
-</CardGroup>
+Mint USDT between Ethereum and the Bitcoin RGB layer.
