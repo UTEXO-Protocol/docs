@@ -119,9 +119,15 @@ The current fee rate is **0.4%** across supported networks.
 
 ## Security
 
-Signing authority is distributed across three independent Federated Signer Nodes, each running inside its own AWS Nitro Enclave. No single node can produce a valid signature unilaterally — a **2-of-3 threshold** is required for every EVM and Bitcoin transaction. This eliminates single-point-of-failure risks for key compromise, infrastructure access, and operator collusion.
+The Utexo Mint is designed so that assets cannot be stolen even if individual operators are compromised. The trust model distributes signing authority and performs all sensitive operations inside hardware-isolated Trusted Execution Environments (TEEs), minimising the need to trust any single party.
 
-The Esplora indexer connection via vsock proxy is the only network interface allowed from within each enclave for RGB consignment validation. Bitcoin header data arrives via the BTC Relay, which feeds headers for in-enclave SPV verification against a compile-time checkpoint — limiting the attack surface to a small, auditable set of read-only data sources.
+**Distributed signing authority.** Signing authority is distributed across three independent Federated Signer Nodes, each running inside its own AWS Nitro Enclave. No single node can produce a valid signature unilaterally — a **2-of-3 threshold** is required for every EVM and Bitcoin transaction. This eliminates single-point-of-failure risks for key compromise, infrastructure access, and operator collusion.
+
+**TEE-enforced key isolation.** Private keys are generated inside each enclave using BIP-39 and never leave the TEE hardware boundary. There is no persistent storage, no shell access, and all network access is restricted to a vsock proxy allowlisted only to an Esplora indexer and the BTC Relay. The enclave code is reproducibly buildable and bound to a verifiable PCR0 measurement.
+
+**In-enclave RGB validation.** Before co-signing any `FundsOut` transaction, each Federated Signer Node validates the RGB consignment inside the enclave — confirming the burn amount and commission against the calldata. This ensures that the TEE independently verifies the on-Bitcoin burn before authorising any EVM release of funds.
+
+**In-enclave SPV verification.** Bitcoin block headers are streamed into each enclave via the BTC Relay against a compile-time checkpoint block, allowing the TEE to independently verify transaction inclusion via SPV proofs without relying on any external indexer. This prevents eclipse attacks where an operator might attempt to present a fake burn against an alternative chain.
 
 **Burn replay protection.** The TEE extracts a `burnId` from each RGB consignment before signing. This identifier is passed as a `FundsOut` parameter and stored by the smart contract, which rejects any `FundsOut` call reusing a previously seen `burnId`.
 
