@@ -1,34 +1,34 @@
 ---
 title: "Create Wallet"
 sidebarTitle: "Create Wallet"
-description: "How to set up Tribe Wallet and create UTXOs before performing your first RGB asset swap."
+description: "How to set up RGB wallet and create UTXOs before performing your first RGB asset swap."
 ---
 
-To perform swaps on the Utexo Swap DEX and receive RGB assets, you need **Tribe Wallet** - the RGB-compatible mobile wallet. This page covers how to set it up and prepare it for your first swap.
+To perform swaps on the Utexo Swap DEX and receive RGB assets, you need **RGB wallet** - the RGB-compatible mobile wallet. This page covers how to set it up and prepare it for your first swap.
 
-## What Is Tribe Wallet
+## What Is RGB wallet
 
-Tribe Wallet is a non-custodial mobile wallet that supports RGB assets on Bitcoin. It handles client-side validation of RGB transfers, meaning ownership proofs are verified locally on your device rather than on a public ledger.
+RGB wallet is a non-custodial mobile wallet that supports RGB assets on Bitcoin. It handles client-side validation of RGB transfers, meaning ownership proofs are verified locally on your device rather than on a public ledger.
 
-For Utexo swaps, Tribe Wallet is used to:
+For Utexo swaps, RGB wallet is used to:
 
 - Generate **blinded RGB invoices** for receiving assets
 - **Hold and send** RGB assets (RGB USDT, SatoshiRamen)
 - **Manage UTXOs** required for RGB delivery
 
-## Step 1: Download Tribe Wallet
+## Step 1: Download RGB wallet
 
-Download Tribe Wallet from the App Store (iOS) or Google Play (Android) and complete the initial setup.
+Download RGB wallet from the App Store (iOS) or Google Play (Android) and complete the initial setup.
 
 <Warning>
-  During setup, you will be shown a **secret recovery phrase** (12 or 24 words). Write it down and store it securely offline. Anyone with access to this phrase can access your wallet. Tribe Wallet cannot recover it for you.
+  During setup, you will be shown a **secret recovery phrase** (12 or 24 words). Write it down and store it securely offline. Anyone with access to this phrase can access your wallet. RGB wallet cannot recover it for you.
 </Warning>
 
 ## Step 2: Fund Your Bitcoin Address
 
-To create UTXOs in Tribe Wallet (required for receiving RGB assets), your wallet needs a small BTC balance to cover Bitcoin transaction fees.
+To create UTXOs in RGB wallet (required for receiving RGB assets), your wallet needs a small BTC balance to cover Bitcoin transaction fees.
 
-1. Open Tribe Wallet and copy your Bitcoin receive address
+1. Open RGB wallet and copy your Bitcoin receive address
 2. Send a small amount of BTC to that address (sufficient to cover transaction fees)
 
 See [Get BTC](/swap/get-btc) if you need to acquire BTC first.
@@ -37,7 +37,7 @@ See [Get BTC](/swap/get-btc) if you need to acquire BTC first.
 
 RGB assets are attached to Bitcoin UTXOs. Before your wallet can receive an RGB asset, you must have at least one UTXO prepared.
 
-In Tribe Wallet:
+In RGB wallet:
 
 1. Go to **Other assets** (bottom navigation)
 2. Tap **Create UTXOs** (or follow the wallet's UTXO creation flow)
@@ -52,7 +52,7 @@ In Tribe Wallet:
 
 A UTXO (Unspent Transaction Output) is a discrete amount of Bitcoin that has been received but not yet spent. RGB assets are stored as metadata anchored to specific UTXOs on the Bitcoin blockchain.
 
-For RGB to work, each asset transfer must target a specific UTXO. This is why Tribe Wallet requires you to create UTXOs before it can receive an RGB asset. See [What Is a UTXO](/swap/what-is-utxo) for a full explanation.
+For RGB to work, each asset transfer must target a specific UTXO. This is why RGB wallet requires you to create UTXOs before it can receive an RGB asset. See [What Is a UTXO](/swap/what-is-utxo) for a full explanation.
 
 ## Next Steps
 
