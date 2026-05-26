@@ -4,27 +4,27 @@ description: "Cross-chain BTC to RGB asset exchange on Bitcoin, powered by the H
 sidebarTitle: "Swap"
 ---
 
-The Utexo Swap DEX enables cross-chain exchange between native Bitcoin (BTC) and and RGB-native assets including RGB USDT directly on the Bitcoin network. Swaps are executed via a decentralised intent system, eliminating the need for custodians, wrapped assets or centralised exchange venues.
-
-The Swap DEX is powered by the [HotPot protocol](https://docs.hotpot.tech/), an open liquidity layer that coordinates quote requests, intent creation, and resolver execution across the swap lifecycle.
+The Utexo Swap DEX enables cross-chain exchange between native Bitcoin (BTC) and RGB-native assets including USDT on Bitcoin directly on the Bitcoin network. Swaps are executed via a decentralised intent-based system powered by the [HotPot protocol](https://docs.hotpot.tech/), an open liquidity layer that connects fragmented liquidity across multiple blockchains and coordinates quote requests, intent creation, and resolver execution across the swap lifecycle.
 
 ## How It Works
 
-Every swap involves two participants: the **user**, who initiates the swap, and the **resolver** (liquidity provider), who executes it. The lifecycle proceeds as follows:
+Every swap involves two participants: the **user**, who initiates the swap, and the **resolver** (liquidity provider), who executes it.
+
+The swap process follows the HotPot user flow:
 
 | Step | Action |
 | --- | --- |
-| 1. Quote | User specifies the asset pair and amount. The HotPot Quote API returns a time-limited execution estimate including fees. |
-| 2. Intent | User creates a signed intent - a structured, off-chain commitment that cryptographically approves the swap parameters and authorises resolvers to execute under the quoted conditions. |
-| 3. Execution | The winning resolver deposits assets into a swap-specific escrow contract on-chain and transfers the corresponding RGB asset to the user. |
+| 1. Quote | The user specifies the asset pair and amount. The HotPot Quote API returns a time-limited execution estimate including fees. Quotes expire and must be executed before the expiry timestamp. |
+| 2. Intent | The user creates a signed intent — a structured, off-chain commitment that cryptographically approves the swap parameters and authorises resolvers to execute under the quoted conditions. |
+| 3. Execution | HotPot notifies the winning resolver to begin execution by depositing the required assets into a swap-specific escrow contract on the source chain and transferring the corresponding RGB asset to the user. |
 | 4. Settlement | The RGB asset is delivered to the user's Utexo Wallet. If the resolver does not complete execution within the validity window, the escrow is released back to the user automatically. |
 
 ## Swap Mechanism
 
-The Utexo Swap uses the HotPot **intent-based execution model** - a trustless, cross-chain swap architecture where the user's intent governs the entire execution flow:
+The Utexo Swap uses the HotPot **intent-based execution model** — a trustless, cross-chain swap architecture where the user's signed intent governs the entire execution flow:
 
-- The user signs an intent off-chain, cryptographically committing to the quoted swap parameters.
-- HotPot notifies the winning resolver to begin execution by depositing the required assets into a dedicated on-chain escrow.
+- The user signs an intent off-chain, cryptographically committing to the quoted swap parameters and authorising resolvers to execute it according to the quoted conditions.
+- HotPot notifies the winning resolver to begin execution by depositing the maker's assets into a dedicated on-chain escrow on the source chain.
 - The resolver transfers the corresponding RGB asset to the user's Utexo Wallet.
 - Escrow funds are only released to the resolver once fulfillment is verified on-chain.
 - If the resolver fails to execute within the validity window, the escrow is returned to the user with no loss of funds.
@@ -35,14 +35,14 @@ This model ensures neither party can take funds without fulfilling their obligat
 
 | Asset Pair | Direction | Settlement |
 | --- | --- | --- |
-| BTC / RGB USDT | Inbound & Outbound | On-chain escrow \+ RGB client-side validation |
+| BTC / USDT on Bitcoin | Inbound & Outbound | On-chain escrow \+ RGB client-side validation |
 | BTC / SatoshiRamen | Inbound & Outbound | On-chain escrow \+ RGB client-side validation |
 
 ## Security
 
-The Utexo Swap is non-custodial by construction:
+The Utexo Swap is secured by the HotPot protocol's on-chain settlement logic:
 
-- **Intent atomicity** - The swap either completes in full or reverts. There is no partial execution risk.
-- **Resolver constraints** - Resolvers can only withdraw escrowed funds after fulfillment is verified. They cannot withdraw funds before fulfillment conditions are met or access funds from any other swap.
-- **Escrow protection** - User assets are locked in a swap-specific escrow and can only be released once the swap is fulfilled or the validity window expires.
-- **Client-side validation** - RGB asset delivery is validated locally by the user's Utexo Wallet before the transaction is confirmed, consistent with the broader Utexo privacy model.
+- **Intent atomicity** — The swap either completes in full or reverts. There is no partial execution risk. HotPot does not hold or custody user funds.
+- **Resolver constraints** — Resolvers can only move user-approved assets into the swap-specific escrow, execute the swap according to the signed intent, and withdraw escrowed funds **only after** fulfillment is verified. They cannot withdraw funds before fulfillment conditions are met or access funds from any other swap.
+- **Escrow protection** — A dedicated escrow is created for each swap on supported networks. User funds are locked inside this escrow and can only be released once the swap is fulfilled.
+- **Client-side validation** — RGB asset delivery is validated locally by the user's Utexo Wallet before the transaction is confirmed, consistent with the broader Utexo privacy model.
