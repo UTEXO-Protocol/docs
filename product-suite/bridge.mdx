@@ -20,7 +20,6 @@ The Bridge is composed of modular, stateless components that together coordinate
 | **Connectors** | Chain-specific gRPC services that monitor smart contracts for `FundsIn` events and issue `FundsOut` transactions on the destination chain |
 | **Federated Signer Nodes** | A set of three independent listener nodes, each running inside an AWS Nitro Enclave, that jointly sign transactions using a 2-of-3 threshold scheme |
 | **Enclave Signer** | Cryptographic microservice running inside an AWS Nitro Enclave; derives and holds private keys in a Trusted Execution Environment (TEE) so they never leave the hardware boundary |
-| **RGB Multisig Bridge** | Multi-party custody layer for RGB assets, coordinated through a dedicated hub with a 2-of-3 cosigner threshold for both colored and vanilla UTXO outputs |
 | **BTC Relay** | Lightweight Bitcoin header relay service that feeds block headers into the TEE for in-enclave SPV verification |
 | **REST Gateway** | Public API used by the web UI and external integrations |
 
@@ -47,10 +46,6 @@ Key properties:
 ### Enclave Signer
 
 The Enclave Signer (`utexo-bridge-enclave-signer`) is the base cryptographic microservice from which each Federated Signer Node is derived. It runs inside an **AWS Nitro Enclave** — an isolated compute environment with no persistent storage, no shell access, and network access limited to a vsock proxy allowlisted to an Esplora indexer and the BTC Relay.
-
-### RGB Multisig Bridge
-
-The RGB Multisig Bridge coordinates multi-party custody of RGB assets across three cosigner nodes, using a 2-of-3 threshold for both colored (RGB) and vanilla UTXO outputs. It operates through a dedicated coordination hub and is independent of the Federated Signer Nodes, providing a separate trust boundary for RGB asset issuance and redemption.
 
 ### BTC Relay
 
@@ -84,7 +79,6 @@ The following steps describe a complete atomic transfer:
 | Berachain | EVM (secp256k1) | Inbound & Outbound |
 | Celo | EVM (secp256k1) | Inbound & Outbound |
 | Conflux eSpace | EVM (secp256k1) | Inbound & Outbound |
-| Corn | EVM (secp256k1) | Inbound & Outbound |
 | Ethereum | EVM (secp256k1) | Inbound & Outbound |
 | Flare | EVM (secp256k1) | Inbound & Outbound |
 | Hedera | EVM (secp256k1) | Inbound & Outbound |
