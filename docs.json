@@ -20,7 +20,15 @@
         "pages": [
           "getting-started/the-problem",
           "getting-started/architecture",
-          "getting-started/quickstart",
+          {
+            "group": "Quickstart",
+            "pages": [
+              "getting-started/quickstart/overview",
+              "getting-started/quickstart/node-js",
+              "getting-started/quickstart/react-native",
+              "getting-started/quickstart/web"
+            ]
+          },
           "getting-started/glossary"
         ]
       },
@@ -88,10 +96,10 @@
                 "group": "Bitcoin Basics",
                 "pages": []
               },
-        {
-          "group": "Legacy AMM Swap",
-          "pages": []
-        }
+              {
+                "group": "Legacy AMM Swap",
+                "pages": []
+              }
             ]
           }
         ]
