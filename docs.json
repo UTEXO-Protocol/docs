@@ -20,7 +20,13 @@
         "pages": [
           "getting-started/the-problem",
           "getting-started/architecture",
-          "getting-started/quickstart",
+          {
+            "group": "Quickstart",
+            "pages": [
+              "getting-started/general-overview",
+              "getting-started/quickstart"
+            ]
+          },
           "getting-started/glossary"
         ]
       },
