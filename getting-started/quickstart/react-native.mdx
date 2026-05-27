@@ -1,0 +1,179 @@
+---
+title: "React Native Quickstart"
+sidebarTitle: "React Native"
+description: "Send your first USDT on Bitcoin transfer from an iOS or Android app using @utexo/rgb-sdk-rn."
+---
+
+<Info>
+  This guide covers React Native (iOS & Android) usage. For server-side Node.js see the [Node.js guide](/getting-started/quickstart/node-js), and for browser apps see the [Web guide](/getting-started/quickstart/web). For concepts shared across all guides, see the [Quickstart Overview](/getting-started/quickstart/overview).
+</Info>
+
+## Prerequisites
+
+- **React Native 0.71 or later** with a working iOS or Android build environment
+- **Node.js v18 or later** for the development toolchain
+- **A testnet BTC balance** for transaction fees (see [Quickstart Overview](/getting-started/quickstart/overview#common-prerequisites) for faucet links)
+- **Basic familiarity with React Native and async/await**
+
+<Warning>
+  This guide uses **testnet**. Never use mainnet keys or real funds while following this tutorial. Testnet assets have no monetary value.
+</Warning>
+
+## Step 1: Install the SDK
+
+```bash
+npm install @utexo/rgb-sdk-rn
+```
+
+For iOS, install native dependencies:
+
+```bash
+cd ios && pod install
+```
+
+The `@utexo/rgb-sdk-rn` package targets **iOS and Android** via React Native. It uses the device's secure storage and native crypto bindings — it is not compatible with Node.js or browser environments. For those, use `@utexo/rgb-sdk` or `@utexo/rgb-sdk-web` respectively.
+
+<Info>
+  All three Utexo SDK packages (`@utexo/rgb-sdk`, `@utexo/rgb-sdk-rn`, `@utexo/rgb-sdk-web`) share the same `UTEXOWallet` class and method API via `@utexo/rgb-sdk-core`. The steps below are identical in structure to the Node.js guide — only the import and storage model differ.
+</Info>
+
+## Step 2: Generate Wallet Keys
+
+Generate a BIP-39 mnemonic. Store it using your app's secure storage solution (e.g. `react-native-keychain` or `expo-secure-store`) — never store mnemonics in plain AsyncStorage or source control.
+
+```javascript
+import { generateKeys } from '@utexo/rgb-sdk-rn';
+
+const keys = await generateKeys('testnet');
+console.log('Mnemonic:', keys.mnemonic); // Store securely — never log in production
+console.log('Pubkey:', keys.xpub);
+```
+
+**Back up your mnemonic immediately.** If a user loses their mnemonic, their wallet and any assets it holds cannot be recovered.
+
+## Step 3: Initialise the Wallet
+
+Create and initialise a `UTEXOWallet` instance. On React Native, `dataDir` points to a path within the app's document directory.
+
+```javascript
+import { UTEXOWallet } from '@utexo/rgb-sdk-rn';
+import RNFS from 'react-native-fs';
+
+const dataDir = `${RNFS.DocumentDirectoryPath}/wallet`;
+
+const wallet = new UTEXOWallet(keys.mnemonic, {
+  network: 'testnet',
+  dataDir
+});
+await wallet.initialize();
+console.log('Wallet initialised successfully');
+```
+
+`initialize()` performs the initial sync with the Bitcoin indexer and RGB transport layer. Run this once at app startup after restoring or creating the wallet. This may take a few seconds on first run.
+
+## Step 4: Get a Deposit Address
+
+```javascript
+const address = await wallet.getAddress();
+console.log('Deposit address:', address);
+```
+
+Display this address in your UI or share it via QR code. Send testnet BTC to this address using one of the faucets listed in the [Quickstart Overview](/getting-started/quickstart/overview#common-prerequisites). Wait for at least 1 confirmation before continuing.
+
+## Step 5: Create UTXOs
+
+RGB asset state must be anchored to Bitcoin UTXOs. Before a user can receive any RGB asset, the wallet needs dedicated UTXOs prepared.
+
+```javascript
+await wallet.createUtxos({ num: 5, size: 1000 });
+await wallet.refreshWallet();
+console.log('UTXOs created and wallet synced');
+```
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `num` | `number` | Number of UTXOs to create. `5` is recommended for a new wallet. |
+| `size` | `number` | Size of each UTXO in **satoshis**. `1000` satoshis per UTXO is the minimum recommended value. |
+
+## Step 6: Get the USDT on Bitcoin Asset ID
+
+```javascript
+const assets = await wallet.listAssets();
+const usdtAssetId = assets.find(a => a.ticker === 'USDT')?.id;
+console.log('USDT Asset ID:', usdtAssetId);
+```
+
+If no assets appear, your wallet may not yet have been assigned any RGB assets. You can also obtain the canonical testnet USDT asset ID from the [SDK Reference](/sdk/utexo-sdk) or by asking in the [Utexo Discord](https://discord.gg/utexo).
+
+## Step 7: Generate an RGB Invoice (Receiver Side)
+
+```javascript
+const receiveData = await wallet.blindReceive({
+  assetId: usdtAssetId,
+  amount: 100,
+  minConfirmations: 1,
+  durationSeconds: 3600
+});
+console.log('RGB Invoice:', receiveData.invoice);
+// Present receiveData.invoice as a QR code or share via deep link
+```
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `assetId` | `string` | The RGB asset contract ID. See Step 6. |
+| `amount` | `number` | Amount to receive in **asset base units**. For USDT on Bitcoin, 1 unit = 1 USDT. |
+| `minConfirmations` | `number` | Minimum Bitcoin confirmations required before accepting the transfer. |
+| `durationSeconds` | `number` | Invoice validity window in seconds. Invoice is rejected by the receiver after expiry. |
+
+## Step 8: Send an RGB Asset (Sender Side)
+
+```javascript
+const sendResult = await wallet.send({
+  invoice: receiveData.invoice,
+  assetId: usdtAssetId,
+  amount: 100
+});
+console.log('Transfer TXID:', sendResult.txid);
+
+// Sync both wallets after the transfer
+await wallet.refreshWallet(); // Sender
+// The receiver should also call refreshWallet() on their device
+```
+
+The `amount` and `assetId` in the `send()` call must exactly match those in the invoice. Mismatches will cause the transfer to be rejected by the receiver's client-side validator.
+
+## Step 9: Verify the Transfer
+
+```javascript
+const receiverAssets = await receiverWallet.listAssets();
+console.log('Receiver assets:', JSON.stringify(receiverAssets, null, 2));
+```
+
+Expected result: the receiver's asset list shows a balance of `100` for the USDT asset. RGB transfers require Bitcoin confirmation to finalise. If the transfer is still pending, call `refreshWallet()` again after the next Bitcoin block. On testnet, a new block typically arrives every 1–10 minutes.
+
+## React Native-Specific Notes
+
+**Storage.** The wallet database is written to the app's document directory. Use `RNFS.DocumentDirectoryPath` or `expo-file-system`'s `documentDirectory` to construct the `dataDir` path. Do not use temporary or cache directories — the wallet state must persist across app restarts.
+
+**Background execution.** RGB transport and Bitcoin indexer calls require network access. Ensure your app has the necessary permissions and that the device is online when calling `initialize()`, `createUtxos()`, `send()`, and `refreshWallet()`.
+
+**Mnemonic storage.** Use `react-native-keychain` or `expo-secure-store` to persist the mnemonic in the platform's secure enclave. Never store it in AsyncStorage, Redux state, or any unencrypted local store.
+
+## Troubleshooting
+
+| Issue | Likely cause | Fix |
+| --- | --- | --- |
+| `pod install` fails | Missing native module dependency | Ensure Xcode and CocoaPods are up to date |
+| `initialize()` hangs or times out | No network access or incorrect `dataDir` | Check connectivity and ensure `dataDir` is a writable path |
+| `createUtxos()` fails | Insufficient BTC balance | Fund the wallet with more testnet BTC |
+| Invoice rejected | Invoice has expired | Generate a new invoice and retry |
+| `send()` fails with validation error | `amount` or `assetId` mismatch | Confirm send parameters exactly match the invoice |
+| Balance not updated after send | Wallet not synced | Call `refreshWallet()` on both sender and receiver wallets |
+
+If you encounter an issue not listed here, join the [Utexo Discord](https://discord.gg/utexo) for community support.
+
+## Next Steps
+
+- [SDK Reference](/sdk/utexo-sdk) — Full method reference for `UTEXOWallet`, including backup and restore
+- [Architecture](/getting-started/architecture) — Understand how Bitcoin, Lightning, and RGB fit together
+- [Glossary](/getting-started/glossary) — Definitions for RGB, PSBT, blinded invoice, UTXO, and other key terms
