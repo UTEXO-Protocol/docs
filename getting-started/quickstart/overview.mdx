@@ -1,0 +1,75 @@
+---
+title: "Quickstart Overview"
+sidebarTitle: "Overview"
+description: "Choose your platform and send your first USDT on Bitcoin transfer in minutes."
+---
+
+The Utexo SDK is available across three platform targets, each sharing the same `@utexo/rgb-sdk-core` foundation. Choose the guide that matches your environment to get started.
+
+<CardGroup cols={3}>
+  <Card title="Node.js" icon="node-js" href="/getting-started/quickstart/node-js">
+    Server-side applications and backend services. Uses `@utexo/rgb-sdk`.
+  </Card>
+  <Card title="React Native" icon="mobile" href="/getting-started/quickstart/react-native">
+    iOS and Android mobile applications. Uses `@utexo/rgb-sdk-rn`.
+  </Card>
+  <Card title="Web" icon="browser" href="/getting-started/quickstart/web">
+    Browser-based applications. Uses `@utexo/rgb-sdk-web`.
+  </Card>
+</CardGroup>
+
+## How RGB Transfers Work
+
+Before writing any code, it helps to understand the transfer flow. This applies to all platform guides.
+
+1. The **receiver** generates a blinded invoice tied to one of their UTXOs.
+2. The **sender** calls `.send()` with that invoice — the RGB state transition is constructed and broadcast.
+3. Both wallets call `.refreshWallet()` to sync the latest on-chain state.
+4. The receiver's balance updates to reflect the new asset allocation.
+
+All asset state is validated client-side. Neither party needs to trust a third party — the Bitcoin UTXO provides the settlement anchor.
+
+<Info>
+  New to RGB or UTXOs? See the [Glossary](/getting-started/glossary) for definitions, and [Architecture](/getting-started/architecture) for how Bitcoin, Lightning, and RGB fit together.
+</Info>
+
+## Network Endpoints
+
+All SDK platforms connect to the same underlying network infrastructure. No endpoint configuration is needed to follow any of the Quickstart guides — the defaults below are used automatically on testnet.
+
+| Service | Testnet Endpoint |
+| --- | --- |
+| RGB Transport | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` |
+| Bitcoin Indexer | `ssl://electrum.iriswallet.com:50013` |
+
+For the full list of network identifiers and mainnet endpoints, see the [Utexo SDK Reference](/sdk/utexo-sdk#networks).
+
+## Common Prerequisites
+
+All platform guides share these requirements:
+
+- **A testnet BTC balance** for transaction fees. Get testnet BTC from a faucet:
+  - [testnet-faucet.com](https://testnet-faucet.com/btc-testnet/)
+  - [bitcoinfaucet.uo1.net](https://bitcoinfaucet.uo1.net/)
+
+<Warning>
+  All guides use **testnet**. Never use mainnet keys or real funds while following a Quickstart. Testnet assets have no monetary value.
+</Warning>
+
+## What You Will Have After Any Guide
+
+- A working `UTEXOWallet` instance connected to testnet
+- A funded wallet with UTXOs ready to receive RGB assets
+- A completed and verified USDT on Bitcoin transfer
+
+**Estimated time:** 15 minutes per guide, not counting testnet faucet confirmation time (usually 1–5 minutes, but can vary).
+
+## SDK Package Summary
+
+| Package | Target | Install |
+| --- | --- | --- |
+| `@utexo/rgb-sdk` | Node.js (server) | `npm install @utexo/rgb-sdk` |
+| `@utexo/rgb-sdk-rn` | React Native (iOS & Android) | `npm install @utexo/rgb-sdk-rn` |
+| `@utexo/rgb-sdk-web` | Browser (Web) | `npm install @utexo/rgb-sdk-web` |
+
+All three packages expose the same `UTEXOWallet` class and method API. The differences are in installation, initialisation config, and storage model — each guide covers these specifics for its platform.
