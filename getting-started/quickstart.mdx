@@ -38,9 +38,7 @@ All asset state is validated client-side. Neither party needs to trust a third p
 Before you start, make sure you have the following:
 
 - **Node.js v18 or later** — [Download here](https://nodejs.org/)
-- **A testnet BTC balance** for transaction fees. Get testnet BTC from a faucet:
-  - [testnet-faucet.com](https://testnet-faucet.com/btc-testnet/)
-  - [bitcoinfaucet.uo1.net](https://bitcoinfaucet.uo1.net/)
+- **A testnet BTC balance** for transaction fees. Get testnet BTC from the Utexo Telegram faucet bot [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot) — send `/getbtc` followed by your Bitcoin address.
 - **Basic familiarity with async/await JavaScript**
 
 <Warning>
@@ -53,8 +51,8 @@ The SDK connects to the following endpoints by default on testnet. No configurat
 
 | Service | Endpoint |
 | --- | --- |
-| RGB Transport | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` |
-| Bitcoin Indexer | `ssl://electrum.iriswallet.com:50013` |
+| RGB Transport | `rpcs://rgb-proxy.utexo.com/json-rpc` |
+| Bitcoin Indexer | `https://esplora-api.utexo.com` |
 
 <Info>
   For mainnet endpoint configuration, see the [SDK Reference](/sdk/utexo-sdk).
@@ -105,14 +103,14 @@ console.log('Wallet initialized successfully');
 
 ## Step 4: Get a Deposit Address
 
-Get your wallet's Bitcoin deposit address. You will use this to receive testnet BTC from a faucet — a small BTC balance is required to pay RGB transaction fees.
+Get your wallet's Bitcoin deposit address. You will use this to receive testnet BTC from the Telegram faucet bot — a small BTC balance is required to pay RGB transaction fees.
 
 ```javascript
 const address = await wallet.getAddress();
 console.log('Deposit address:', address);
 ```
 
-Send testnet BTC to this address using one of the faucets listed in [Prerequisites](#prerequisites). Wait for at least 1 confirmation before continuing.
+Send `/getbtc` with this address to [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot) (see [Prerequisites](#prerequisites)). Wait for at least 1 confirmation before continuing.
 
 <Info>
   You only need a small amount — a few thousand satoshis is enough to cover fees for this tutorial.
@@ -244,7 +242,7 @@ Expected result: the receiver's asset list shows a balance of `100` for the USDT
 | Issue | Likely cause | Fix |
 | --- | --- | --- |
 | `initialize()` hangs or times out | No network connection to indexer | Check your internet connection and firewall settings |
-| `createUtxos()` fails | Insufficient BTC balance | Fund your wallet with more testnet BTC from a faucet |
+| `createUtxos()` fails | Insufficient BTC balance | Fund your wallet with more testnet BTC via `/getbtc` on [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot) |
 | Invoice rejected | Invoice has expired | Generate a new invoice and retry |
 | `send()` fails with validation error | `amount` or `assetId` mismatch | Confirm the send parameters exactly match the invoice |
 | Balance not updated after send | Wallet not synced | Call `refreshWallet()` on both sender and receiver wallets |
