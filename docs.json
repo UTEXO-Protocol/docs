@@ -3,9 +3,9 @@
   "theme": "aspen",
   "name": "Utexo Protocol Docs",
   "colors": {
-    "primary": "#0D9373",
-    "light": "#55D799",
-    "dark": "#0D9373"
+    "primary": "#233116",
+    "light": "#2F421D",
+    "dark": "#6E944B"
   },
   "navigation": {
     "groups": [
