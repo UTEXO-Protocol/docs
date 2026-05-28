@@ -23,8 +23,10 @@
           {
             "group": "Quickstart",
             "pages": [
-              "getting-started/general-overview",
-              "getting-started/quickstart"
+              "getting-started/quickstart/overview",
+              "getting-started/quickstart/node-js",
+              "getting-started/quickstart/react-native",
+              "getting-started/quickstart/web"
             ]
           },
           "getting-started/glossary"
@@ -96,7 +98,20 @@
               "bridge/getting-started"
             ]
           },
-          "product-suite/swap"
+          {
+            "group": "Swap",
+            "pages": [
+              "product-suite/swap",
+              {
+                "group": "Bitcoin Basics",
+                "pages": []
+              },
+              {
+                "group": "Legacy AMM Swap",
+                "pages": []
+              }
+            ]
+          }
         ]
       }
     ]
