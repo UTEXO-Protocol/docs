@@ -92,9 +92,9 @@
             ]
           },
           {
-            "group": "Bridge",
+            "group": "Mint",
             "pages": [
-              "product-suite/bridge",
+              "product-suite/mint",
               "bridge/getting-started"
             ]
           },

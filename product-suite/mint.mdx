@@ -1,14 +1,16 @@
 ---
 title: "Mint"
-sidebarTitle: "Bridge"
-description: "Cross-chain stablecoin transfers between Arbitrum, Ethereum, Tron, Solana and the Bitcoin RGB layer."
+sidebarTitle: "Mint"
+description: "Cross-chain stablecoin transfers between EVM, Tron, Solana, Arch, Concordium and the Bitcoin RGB layer."
 ---
 
 <Frame>
-  ![Screenshot 2026 05 06 At 23 43 56](/images/Screenshot-2026-05-06-at-23.43.56.png)
+  ![Screenshot 2026 05 28 At 09 34 37](/images/Screenshot-2026-05-28-at-09.34.37.png)
 </Frame>
 
-The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron, or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as native USDT on Bitcoin. Minted USDT is represented on Bitcoin as native USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
+The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the
+
+ USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron, or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as native USDT on Bitcoin. Minted USDT is represented on Bitcoin as native USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
 
 ## How It Works
 
@@ -108,7 +110,7 @@ USDT from **Ethereum**, **Tron**, and **Solana** is supported at the user level 
 
 | Asset | Source Network | Representation on Bitcoin |
 | --- | --- | --- |
-| USDT | Ethereum, Tron, Solana (via USDT0) | USDT on Bitcoin |
+| USDT | EVM, Tron, Solana (via USDT0) and <br />Arch, Concordium | USDT on Bitcoin |
 | USDT0 | Arbitrum | USDT on Bitcoin |
 
 ## Fees
@@ -139,7 +141,7 @@ The Utexo Mint is designed so that assets cannot be stolen even if individual op
   Mint USDT between Ethereum and the Bitcoin RGB layer.
 </Card>
 
-\
+\\
 
 <Card title="Getting Started" icon="arrow-left-to-bracket" href="/product-suite/bridge-getting-started">
   Mint USDT between Ethereum and the Bitcoin RGB layer.
