@@ -5,7 +5,7 @@
   "colors": {
     "primary": "#233116",
     "light": "#2F421D",
-    "dark": "#6E944B"
+    "dark": "#A5B596"
   },
   "navigation": {
     "groups": [
@@ -95,7 +95,7 @@
             "group": "Mint",
             "pages": [
               "product-suite/mint",
-              "bridge/getting-started"
+              "mint/getting-started"
             ]
           },
           {
