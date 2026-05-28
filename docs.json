@@ -4,8 +4,8 @@
   "name": "Utexo Protocol Docs",
   "colors": {
     "primary": "#233116",
-    "light": "#6E944B",
-    "dark": "#2F421D"
+    "light": "#233116",
+    "dark": "#6E944B"
   },
   "navigation": {
     "groups": [
