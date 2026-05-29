@@ -1,6 +1,6 @@
 ---
 title: "Getting Started"
-description: "Transfer USDT between Ethereum and the Bitcoin RGB layer using the Utexo Bridge."
+description: "Transfer USDT between Ethereum and the Bitcoin RGB layer using the Utexo Mint."
 ---
 
 This guide walks you through both directions of a mint transfer: depositing USDT from an EVM wallet onto the Bitcoin RGB layer and withdrawing it back. USDT from EVM, Tron, and Solana is supported — under the hood, it is routed through the USDT0 / LayerZero protocol to Arbitrum before being locked and minted as RGB USDT on Bitcoin. This routing is handled transparently; from your wallet, the experience is the same regardless of which network you connect from.
@@ -16,14 +16,14 @@ Before initiating a transfer, ensure you have the following ready.
 **EVM wallet (browser extension)**
 
 - ETH balance to cover Arbitrum gas fees.
-- USDT balance for the amount you want to bridge.
+- USDT balance for the amount you want to mint.
 
 **Utexo SDK** powered Wallets
 
 - BTC balance to cover the RGB transaction fee on the Bitcoin side.
 - Your Utexo Wallet connected to the Mint. You can connect it in two ways:
   - Click **CONNECT RGB WALLET** at the bottom of the Mint form.
-  - Open the wallet list in the top-right corner of the bridge page and click the power button next to **RGBWallet**.
+  - Open the wallet list in the top-right corner of the mint page and click the power button next to **RGBWallet**.
 
 ---
 
@@ -57,7 +57,7 @@ After filling in the form, a **Transaction Preview** appears with:
 
 Click **Transfer**. EVM wallet will prompt you through two confirmation steps:
 
-1. **Approve token spending** — Authorises the Bridge contract to spend your USDT. Click **Confirm**.
+1. **Approve token spending** — Authorises the Mint contract to spend your USDT. Click **Confirm**.
 2. **Confirm the transaction** — Wait 2–10 seconds for the second MetaMask prompt. Review the details and click **Confirm** to submit.
 
 ### Step 3 — Wait for USDT to arrive
@@ -76,7 +76,7 @@ This direction burns USDT on the Bitcoin RGB layer and releases the equivalent U
 
 ### Step 1 — Enter the transfer details
 
-On [bridge.utexo.com](https://bridge.utexo.com), set:
+On [transfer.utexo.com](https://transfer.utexo.com), set:
 
 - **Send:** Blockchain – Bitcoin (RGB), Token – USDT.
 - **Receive:** Blockchain – Ethereum (or Tron / Solana), Token – USDT.
@@ -94,11 +94,11 @@ Click **Transfer**.
 
 ### Step 2 — Pay the RGB invoice
 
-The Bridge generates an RGB invoice displayed as a popup with a QR code. Open Utexo SDK Wallet:
+The Mint generates an RGB invoice displayed as a popup with a QR code. Open Utexo SDK Wallet:
 
 1. Navigate to your **USDT** token.
 2. Tap **Send**.
-3. Tap the **QR scanner** icon and scan the QR code from the Bridge popup.
+3. Tap the **QR scanner** icon and scan the QR code from the Mint popup.
 4. Review the transfer details and tap **Send** to confirm.
 
 ### Step 3 — Monitor the transaction status
@@ -118,28 +118,28 @@ Refresh your wallet (tap the refresh icon). Once the Bitcoin network picks up th
 | Fee type | Description |
 | --- | --- |
 | **Arbitrum gas fee** | Variable; priced at live market rates at the time of signing. |
-| **Bridge commission** | Fixed percentage of the transferred amount, charged by Utexo. Shown in the Transaction Preview before you confirm. |
+| **Mint commission** | Fixed percentage of the transferred amount, charged by Utexo. Shown in the Transaction Preview before you confirm. |
 | **Bitcoin RGB fee** | Small BTC amount deducted from your Utexo SDK Wallet to settle the RGB transaction on-chain. |
 
 **Utexo SDK** powered Wallets
 
 - BTC balance to cover the RGB transaction fee on the Bitcoin side.
-- Your Utexo SDK Wallet connected to the Bridge. You can connect it in two ways:
-  - Click **CONNECT RGB WALLET** at the bottom of the bridge form.
-  - Open the wallet list in the top-right corner of the bridge page and click the power button next to **RGBWallet**.
+- Your Utexo SDK Wallet connected to the Mint. You can connect it in two ways:
+  - Click **CONNECT RGB WALLET** at the bottom of the mint form.
+  - Open the wallet list in the top-right corner of the Mint page and click the power button next to **RGBWallet**.
 
 This direction moves USDT from your EVM wallet to the Bitcoin RGB layer, where you receive an equivalent RGB USDT token.
 
 1. Open Utexo SDK Wallet and ensure your BTC balance can cover the network fee.
 2. Select **Receive assets**.
 3. Generate an invoice for the USDT asset and copy it.
-4. Paste the invoice into the **Destination** field on the Bridge.
+4. Paste the invoice into the **Destination** field on the Mint.
 
 - **You will receive** — estimated USDT amount after fees.
 - **Estimated gas fee** — live Arbitrum network gas cost.
-- **Bridge commission** — fixed percentage fee charged by Utexo.
+- **Mint commission** — fixed percentage fee charged by Utexo.
 
-1. **Approve token spending** — Authorises the Bridge contract to spend your USDT. Click **Confirm**.
+1. **Approve token spending** — Authorises the Mint contract to spend your USDT. Click **Confirm**.
 2. **Confirm the transaction** — Wait 2–10 seconds for the second MetaMask prompt. Review the details and click **Confirm** to submit.
 
 <Tip>
@@ -148,11 +148,11 @@ This direction moves USDT from your EVM wallet to the Bitcoin RGB layer, where y
 
 This direction burns USDT on the Bitcoin RGB layer and releases the equivalent USDT on Ethereum.
 
-The Bridge generates an RGB invoice displayed as a popup with a QR code. Open Utexo SDK Wallet:
+The Mint generates an RGB invoice displayed as a popup with a QR code. Open Utexo SDK Wallet:
 
 1. Navigate to your **USDT** token.
 2. Tap **Send**.
-3. Tap the **QR scanner** icon and scan the QR code from the Bridge popup.
+3. Tap the **QR scanner** icon and scan the QR code from the Mint popup.
 4. Review the transfer details and tap **Send** to confirm.
 
 After sending, the transaction appears in Utexo SDK Wallet with the status **WAITING\_COUNTERPARTY**.
@@ -166,5 +166,5 @@ Refresh your wallet (tap the refresh icon). Once the Bitcoin network picks up th
 | Fee type | Description |
 | --- | --- |
 | **Arbitrum gas fee** | Variable; priced at live market rates at the time of signing. |
-| **Bridge commission** | Fixed percentage of the transferred amount, charged by Utexo. Shown in the Transaction Preview before you confirm. |
+| **Mint commission** | Fixed percentage of the transferred amount, charged by Utexo. Shown in the Transaction Preview before you confirm. |
 | **Bitcoin RGB fee** | Small BTC amount deducted from your Utexo SDK Wallet to settle the RGB transaction on-chain. |

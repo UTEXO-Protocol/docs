@@ -13,7 +13,7 @@ Key terms used throughout the Utexo documentation.
 
 **Blinded Invoice** A privacy-preserving RGB payment request. The receiver generates a blinded UTXO reference that hides their address from the sender while still allowing the asset transfer to be verified client-side. Generated via `wallet.blindReceive()`.
 
-**Bridge Connector** A stateless gRPC microservice that monitors a specific blockchain's smart contract for `FundsIn` events and issues `FundsOut` transactions on the destination chain. Each supported network has its own Connector implementation. Connectors are stateless and reboot-resistant; all transfer state is held by the Bridge orchestrator.
+**Mint Connector** A stateless gRPC microservice that monitors a specific blockchain's smart contract for `FundsIn` events and issues `FundsOut` transactions on the destination chain. Each supported network has its own Connector implementation. Connectors are stateless and reboot-resistant; all transfer state is held by the Mint orchestrator.
 
 ## C
 
@@ -25,15 +25,15 @@ Key terms used throughout the Utexo documentation.
 
 ## E
 
-**EIP-712** An Ethereum standard for typed structured data signing. The Utexo Bridge Enclave Signer uses EIP-712 to sign `FundsOut` authorisation messages for EVM-bound transfers, allowing smart contracts to verify the signer's intent without exposing raw private keys.
+**EIP-712** An Ethereum standard for typed structured data signing. The Utexo Mint Enclave Signer uses EIP-712 to sign `FundsOut` authorisation messages for EVM-bound transfers, allowing smart contracts to verify the signer's intent without exposing raw private keys.
 
-**Enclave Signer** The cryptographic microservice responsible for signing all Bridge transactions. It runs exclusively inside an AWS Nitro Enclave — a hardware-isolated Trusted Execution Environment (TEE) — where private keys are generated and held. Keys never exist outside the enclave boundary. See also: *Trusted Execution Environment (TEE)*.
+**Enclave Signer** The cryptographic microservice responsible for signing all Mint transactions. It runs exclusively inside an AWS Nitro Enclave — a hardware-isolated Trusted Execution Environment (TEE) — where private keys are generated and held. Keys never exist outside the enclave boundary. See also: _Trusted Execution Environment (TEE)_.
 
 ## F
 
-**FundsIn** An on-chain event emitted by a Bridge smart contract when a user deposits assets on the source chain. The Bridge Connector detects this event and notifies the Bridge orchestrator to begin routing the transfer to the destination chain.
+**FundsIn** An on-chain event emitted by a Mint smart contract when a user deposits assets on the source chain. The Mint Connector detects this event and notifies the Mint orchestrator to begin routing the transfer to the destination chain.
 
-**FundsOut** A transaction issued by the Bridge Connector on the destination chain to release assets to the recipient, following a validated `FundsIn` event. The Enclave Signer signs the `FundsOut` payload inside the TEE before it is broadcast.
+**FundsOut** A transaction issued by the Mint Connector on the destination chain to release assets to the recipient, following a validated `FundsIn` event. The Enclave Signer signs the `FundsOut` payload inside the TEE before it is broadcast.
 
 ## L
 
@@ -51,7 +51,7 @@ Key terms used throughout the Utexo documentation.
 
 ## P
 
-**PSBT (Partially Signed Bitcoin Transaction)** A standard format (BIP-174) for Bitcoin transactions that have not yet been fully signed. The Utexo SDK uses PSBTs as an intermediate step in the send flow, allowing keys to be held separately from transaction construction. The Bridge Enclave Signer uses Taproot Schnorr PSBTs for RGB → EVM direction transfers. Signed via `wallet.signPsbt()`.
+**PSBT (Partially Signed Bitcoin Transaction)** A standard format (BIP-174) for Bitcoin transactions that have not yet been fully signed. The Utexo SDK uses PSBTs as an intermediate step in the send flow, allowing keys to be held separately from transaction construction. The Mint Enclave Signer uses Taproot Schnorr PSBTs for RGB → EVM direction transfers. Signed via `wallet.signPsbt()`.
 
 ## R
 
@@ -67,9 +67,9 @@ Key terms used throughout the Utexo documentation.
 
 ## T
 
-**TEE (Trusted Execution Environment)** A hardware-isolated compute environment that provides confidentiality and integrity guarantees for the code and data running inside it. The Utexo Bridge uses an AWS Nitro Enclave as its TEE. Code running in the enclave cannot be inspected or tampered with from the host operating system. See also: *Enclave Signer*.
+**TEE (Trusted Execution Environment)** A hardware-isolated compute environment that provides confidentiality and integrity guarantees for the code and data running inside it. The Utexo Mint uses an AWS Nitro Enclave as its TEE. Code running in the enclave cannot be inspected or tampered with from the host operating system. See also: _Enclave Signer_.
 
-**TUSDT** The RGB-layer representation of USDT received when bridging from Ethereum or Tron to Bitcoin via the Utexo Bridge. TUSDT is a native RGB asset held in IRIS Wallet and can be transferred or exchanged against BTC with on-chain settlement guarantees. The "T" prefix denotes the token's origin as a Tether-backed bridged asset on the RGB layer.
+**TUSDT** The RGB-layer representation of USDT received when bridging from Ethereum or Tron to Bitcoin via the Utexo Mint. TUSDT is a native RGB asset held in IRIS Wallet and can be transferred or exchanged against BTC with on-chain settlement guarantees. The "T" prefix denotes the token's origin as a Tether-backed minted asset on the RGB layer.
 
 ## U
 
