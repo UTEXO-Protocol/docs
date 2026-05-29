@@ -10,7 +10,7 @@ description: "Cross-chain stablecoin transfers between EVM, Tron, Solana, Arch, 
 
 The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the
 
- USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron, or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as native USDT on Bitcoin. Minted USDT is represented on Bitcoin as native USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
+USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron, or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as native USDT on Bitcoin. Minted USDT is represented on Bitcoin as native USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
 
 ## How It Works
 
@@ -47,7 +47,7 @@ Key properties:
 
 ### Enclave Signer
 
-The Enclave Signer (`utexo-bridge-enclave-signer`) is the base cryptographic microservice from which each Federated Signer Node is derived. It runs inside an **AWS Nitro Enclave** — an isolated compute environment with no persistent storage, no shell access, and network access limited to a vsock proxy allowlisted to an Esplora indexer and the BTC Relay.
+The Enclave Signer (`utexo-mint-enclave-signer`) is the base cryptographic microservice from which each Federated Signer Node is derived. It runs inside an **AWS Nitro Enclave** — an isolated compute environment with no persistent storage, no shell access, and network access limited to a vsock proxy allowlisted to an Esplora indexer and the BTC Relay.
 
 ### BTC Relay
 
