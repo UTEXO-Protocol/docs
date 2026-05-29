@@ -7,7 +7,7 @@ sidebarTitle: "Architecture"
 Utexo is built on a layered stack. Each layer has a distinct and non-overlapping role. Together they deliver the properties that make Bitcoin-native stablecoin settlement viable for production payment systems: deterministic costs, settlement privacy, and Bitcoin-backed security. The Bridge and Swap layers extend this stack outward — connecting external EVM-based networks and enabling non-custodial BTC/USDT exchange on Bitcoin.
 
 <Frame caption="Utexo Architecture">
-  ![Screenshot 2026 05 12 At 09 45 02](/images/Screenshot-2026-05-12-at-09.45.02.png)
+  ![Screenshot 2026 05 28 At 19 41 21](/images/Screenshot-2026-05-28-at-19.41.21.png)
 </Frame>
 
 ## Stack Overview
@@ -18,8 +18,8 @@ Utexo is built on a layered stack. Each layer has a distinct and non-overlapping
 | Lightning Network | Off-chain execution and value transfer | High-throughput payments, near-instant finality, predictable latency |
 | RGB | Asset issuance and client-side validation | Stablecoin creation, privacy-preserving transfers, Bitcoin-secured ownership |
 | Utexo | Execution and coordination layer | Routing, liquidity, fee management, SDK/API abstraction |
-| Bridge | USDT Cross-chain connectivity | Atomic, non-custodial inbound and outbound transfers between Ethereum, Tron, and the RGB layer |
-| Swap | Cross-chain swap | Non-custodial BTC ↔ USDT swaps on Bitcoin and Lightning via the HotPot intent protocol |
+| Mint | USDT Cross-chain connectivity | Inbound and outbound transfers between Ethereum, Tron, Arch, Concordium and the RGB layer |
+| Swap | Cross-chain swap | Cross-chain BTC ↔ USDT swaps on Bitcoin and Lightning via the HotPot intent protocol |
 
 In the Utexo model, ownership proofs are validated locally by users' wallets (client-side validation), while actual payments occur through bidirectional Lightning channels. There is no global state to synchronise. Each transaction is a direct peer-to-peer exchange verified by cryptographic commitments.
 
@@ -84,20 +84,20 @@ The Utexo execution layer is the payment execution environment for USDT. It sits
 - Abstracts all channel management, routing, and liquidity operations internally
 - No protocol-specific knowledge required in application code
 
-## Bridge
+## Mint
 
-The Utexo Bridge connects external EVM-based networks to the Bitcoin RGB layer, enabling atomic, non-custodial USDT transfers in both directions. It is built around Arbitrum as the single EVM settlement hub, with USDT from Ethereum, Tron, and Solana supported transparently via the USDT0 / LayerZero protocol. Bridged USDT is represented on Bitcoin as RGB USDT — a real on-chain asset with Bitcoin-backed settlement guarantees.
+The Utexo Mint connects external EVM-based and Non-EVM-based networks to the Bitcoin RGB layer, enabling cross-chain USDT transfers in both directions. It is built around Arbitrum as the single EVM settlement hub, with USDT from EVM networks, Tron and Solana supported transparently via the USDT0 / LayerZero protocol. Minted USDT is represented on Bitcoin as RGB USDT, a real on-chain asset with Bitcoin-backed settlement guarantees.
 
-The Bridge is composed of five coordinated components:
+The Mint is composed of five coordinated components:
 
-1. **Bridge orchestrator** that tracks all in-flight transfers; stateless chain-specific.
+1. **Mint orchestrator** that tracks all in-flight transfers; stateless chain-specific.
 2. **Connectors** that monitor smart contracts and issue on-chain transactions; three independent.
 3. **Federated Signer Nodes**, each running inside an AWS Nitro Enclave, that jointly sign transactions using a 2-of-3 threshold — ensuring no single node can act unilaterally.
-4. **RGB Multisig Bridge** that coordinates multi-party custody of RGB assets with its own 2-of-3 cosigner threshold
+4. **RGB Multisig Mint** that coordinates multi-party custody of RGB assets with its own 2-of-3 cosigner threshold
 5. **BTC Relay** that streams Bitcoin block headers into the TEE for in-enclave SPV verification.
 
 <Info>
-  For full component details, supported networks, transfer flow, and security properties, see [Bridge](/product-suite/bridge).
+  For full component details, supported networks, transfer flow, and security properties, see [Mint](/product-suite/mint).
 </Info>
 
 ## Swap
@@ -138,8 +138,8 @@ Swap uses an intent-based execution model with two participants: the **user**, w
     Product overview and integration paths.
   </Card>
 
-  <Card title="Bridge" href="/product-suite/bridge">
-    Full Bridge component reference, supported networks, and security model.
+  <Card title="Mint" href="/product-suite/bridge">
+    Full Mint component reference, supported networks, and security model.
   </Card>
 
   <Card title="Swap" href="/product-suite/swap">

@@ -1,0 +1,156 @@
+---
+title: "Mint"
+sidebarTitle: "Mint"
+description: "Cross-chain stablecoin transfers between EVM, Tron, Solana, Arch, Concordium and the Bitcoin RGB layer."
+---
+
+<Frame>
+  ![Screenshot 2026 05 28 At 09 34 37](/images/Screenshot-2026-05-28-at-09.34.37.png)
+</Frame>
+
+The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the
+
+ USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron, or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as native USDT on Bitcoin. Minted USDT is represented on Bitcoin as native USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
+
+## How It Works
+
+The Mint is composed of modular, stateless components that together coordinate a fully cross-chain transfer:
+
+| Component | Role |
+| --- | --- |
+| **Mint orchestrator** | Tracks all in-flight transfers, routes events between connectors, and drives transfers to completion or cancellation |
+| **Connectors** | Chain-specific gRPC services that monitor smart contracts for `FundsIn` events and issue `FundsOut` transactions on the destination chain |
+| **Federated Signer Nodes** | A set of three independent listener nodes, each running inside an AWS Nitro Enclave, that jointly sign transactions using a 2-of-3 threshold scheme |
+| **Enclave Signer** | Cryptographic microservice running inside an AWS Nitro Enclave; derives and holds private keys in a Trusted Execution Environment (TEE) so they never leave the hardware boundary |
+| **BTC Relay** | Lightweight Bitcoin header relay service that feeds block headers into the TEE for in-enclave SPV verification |
+| **REST Gateway** | Public API used by the web UI and external integrations |
+
+### Mint Orchestrator
+
+The Mint orchestrator is the central coordinator. It tracks all in-flight transfers in a persistent database, processes `FundsIn` events reported by Connectors, and instructs the appropriate destination Connector to issue a `FundsOut` transaction. If a transfer cannot be completed, the orchestrator drives it to safe cancellation.
+
+### Connectors
+
+Each supported chain has a dedicated Connector — a stateless gRPC service that watches the chain for `FundsIn` smart contract events and issues `FundsOut` transactions on the destination chain. Connectors do not hold keys or funds. All signing is delegated to the Federated Signer Nodes.
+
+### Federated Signer Nodes
+
+Transaction signing is distributed across three independent listener nodes, each running inside its own **AWS Nitro Enclave**. A valid signature requires agreement from at least **2 of the 3 nodes** (2-of-3 threshold). No single node — and no external party — can unilaterally produce a valid signature.
+
+Key properties:
+
+- **Threshold signing.** All EVM (EIP-712) and Bitcoin (PSBT Taproot Schnorr) signatures require a 2-of-3 quorum across independent TEE instances.
+- **Keys never leave the TEE.** BIP-39 key generation and all signing operations happen inside each enclave, with no persistent storage or shell access.
+- **In-enclave RGB validation.** Every RGB consignment is validated inside the enclave before signing, cross-checking amounts against calldata and commission.
+- **In-enclave SPV verification.** Bitcoin block headers are relayed into the TEE via the BTC Relay service, enabling the enclave to independently verify transaction inclusion without trusting any external data source.
+- **Memory safety.** Secrets are zeroized on drop; the codebase enforces `#![deny(unsafe_code)]`.
+
+### Enclave Signer
+
+The Enclave Signer (`utexo-bridge-enclave-signer`) is the base cryptographic microservice from which each Federated Signer Node is derived. It runs inside an **AWS Nitro Enclave** — an isolated compute environment with no persistent storage, no shell access, and network access limited to a vsock proxy allowlisted to an Esplora indexer and the BTC Relay.
+
+### BTC Relay
+
+The BTC Relay (`btc-relayer`) streams Bitcoin block headers to the Federated Signer Nodes. Inside each enclave, headers are validated against a hardcoded checkpoint block and the signet challenge script — both baked in at compile time and bound to the enclave's PCR0 attestation measurement. This allows the TEE to perform SPV proofs without relying on any external indexer for header data.
+
+## Transfer Flow
+
+The following steps describe a complete cross-chain transfer:
+
+1. User deposits funds on the source chain (`FundsIn`).
+2. The source Connector detects the on-chain event and notifies the Mint orchestrator.
+3. The Mint orchestrator instructs the destination Connector to release funds (`FundsOut`).
+4. The Federated Signer Nodes sign the `FundsOut` transaction inside their respective TEEs; a 2-of-3 quorum is required before broadcast.
+5. Transfer is marked complete once finality is confirmed.
+
+**Example — Ethereum → Bitcoin RGB layer:**
+
+1. User submits a USDT transfer from their Ethereum wallet. The USDT0 / LayerZero protocol mints it to USDT0 on Arbitrum transparently.
+2. User submits a `FundsIn` transaction on the Arbitrum smart contract, locking USDT0.
+3. The Arbitrum Connector detects the event and notifies the orchestrator.
+4. The orchestrator instructs the Bitcoin Connector to prepare a `FundsOut` PSBT.
+5. The Federated Signer Nodes validate the RGB consignment and SPV proof inside their enclaves; 2 of 3 sign the PSBT using Taproot Schnorr.
+6. The signed transaction is broadcast to Bitcoin. Once confirmed, USDT on Bitcoin appears in the user's RGB wallet.
+
+## Supported Networks
+
+| Network | Type | Direction |
+| --- | --- | --- |
+| Arbitrum | EVM (secp256k1) | Inbound & Outbound |
+| Bitcoin (RGB layer) | Taproot / Schnorr | Inbound & Outbound |
+| Berachain | EVM (secp256k1) | Inbound & Outbound |
+| Celo | EVM (secp256k1) | Inbound & Outbound |
+| Conflux eSpace | EVM (secp256k1) | Inbound & Outbound |
+| Ethereum | EVM (secp256k1) | Inbound & Outbound |
+| Flare | EVM (secp256k1) | Inbound & Outbound |
+| Hedera | EVM (secp256k1) | Inbound & Outbound |
+| HyperCore | EVM (secp256k1) | Inbound & Outbound |
+| HyperEVM | EVM (secp256k1) | Inbound & Outbound |
+| Ink | EVM (secp256k1) | Inbound & Outbound |
+| Mantle | EVM (secp256k1) | Inbound & Outbound |
+| MegaETH | EVM (secp256k1) | Inbound & Outbound |
+| Monad | EVM (secp256k1) | Inbound & Outbound |
+| Morph | EVM (secp256k1) | Inbound & Outbound |
+| Optimism | EVM (secp256k1) | Inbound & Outbound |
+| Plasma | EVM (secp256k1) | Inbound & Outbound |
+| Polygon PoS | EVM (secp256k1) | Inbound & Outbound |
+| Rootstock | EVM (secp256k1) | Inbound & Outbound |
+| Sei | EVM (secp256k1) | Inbound & Outbound |
+| Solana | Sealevel (ed25519) | Inbound & Outbound |
+| Stable | EVM (secp256k1) | Inbound & Outbound |
+| Tempo | EVM (secp256k1) | Inbound & Outbound |
+| TON | TVM (ed25519) | Inbound & Outbound |
+| Tron | EVM (secp256k1) | Inbound & Outbound |
+| Unichain | EVM (secp256k1) | Inbound & Outbound |
+| XLayer | EVM (secp256k1) | Inbound & Outbound |
+
+USDT from **Ethereum**, **Tron**, and **Solana** is supported at the user level via the USDT0 / LayerZero protocol, which handles conversion to USDT0 on Arbitrum transparently before the funds reach the Utexo Mint contract.
+
+## Supported Assets
+
+| Asset | Source Network | Representation on Bitcoin |
+| --- | --- | --- |
+| USDT | EVM, Tron, Solana (via USDT0) and <br />Arch, Concordium | USDT on Bitcoin |
+| USDT0 | Arbitrum | USDT on Bitcoin |
+
+## Fees
+
+Commissions are managed on-chain through the `CommissionManager` contract. For token transfers (USDT, USDT0), fees can be applied on both `FundsIn` and `FundsOut`. For native currency, fees are only taken on `FundsIn` — charging on `FundsOut` is not applicable since that leg is triggered by the protocol rather than the user.
+
+The current fee rate is **0.4%** across supported networks.
+
+## Security
+
+The Utexo Mint is designed so that assets cannot be stolen even if individual operators are compromised. The trust model distributes signing authority and performs all sensitive operations inside hardware-isolated Trusted Execution Environments (TEEs), minimising the need to trust any single party.
+
+**Distributed signing authority.** Signing authority is distributed across three independent Federated Signer Nodes, each running inside its own AWS Nitro Enclave. No single node can produce a valid signature unilaterally — a **2-of-3 threshold** is required for every EVM and Bitcoin transaction. This eliminates single-point-of-failure risks for key compromise, infrastructure access, and operator collusion.
+
+**TEE-enforced key isolation.** Private keys are generated inside each enclave using BIP-39 and never leave the TEE hardware boundary. There is no persistent storage, no shell access, and all network access is restricted to a vsock proxy allowlisted only to an Esplora indexer and the BTC Relay. The enclave code is reproducibly buildable and bound to a verifiable PCR0 measurement.
+
+**In-enclave RGB validation.** Before co-signing any `FundsOut` transaction, each Federated Signer Node validates the RGB consignment inside the enclave — confirming the burn amount and commission against the calldata. This ensures that the TEE independently verifies the on-Bitcoin burn before authorising any EVM release of funds.
+
+**In-enclave SPV verification.** Bitcoin block headers are streamed into each enclave via the BTC Relay against a compile-time checkpoint block, allowing the TEE to independently verify transaction inclusion via SPV proofs without relying on any external indexer. This prevents eclipse attacks where an operator might attempt to present a fake burn against an alternative chain.
+
+**Burn replay protection.** The TEE extracts a `burnId` from each RGB consignment before signing. This identifier is passed as a `FundsOut` parameter and stored by the smart contract, which rejects any `FundsOut` call reusing a previously seen `burnId`.
+
+**Public attestation.** The enclave binary is reproducibly buildable, and each node publishes a verifiable attestation binding its public key to the PCR0 measurement of the deployed code. A `VERIFY.md` document provides step-by-step guidance for independently confirming that the keys held inside the EVM smart contract were generated and remain inside a genuine Nitro Enclave.
+
+## Guide
+
+<Card title="Getting Started" icon="arrow-left-to-bracket" href="/product-suite/bridge-getting-started">
+  Mint USDT between Ethereum and the Bitcoin RGB layer.
+</Card>
+
+\\
+
+<Card title="Getting Started" icon="arrow-left-to-bracket" href="/product-suite/bridge-getting-started">
+  Mint USDT between Ethereum and the Bitcoin RGB layer.
+</Card>
+
+\\
+
+<Card title="Getting Started" icon="arrow-left-to-bracket" href="/product-suite/bridge-getting-started">
+  Mint USDT between Ethereum and the Bitcoin RGB layer.
+</Card>
+
+\\

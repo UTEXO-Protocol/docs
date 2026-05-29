@@ -3,9 +3,9 @@
   "theme": "aspen",
   "name": "Utexo Protocol Docs",
   "colors": {
-    "primary": "#0D9373",
-    "light": "#55D799",
-    "dark": "#0D9373"
+    "primary": "#233116",
+    "light": "#2F421D",
+    "dark": "#A5B596"
   },
   "navigation": {
     "groups": [
@@ -20,7 +20,15 @@
         "pages": [
           "getting-started/the-problem",
           "getting-started/architecture",
-          "getting-started/quickstart",
+          {
+            "group": "Quickstart",
+            "pages": [
+              "getting-started/quickstart/overview",
+              "getting-started/quickstart/node-js",
+              "getting-started/quickstart/react-native",
+              "getting-started/quickstart/web"
+            ]
+          },
           "getting-started/glossary"
         ]
       },
@@ -84,10 +92,10 @@
             ]
           },
           {
-            "group": "Bridge",
+            "group": "Mint",
             "pages": [
-              "product-suite/bridge",
-              "bridge/getting-started"
+              "product-suite/mint",
+              "mint/getting-started"
             ]
           },
           {
@@ -96,21 +104,12 @@
               "product-suite/swap",
               {
                 "group": "Bitcoin Basics",
-                "pages": [
-                  "swap/what-is-a-bitcoin-taproot-address",
-                  "swap/create-wallet",
-                  "swap/what-is-utxo",
-                  "swap/get-btc"
-                ]
+                "pages": []
               },
-        {
-          "group": "Legacy AMM Swap",
-          "pages": [
-            "swap/getting-started",
-            "swap/swap-btc-to-rgb",
-            "swap/swap-rgb-to-btc"
-          ]
-        }
+              {
+                "group": "Legacy AMM Swap",
+                "pages": []
+              }
             ]
           }
         ]

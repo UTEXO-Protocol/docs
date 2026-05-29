@@ -1,18 +1,18 @@
 ---
 title: "Quickstart"
 sidebarTitle: "Quickstart"
-description: "Send your first RGB USDT transfer on Bitcoin in under 15 minutes."
+description: "Send your first USDT on Bitcoin transfer in under 15 minutes."
 ---
 
 ## What You Will Build
 
-This guide walks you through the full Utexo SDK integration flow: installing the SDK, generating and initializing a wallet, funding it with testnet BTC, creating UTXOs to anchor RGB state, generating an RGB invoice and completing your first USDT transfer on Bitcoin.
+This guide walks you through the full Utexo SDK integration flow: installing the SDK, generating and initializing a wallet, funding it with testnet BTC, creating UTXOs to anchor RGB state, generating an RGB invoice and completing your first USDT on Bitcoin transfer.
 
 By the end of this guide you will have:
 
 - A working `UTEXOWallet` instance connected to testnet
 - A funded wallet with UTXOs ready to receive RGB assets
-- Successfully sent and verified an RGB USDT transfer
+- Successfully sent and verified a USDT on Bitcoin transfer
 
 <Info>
   **Estimated time:** 15 minutes, not counting testnet faucet confirmation time (usually 1–5 minutes, but can vary).
@@ -23,11 +23,11 @@ By the end of this guide you will have:
 Before writing any code, it helps to understand the flow:
 
 1. The **receiver** generates a blinded invoice tied to one of their UTXOs
-2. The **sender** calls `.send()` with that invoice - the RGB state transition is constructed and broadcast
+2. The **sender** calls `.send()` with that invoice — the RGB state transition is constructed and broadcast
 3. Both wallets call `.refreshWallet()` to sync the latest on-chain state
 4. The receiver's balance updates to reflect the new asset allocation
 
-All asset state is validated client-side. Neither party needs to trust a third party, the Bitcoin UTXO provides the settlement anchor.
+All asset state is validated client-side. Neither party needs to trust a third party — the Bitcoin UTXO provides the settlement anchor.
 
 <Info>
   New to RGB or UTXOs? See the [Glossary](/getting-started/glossary) for definitions, and [Architecture](/getting-started/architecture) for how Bitcoin, Lightning, and RGB fit together.
