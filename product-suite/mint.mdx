@@ -8,9 +8,7 @@ description: "Cross-chain stablecoin transfers between EVM, Tron, Solana, Arch, 
   ![Screenshot 2026 05 28 At 09 34 37](/images/Screenshot-2026-05-28-at-09.34.37.png)
 </Frame>
 
-The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the
-
-USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron, or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as native USDT on Bitcoin. Minted USDT is represented on Bitcoin as native USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges, wrapped assets or custodial intermediaries.
+The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as USDT on Bitcoin. Minted USDT is represented as USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges or custodial intermediaries.
 
 ## How It Works
 
@@ -27,15 +25,15 @@ The Mint is composed of modular, stateless components that together coordinate a
 
 ### Mint Orchestrator
 
-The Mint orchestrator is the central coordinator. It tracks all in-flight transfers in a persistent database, processes `FundsIn` events reported by Connectors, and instructs the appropriate destination Connector to issue a `FundsOut` transaction. If a transfer cannot be completed, the orchestrator drives it to safe cancellation.
+The Mint orchestrator is the central coordinator. It tracks all in-flight transfers in a persistent database, processes `FundsIn` events reported by Connectors, and instructs the appropriate destination Connector to issue a`FundsOut` transaction. If a transfer cannot be completed, the orchestrator drives it to safe cancellation.
 
 ### Connectors
 
-Each supported chain has a dedicated Connector — a stateless gRPC service that watches the chain for `FundsIn` smart contract events and issues `FundsOut` transactions on the destination chain. Connectors do not hold keys or funds. All signing is delegated to the Federated Signer Nodes.
+Each supported chain has a dedicated Connector, a stateless gRPC service that watches the chain for `FundsIn` smart contract events and issues`FundsOut` transactions on the destination chain. Connectors do not hold keys or funds. All signing is delegated to the Federated Signer Nodes.
 
 ### Federated Signer Nodes
 
-Transaction signing is distributed across three independent listener nodes, each running inside its own **AWS Nitro Enclave**. A valid signature requires agreement from at least **2 of the 3 nodes** (2-of-3 threshold). No single node — and no external party — can unilaterally produce a valid signature.
+Transaction signing is distributed across three independent listener nodes, each running inside its own **AWS Nitro Enclave**. A valid signature requires agreement from at least **2 of the 3 nodes** (2-of-3 threshold). No single node and no external party can unilaterally produce a valid signature.
 
 Key properties:
 
@@ -47,11 +45,11 @@ Key properties:
 
 ### Enclave Signer
 
-The Enclave Signer (`utexo-mint-enclave-signer`) is the base cryptographic microservice from which each Federated Signer Node is derived. It runs inside an **AWS Nitro Enclave** — an isolated compute environment with no persistent storage, no shell access, and network access limited to a vsock proxy allowlisted to an Esplora indexer and the BTC Relay.
+The Enclave Signer (`utexo-mint-enclave-signer`) is the base cryptographic microservice from which each Federated Signer Node is derived. It runs inside an **AWS Nitro Enclave** — an isolated compute environment with no persistent storage, no shell access and network access limited to a vsock proxy allowlisted to an Esplora indexer and the BTC Relay.
 
 ### BTC Relay
 
-The BTC Relay (`btc-relayer`) streams Bitcoin block headers to the Federated Signer Nodes. Inside each enclave, headers are validated against a hardcoded checkpoint block and the signet challenge script — both baked in at compile time and bound to the enclave's PCR0 attestation measurement. This allows the TEE to perform SPV proofs without relying on any external indexer for header data.
+The BTC Relay (`btc-relayer`) streams Bitcoin block headers to the Federated Signer Nodes. Inside each enclave, headers are validated against a hardcoded checkpoint block and the signet challenge script, both baked in at compile time and bound to the enclave's PCR0 attestation measurement. This allows the TEE to perform SPV proofs without relying on any external indexer for header data.
 
 ## Transfer Flow
 
