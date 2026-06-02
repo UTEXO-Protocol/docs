@@ -33,7 +33,7 @@ Each supported chain has a dedicated Connector, a stateless gRPC service that wa
 
 ### Federated Signer Nodes
 
-Transaction signing is distributed across three independent listener nodes, each running inside its own **AWS Nitro Enclave**. A valid signature requires agreement from at least **2 of the 3 nodes** (threshold scheme). No single node and no external party can unilaterally produce a valid signature.
+Transaction signing is distributed across three independent listener nodes, each running inside its own **AWS Nitro Enclave**. A valid signature requires agreement from the **TEE- federation nodes** (threshold scheme). No single node and no external party can unilaterally produce a valid signature.
 
 Key properties:
 
