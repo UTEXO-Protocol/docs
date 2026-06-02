@@ -92,8 +92,8 @@ The Mint is composed of five coordinated components:
 
 1. **Mint orchestrator** that tracks all in-flight transfers; stateless chain-specific.
 2. **Connectors** that monitor smart contracts and issue on-chain transactions; three independent.
-3. **Federated Signer Nodes**, each running inside an AWS Nitro Enclave, that jointly sign transactions using a 2-of-3 threshold — ensuring no single node can act unilaterally.
-4. **RGB Multisig Mint** that coordinates multi-party custody of RGB assets with its own 2-of-3 cosigner threshold
+3. **Federated Signer Nodes**, each running inside an AWS Nitro Enclave, that jointly sign transactions using a TEE-federation with threshold scheme —  ensuring no single node can act unilaterally.
+4. **RGB Multisig Mint** that coordinates multi-party custody of RGB assets with its own threshold scheme
 5. **BTC Relay** that streams Bitcoin block headers into the TEE for in-enclave SPV verification.
 
 <Info>

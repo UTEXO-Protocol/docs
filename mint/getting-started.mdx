@@ -6,7 +6,7 @@ description: "Transfer USDT between Ethereum and the Bitcoin RGB layer using the
 This guide walks you through both directions of a mint transfer: depositing USDT from an EVM wallet onto the Bitcoin RGB layer and withdrawing it back. USDT from EVM, Tron, and Solana is supported — under the hood, it is routed through the USDT0 / LayerZero protocol to Arbitrum before being locked and minted as RGB USDT on Bitcoin. This routing is handled transparently; from your wallet, the experience is the same regardless of which network you connect from.
 
 <Info>
-  Signing authority is distributed across three independent Federated Signer Nodes, each running inside an AWS Nitro Enclave, using a 2-of-3 threshold — no single node can produce a valid signature unilaterally.
+  Signing authority is distributed across three independent Federated Signer Nodes, each running inside an AWS Nitro Enclave, using athreshold scheme — no single node can produce a valid signature unilaterally.
 </Info>
 
 ## Prerequisites

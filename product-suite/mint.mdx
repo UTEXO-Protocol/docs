@@ -18,7 +18,7 @@ The Mint is composed of modular, stateless components that together coordinate a
 | --- | --- |
 | **Mint orchestrator** | Tracks all in-flight transfers, routes events between connectors, and drives transfers to completion or cancellation |
 | **Connectors** | Chain-specific gRPC services that monitor smart contracts for `FundsIn` events and issue `FundsOut` transactions on the destination chain |
-| **Federated Signer Nodes** | A set of three independent listener nodes, each running inside an AWS Nitro Enclave, that jointly sign transactions using a 2-of-3 threshold scheme |
+| **Federated Signer Nodes** | A set of three independent listener nodes, each running inside an AWS Nitro Enclave, that jointly sign transactions using a TEE-federation with threshold scheme |
 | **Enclave Signer** | Cryptographic microservice running inside an AWS Nitro Enclave; derives and holds private keys in a Trusted Execution Environment (TEE) so they never leave the hardware boundary |
 | **BTC Relay** | Lightweight Bitcoin header relay service that feeds block headers into the TEE for in-enclave SPV verification |
 | **REST Gateway** | Public API used by the web UI and external integrations |
@@ -33,11 +33,11 @@ Each supported chain has a dedicated Connector, a stateless gRPC service that wa
 
 ### Federated Signer Nodes
 
-Transaction signing is distributed across three independent listener nodes, each running inside its own **AWS Nitro Enclave**. A valid signature requires agreement from at least **2 of the 3 nodes** (2-of-3 threshold). No single node and no external party can unilaterally produce a valid signature.
+Transaction signing is distributed across three independent listener nodes, each running inside its own **AWS Nitro Enclave**. A valid signature requires agreement from at least **2 of the 3 nodes** (threshold scheme). No single node and no external party can unilaterally produce a valid signature.
 
 Key properties:
 
-- **Threshold signing.** All EVM (EIP-712) and Bitcoin (PSBT Taproot Schnorr) signatures require a 2-of-3 quorum across independent TEE instances.
+- **Threshold signing.** All EVM (EIP-712) and Bitcoin (PSBT Taproot Schnorr) signatures require threshold scheme  quorum across independent TEE instances.
 - **Keys never leave the TEE.** BIP-39 key generation and all signing operations happen inside each enclave, with no persistent storage or shell access.
 - **In-enclave RGB validation.** Every RGB consignment is validated inside the enclave before signing, cross-checking amounts against calldata and commission.
 - **In-enclave SPV verification.** Bitcoin block headers are relayed into the TEE via the BTC Relay service, enabling the enclave to independently verify transaction inclusion without trusting any external data source.
@@ -58,7 +58,7 @@ The following steps describe a complete cross-chain transfer:
 1. User deposits funds on the source chain (`FundsIn`).
 2. The source Connector detects the on-chain event and notifies the Mint orchestrator.
 3. The Mint orchestrator instructs the destination Connector to release funds (`FundsOut`).
-4. The Federated Signer Nodes sign the `FundsOut` transaction inside their respective TEEs; a 2-of-3 quorum is required before broadcast.
+4. The Federated Signer Nodes sign the `FundsOut` transaction inside their respective TEEs; athreshold scheme is required before broadcast.
 5. Transfer is marked complete once finality is confirmed.
 
 **Example — Ethereum → Bitcoin RGB layer:**
@@ -67,7 +67,7 @@ The following steps describe a complete cross-chain transfer:
 2. User submits a `FundsIn` transaction on the Arbitrum smart contract, locking USDT0.
 3. The Arbitrum Connector detects the event and notifies the orchestrator.
 4. The orchestrator instructs the Bitcoin Connector to prepare a `FundsOut` PSBT.
-5. The Federated Signer Nodes validate the RGB consignment and SPV proof inside their enclaves; 2 of 3 sign the PSBT using Taproot Schnorr.
+5. The Federated Signer Nodes validate the RGB consignment and SPV proof inside their enclaves; a threshold of nodes sign the PSBT using Taproot Schnorr.
 6. The signed transaction is broadcast to Bitcoin. Once confirmed, USDT on Bitcoin appears in the user's RGB wallet.
 
 ## Supported Networks
@@ -121,7 +121,7 @@ The current fee rate is **0.4%** across supported networks.
 
 The Utexo Mint is designed so that assets cannot be stolen even if individual operators are compromised. The trust model distributes signing authority and performs all sensitive operations inside hardware-isolated Trusted Execution Environments (TEEs), minimising the need to trust any single party.
 
-**Distributed signing authority.** Signing authority is distributed across three independent Federated Signer Nodes, each running inside its own AWS Nitro Enclave. No single node can produce a valid signature unilaterally — a **2-of-3 threshold** is required for every EVM and Bitcoin transaction. This eliminates single-point-of-failure risks for key compromise, infrastructure access, and operator collusion.
+**Distributed signing authority.** Signing authority is distributed across three independent Federated Signer Nodes, each running inside its own AWS Nitro Enclave. No single node can produce a valid signature unilaterally — a threshold scheme is required for every EVM and Bitcoin transaction. This eliminates single-point-of-failure risks for key compromise, infrastructure access, and operator collusion.
 
 **TEE-enforced key isolation.** Private keys are generated inside each enclave using BIP-39 and never leave the TEE hardware boundary. There is no persistent storage, no shell access, and all network access is restricted to a vsock proxy allowlisted only to an Esplora indexer and the BTC Relay. The enclave code is reproducibly buildable and bound to a verifiable PCR0 measurement.
 

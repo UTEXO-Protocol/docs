@@ -54,9 +54,7 @@ The SDK connects to the following endpoints by default on testnet. No configurat
 | RGB Transport | `rpcs://rgb-proxy.utexo.com/json-rpc` |
 | Bitcoin Indexer | `https://esplora-api.utexo.com` |
 
-<Info>
-  For mainnet endpoint configuration, see the [SDK Reference](/sdk/utexo-sdk).
-</Info>
+For mainnet endpoint configuration, see the [SDK Reference](/sdk/utexo-sdk).
 
 ## Step 1: Install the SDK
 
@@ -91,15 +89,14 @@ Create and initialize a `UTEXOWallet` instance using your mnemonic. Initializati
 ```javascript
 const { UTEXOWallet } = require('@utexo/rgb-sdk');
 
-const wallet = new UTEXOWallet(keys.mnemonic, { network: 'testnet' });
+const wallet = new UTEXOWallet(keys.mnemonic, {
+  network: 'testnet'
+});
 await wallet.initialize();
-
 console.log('Wallet initialized successfully');
 ```
 
-<Info>
-  `initialize()` performs the initial sync with the Bitcoin indexer and RGB transport layer. This may take a few seconds on first run.
-</Info>
+`initialize()` performs the initial sync with the Bitcoin indexer and RGB transport layer. This may take a few seconds on first run.
 
 ## Step 4: Get a Deposit Address
 

@@ -31,10 +31,10 @@ console.log('Mnemonic:', keys.mnemonic); // Store securely
 
 // 2. Initialise wallet
 const wallet = new UTEXOWallet(keys.mnemonic, {
-  network: 'utexo',        // 'mainnet' | 'testnet' | 'utexo'
+  network: 'utexo',          // 'mainnet' | 'testnet' | 'utexo'
   dataDir: './wallet',
-  lspBaseUrl: '...',       // optional — enables async (offline) payments
-  lspBearerToken: '...'   // optional — required when lspBaseUrl is set
+  lspBaseUrl: '...',         // optional — enables async (offline) payments
+  lspBearerToken: '...'  // optional — required when lspBaseUrl is set
 });
 await wallet.initialize();
 
@@ -45,7 +45,7 @@ const address = await wallet.getAddress();
 const balance = await wallet.getBtcBalance();
 ```
 
-`lspBaseUrl` and `lspBearerToken` are optional. Omitting them has no effect on synchronous payment flows — async payment capability is strictly opt-in.
+`getBtcBalance()` returns separate balance objects for each path (vanilla and colored), each containing:
 
 ## Networks
 
@@ -88,200 +88,88 @@ The SDK maintains two separate derivation paths:
 - `future` — expected balance after pending operations confirm
 - `spendable` — currently usable amount for new operations
 
-### Address Rotation
+## Vanilla vs Colored Addresses
 
-By default, each call to `getAddress()` rotates to a new receive address (new HD derivation index). This improves privacy by reducing address reuse and matches HD wallet best practices. If your application requires a stable deposit address, persist one generated address and reuse it in your UI or service layer.
+The wallet manages two address types:
 
-## Wallet Methods
+- **Vanilla** — Standard Bitcoin addresses for receiving on-chain BTC. Also used as the change address for Bitcoin transactions that anchor RGB state transitions.
+- **Colored** — Addresses associated with UTXOs that hold RGB asset allocations. These UTXOs are reserved exclusively for RGB state transitions and should not be spent directly as BTC.
 
-### Key Generation and Derivation
+Never manually spend a colored UTXO as regular BTC — doing so will permanently destroy the RGB asset allocation anchored to it.
 
-- `generateKeys(network?)` — Generate new wallet keys. Returns mnemonic, `xpub`, `xpriv`, `accountXpubVanilla`, and `accountXpubColored`.
-- `deriveKeysFromMnemonic(network, mnemonic)` — Derive wallet keys from an existing BIP39 mnemonic
-- `deriveKeysFromSeed(network, seed)` — Derive wallet keys from a BIP39 seed
-- `restoreKeys(network, mnemonic)` — Legacy alias for `deriveKeysFromMnemonic`
-- `getXpub()` — Get vanilla and colored xpubs (`accountXpubVanilla`, `accountXpubColored`)
-- `getXprivFromMnemonic(network, mnemonic)` — Derive the extended private key (`xpriv`) from a mnemonic. Treat with the same sensitivity as the mnemonic itself.
+## Networks
 
-### Wallet State
+The available environments for the `network` field in the init config are:
 
-- `getAddress()` — Get a receive address; rotates to a new HD index on each call for privacy
-- `getBtcBalance()` — Get on-chain BTC balance split by `vanilla` and `colored` paths, each with `settled`, `future`, `spendable`
-- `refreshWallet()` — Update RGB transfer state (consignments and transfer status progression)
-- `syncWallet()` — Update chain and UTXO state (funding confirmations, spendable BTC)
-- `listUnspents()` — List unspent UTXOs
-- `listAssets()` — List RGB assets held in the wallet
-- `getAssetBalance(assetId)` — Get balance for a specific RGB asset
-- `listTransactions()` — List BTC-level transactions
-- `listTransfers(assetId?)` — List RGB transfer history. Transfer statuses: `WaitingCounterparty`, `WaitingConfirmations`, `Settled`, `Failed`
-- `dispose()` — Clean up wallet resources
+| Environment | Identifier | RGB Transport Endpoint | Bitcoin Indexer |
+| --- | --- | --- | --- |
+| Mainnet | `mainnet` | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
+| Testnet | `testnet` | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
+| Utexo (Signet) | `utexo` | `rpcs://rgb-proxy.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
 
 <Note>
-  Use `syncWallet()` after funding or UTXO creation to update chain state. Use `refreshWallet()` after `send()` to update RGB transfer status on both sender and receiver sides.
-</Note>
 
-## Backup and Restore
+**Utexo Network Faucet** — To get test BTC and RGB assets on the Utexo network, use the Telegram bot [@Utexo\_RLN\_bot](https://t.me/Utexo_RLN_bot).
 
-Backups are recommended after every significant state change: UTXO creation, asset issuance, and transfers.
-
-### File Backup
-
-Creates an encrypted local backup containing both `layer1` and `utexo` state files.
-
-```js
-await wallet.createBackup({
-  backupPath: './backups',
-  password: 'strong-password',
-});
-```
-
-Restore from a file backup:
-
-```js
-import { restoreUtxoWalletFromBackup } from '@utexo/rgb-sdk';
-
-await restoreUtxoWalletFromBackup({
-  backupPath: './backups',
-  password: 'strong-password',
-  targetDir: './restored',
-});
-```
-
-### VSS Backup
-
-Pushes wallet state to a remote Verifiable Secret Sharing (VSS) server. The backup is keyed to the wallet mnemonic and can be restored on any device.
-
-```js
-import { restoreUtxoWalletFromVss } from '@utexo/rgb-sdk';
-
-// Get deterministic VSS config derived from mnemonic and defaults
-const vssConfig = await wallet.getDefaultVssConfig();
-
-// Export wallet state to VSS
-await wallet.vssBackup(vssConfig);
-
-// Check backup status
-const info = await wallet.vssBackupInfo(vssConfig);
-console.log(info); // { backupExists, serverVersion, backupRequired }
-
-// Restore from VSS into a fresh local directory
-const restored = await restoreUtxoWalletFromVss({
-  mnemonic: keys.mnemonic,
-  targetDir: './restored-from-vss',
-  config: vssConfig,
-  networkPreset: 'utexo',
-});
-
-// Re-open wallet from restored data
-const restoredWallet = new UTEXOWallet(keys.mnemonic, {
-  network: 'utexo',
-  dataDir: restored.targetDir,
-});
-await restoredWallet.initialize();
-```
-
-| Method | Description |
+| Command | Description |
 |---|---|
-| `createBackup({ backupPath, password })` | Create encrypted local backup |
-| `restoreUtxoWalletFromBackup({ backupPath, password, targetDir })` | Restore wallet from file backup |
-| `vssBackup(config?)` | Push wallet state to VSS remote |
-| `vssBackupInfo(config?)` | Check backup status on VSS server |
-| `getDefaultVssConfig()` | Get deterministic VSS config from mnemonic |
-| `restoreUtxoWalletFromVss({ mnemonic, targetDir, config?, networkPreset })` | Restore wallet from VSS |
+| `/getbtc` | Send your Bitcoin address to receive test satoshis |
+| `/getasset` | Send an RGB invoice to receive test RGB assets |
+| `/getinvoice` | Get an RGB Lightning invoice to test paying |
+| `/getnodeinfo` | Get the faucet node URI, asset ID, and ticker |
 
-## Private Key Export
+Limited to 2 requests per 24 hours per user.
 
-The SDK exposes a utility to derive the extended private key from a mnemonic:
-
-```js
-import { getXprivFromMnemonic } from '@utexo/rgb-sdk';
-
-const xpriv = await getXprivFromMnemonic('utexo', keys.mnemonic);
-console.log('xpriv:', xpriv);
-```
-
-<Warning>
-  `xpriv` is the account root private key. All child private and public keys can be derived from it. Treat it with the same sensitivity as your mnemonic — never log or transmit it in production.
-</Warning>
-
-## RGB Asset Methods
-
-Issue a new Non-Inflationary Asset (NIA) on RGB:
-
-```js
-const asset = await wallet.issueAssetNia({
-  ticker: 'USDT',
-  name: 'Tether USD (Test)',
-  amounts: [1000000],
-  precision: 6
-});
-const assetId = asset.assetId;
-```
-
-### Invoice Types: Blinded vs Witness
-
-RGB receive flows support two invoice styles:
-
-- **Blinded invoice** (`blindReceive`) — most common flow. The receiver creates a blinded recipient endpoint; the sender pays the invoice directly. Use for standard app-to-app RGB transfers.
-- **Witness invoice** (`witnessReceive`) — the receiver binds the transfer to witness data. The sender must provide `witnessData` (at minimum `amountSat`) in `send()`. Use when your integration explicitly requires witness-bound receive semantics.
-
-```js
-// Blinded invoice
-const receiveData = await receiverWallet.blindReceive({
-  assetId,
-  amount: 5000,             // RGB asset base units
-  minConfirmations: 1,      // minimum Bitcoin confirmation depth
-  durationSeconds: 3600,    // invoice lifetime in seconds
-});
-
-// Witness invoice
-const witnessReceiveData = await receiverWallet.witnessReceive({
-  assetId,
-  amount: 2000,
-  minConfirmations: 1,
-  durationSeconds: 3600,
-});
-```
-
-Complete an RGB asset transfer:
-
-```js
-// Sender: send via blinded invoice
-await senderWallet.send({
-  invoice: receiveData.invoice,
-  assetId,
-  amount: 5000,
-});
-
-// Sender: send via witness invoice (witnessData required)
-await senderWallet.send({
-  invoice: witnessReceiveData.invoice,
-  assetId,
-  amount: 2000,
-  witnessData: { amountSat: 1000 },
-});
-
-// Refresh both wallets after transfer
-await senderWallet.refreshWallet();
-await receiverWallet.refreshWallet();
-```
-
-- `blindReceive({ assetId, amount, minConfirmations?, durationSeconds? })` — Generate blinded UTXO invoice
-- `witnessReceive({ assetId, amount, minConfirmations?, durationSeconds? })` — Generate witness UTXO invoice
-- `send({ invoice, assetId, amount, witnessData? })` — Complete send (begin → sign → end)
-- `signPsbt(psbt, mnemonic?)` — Sign a PSBT using wallet mnemonic
+</Note>
 
 ## UTXO Management
 
-Before issuing or receiving RGB assets, the wallet must have colored UTXOs prepared. Create them after funding the vanilla address:
+Before issuing or receiving RGB assets, prepare colored UTXOs:
 
 ```js
-const created = await wallet.createUtxos({ num: 5, size: 1000 });
-await wallet.syncWallet();
-console.log('UTXOs created:', created);
+await wallet.createUtxos({ num: 5, size: 1000 });
+await wallet.refreshWallet();
 ```
 
-- `createUtxos({ num?, size?, upTo? })` — Create colored UTXOs (combines begin, sign, end internally)
+- `createUtxos({ num, size, up_to? })` — Create colored UTXOs (combines begin, sign, end internally)
+
+## Asset Methods
+
+- `listAssets()` — List all RGB assets held by the wallet
+- `getAsset(assetId)` — Get metadata and balance for a specific asset
+- `issueAssetNia(params)` — Issue a new NIA (Non-Inflatable Asset) RGB asset
+- `issueAssetCfa(params)` — Issue a new CFA (Collectible) RGB asset
+- `blindReceive(params)` — Generate a blinded invoice to receive an RGB asset
+- `send(params)` — Send RGB assets to a blinded invoice
+- `listTransfers(assetId)` — List all transfers for a given asset
+- `refreshWallet()` — Sync wallet state with the chain and transport layer
+- `failTransfers(params)` — Expire stale pending transfers
+- `deleteTransfers(params)` — Remove transfer records
+
+## BTC Methods
+
+- `getAddress()` — Get the current vanilla Bitcoin deposit address
+- `getBtcBalance()` — Get the BTC balance (vanilla and colored paths)
+- `sendBtc(params, mnemonic?)` — Send BTC from the vanilla wallet
+- `drainBtc(params, mnemonic?)` — Drain the entire vanilla BTC balance to an address
+
+## Key Derivation and Backup
+
+- `generateKeys(network)` — Generate a new BIP-39 mnemonic and derive xpub
+- `deriveKeysFromMnemonic(network, mnemonic)` — Re-derive keys from an existing mnemonic
+- `backup(backupPath, password)` — Create an encrypted wallet backup
+- `restore(mnemonic, backupPath, password)` — Restore a wallet from a backup file
+
+## PSBT Methods
+
+For advanced use cases where signing must happen externally:
+
+- `createUtxosBegin(params)` — Create an unsigned PSBT for UTXO creation
+- `createUtxosEnd(params)` — Finalise UTXO creation with a signed PSBT
+- `sendBegin(params)` — Create an unsigned PSBT for an RGB send
+- `sendEnd(params)` — Finalise an RGB send with a signed PSBT
+- `sendBtcBegin(params)` — Create an unsigned PSBT for a BTC send
+- `sendBtcEnd(params, mnemonic?)` — Finalise a BTC send with a signed PSBT
 
 ## Lightning Methods
 
