@@ -47,6 +47,43 @@ const balance = await wallet.getBtcBalance();
 
 `getBtcBalance()` returns separate balance objects for each path (vanilla and colored), each containing:
 
+## Networks
+
+| Environment | Identifier | RGB Transport Endpoint | Bitcoin Indexer |
+|---|---|---|---|
+| Mainnet | `mainnet` | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
+| Testnet | `testnet` | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
+| Utexo (Signet) | `utexo` | `rpcs://rgb-proxy.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
+
+Pass the identifier string in the `network` field of the init config. `utexo` is the default environment for development and testing.
+
+<Note>
+
+**Utexo Network Faucet** — To get test BTC and RGB assets on the Utexo network, use the Telegram bot [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot).
+
+| Command | Description |
+|---|---|
+| `/getbtc` | Send your Bitcoin address to receive test satoshis |
+| `/getasset` | Send an RGB invoice to receive test RGB assets |
+| `/getinvoice` | Get an RGB Lightning invoice to test paying |
+| `/getnodeinfo` | Get the faucet node URI, asset ID, and ticker |
+
+Limited to 2 requests per 24 hours per user.
+
+</Note>
+
+## Vanilla vs Colored Addresses
+
+The SDK maintains two separate derivation paths:
+
+- **Vanilla** — the standard Bitcoin path. `getAddress()` returns a vanilla bech32 receive address used for on-chain BTC funding, withdrawals, and fee payments.
+- **Colored** — the RGB-specific path. Colored outputs anchor RGB asset allocations to Bitcoin UTXOs. This path is used internally by `createUtxos()` and all RGB transfer operations.
+
+`getXpub()` returns both:
+- `accountXpubVanilla` — the extended public key for the vanilla (BTC) derivation path
+- `accountXpubColored` — the extended public key for the colored (RGB) derivation path
+
+`getBtcBalance()` returns separate balance objects for each path, each containing:
 - `settled` — confirmed, final balance
 - `future` — expected balance after pending operations confirm
 - `spendable` — currently usable amount for new operations

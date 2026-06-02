@@ -165,6 +165,21 @@ await wallet.destroy();
 | `announceAddresses` | `string[]?` | Public addresses to announce to the network |
 | `announceAlias` | `string \| null?` | Node alias |
 
+<Note>
+
+**Utexo Network Faucet** — To get test BTC and RGB assets on the Utexo network, use the Telegram bot [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot).
+
+| Command | Description |
+|---|---|
+| `/getbtc` | Send your Bitcoin address to receive test satoshis |
+| `/getasset` | Send an RGB invoice to receive test RGB assets |
+| `/getinvoice` | Get an RGB Lightning invoice to test paying |
+| `/getnodeinfo` | Get the faucet node URI, asset ID, and ticker |
+
+Limited to 2 requests per 24 hours per user.
+
+</Note>
+
 ## Method Reference
 
 ### Balance & Address

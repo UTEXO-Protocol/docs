@@ -38,7 +38,7 @@ All asset state is validated client-side. Neither party needs to trust a third p
 Before you start, make sure you have the following:
 
 - **Node.js v18 or later** — [Download here](https://nodejs.org/)
-- **A testnet BTC balance** for transaction fees. Get testnet BTC from the Utexo Telegram faucet bot [@Utexo\_RLN\_bot](https://t.me/Utexo_RLN_bot) — send `/getbtc` followed by your Bitcoin address.
+- **A testnet BTC balance** for transaction fees. Get testnet BTC from the Utexo Telegram faucet bot [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot) — send `/getbtc` followed by your Bitcoin address.
 - **Basic familiarity with async/await JavaScript**
 
 <Warning>
@@ -62,7 +62,9 @@ For mainnet endpoint configuration, see the [SDK Reference](/sdk/utexo-sdk).
 npm install @utexo/rgb-sdk
 ```
 
-The Utexo SDK is **Node.js only** and is not browser-compatible. It requires access to the file system and native crypto modules.
+<Warning>
+  The Utexo SDK is **Node.js only** and is not browser-compatible. It requires access to the file system and native crypto modules.
+</Warning>
 
 ## Step 2: Generate Wallet Keys
 
@@ -76,7 +78,9 @@ console.log('Mnemonic:', keys.mnemonic); // Store this securely — never share 
 console.log('Pubkey:', keys.xpub);
 ```
 
-**Back up your mnemonic immediately.** If you lose it, your wallet and any assets it holds cannot be recovered. Never commit mnemonics to source control.
+<Warning>
+  **Back up your mnemonic immediately.** If you lose it, your wallet and any assets it holds cannot be recovered. Never commit mnemonics to source control.
+</Warning>
 
 ## Step 3: Initialize the Wallet
 
@@ -103,7 +107,11 @@ const address = await wallet.getAddress();
 console.log('Deposit address:', address);
 ```
 
-Send `/getbtc` with this address to [@Utexo\_RLN\_bot](https://t.me/Utexo_RLN_bot) (see [Prerequisites](#prerequisites)). Wait for at least 1 confirmation before continuing. You only need a small amount — a few thousand satoshis is enough to cover fees for this tutorial.
+Send `/getbtc` with this address to [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot) (see [Prerequisites](#prerequisites)). Wait for at least 1 confirmation before continuing.
+
+<Info>
+  You only need a small amount — a few thousand satoshis is enough to cover fees for this tutorial.
+</Info>
 
 ## Step 5: Create UTXOs
 
@@ -114,6 +122,7 @@ RGB asset state must be anchored to Bitcoin UTXOs. Before you can receive any RG
 // size: size of each UTXO in satoshis
 await wallet.createUtxos({ num: 5, size: 1000 });
 await wallet.refreshWallet();
+
 console.log('UTXOs created and wallet synced');
 ```
 
@@ -124,7 +133,9 @@ console.log('UTXOs created and wallet synced');
 | `num` | `number` | Number of UTXOs to create. `5` is recommended for a new wallet. |
 | `size` | `number` | Size of each UTXO in **satoshis**. `1000` satoshis per UTXO is the minimum recommended value. |
 
-`refreshWallet()` syncs the wallet's local state with the Bitcoin chain. Always call it after any on-chain operation before querying balances or generating invoices.
+<Info>
+  `refreshWallet()` syncs the wallet's local state with the Bitcoin chain. Always call it after any on-chain operation before querying balances or generating invoices.
+</Info>
 
 ## Step 6: Get the RGB USDT Asset ID
 
@@ -141,7 +152,9 @@ const usdtAssetId = assets.find(a => a.ticker === 'USDT')?.id;
 console.log('USDT Asset ID:', usdtAssetId);
 ```
 
-If no assets appear, your wallet may not yet have been assigned any RGB assets. You can also obtain the canonical testnet USDT asset ID from the [SDK Reference](/sdk/utexo-sdk) or by asking in the [Utexo Discord](https://discord.gg/utexo).
+<Info>
+  If no assets appear, your wallet may not yet have been assigned any RGB assets. You can also obtain the canonical testnet USDT asset ID from the [SDK Reference](/sdk/utexo-sdk) or by asking in the [Utexo Discord](https://discord.gg/utexo).
+</Info>
 
 ## Step 7: Generate an RGB Invoice (Receiver Side)
 
@@ -150,11 +163,12 @@ The receiver generates a blinded invoice to share with the sender. The blinded i
 ```javascript
 // Run this on the RECEIVER's wallet
 const receiveData = await wallet.blindReceive({
-  assetId: usdtAssetId,       // RGB asset ID from Step 6
-  amount: 100,                // Amount in asset base units (1 USDT = 1 unit for RGB USDT)
-  minConfirmations: 1,        // Minimum Bitcoin confirmations before the transfer is accepted
-  durationSeconds: 3600       // Invoice expiry: 3600 seconds = 1 hour
+  assetId: usdtAssetId,   // RGB asset ID from Step 6
+  amount: 100,            // Amount in asset base units (1 USDT = 1 unit for RGB USDT)
+  minConfirmations: 1,    // Minimum Bitcoin confirmations before the transfer is accepted
+  durationSeconds: 3600  // Invoice expiry: 3600 seconds = 1 hour
 });
+
 console.log('RGB Invoice:', receiveData.invoice);
 // Share receiveData.invoice with the sender
 ```
@@ -168,7 +182,9 @@ console.log('RGB Invoice:', receiveData.invoice);
 | `minConfirmations` | `number` | Minimum Bitcoin confirmations required before accepting the transfer. |
 | `durationSeconds` | `number` | Invoice validity window in seconds. Invoice is rejected by the receiver after expiry. |
 
-Invoices expire after `durationSeconds`. The sender must complete the transfer before the invoice expires, otherwise the sender will need a new invoice.
+<Warning>
+  Invoices expire after `durationSeconds`. The sender must complete the transfer before the invoice expires, otherwise the sender will need a new invoice.
+</Warning>
 
 ## Step 8: Send an RGB Asset (Sender Side)
 
@@ -181,17 +197,22 @@ const sendResult = await wallet.send({
   assetId: usdtAssetId,         // Must match the asset ID in the invoice
   amount: 100                   // Must match the amount in the invoice
 });
+
 console.log('Transfer TXID:', sendResult.txid);
 console.log('Transfer status:', sendResult.status);
 
 // Sync both wallets after the transfer
-await wallet.refreshWallet();         // Sender
-await receiverWallet.refreshWallet(); // Receiver (run on receiver's side)
+await wallet.refreshWallet();             // Sender
+await receiverWallet.refreshWallet();     // Receiver (run on receiver's side)
 ```
 
-The `send()` call constructs the RGB state transition, attaches it to a Bitcoin transaction, and broadcasts it. The RGB transport layer (`rpcs://`) is used to communicate the state transition to the receiver.
+<Info>
+  The `send()` call constructs the RGB state transition, attaches it to a Bitcoin transaction, and broadcasts it. The RGB transport layer (`rpcs://`) is used to communicate the state transition to the receiver.
+</Info>
 
-The `amount` and `assetId` in the `send()` call must exactly match those in the invoice. Mismatches will cause the transfer to be rejected by the receiver's client-side validator.
+<Warning>
+  The `amount` and `assetId` in the `send()` call must exactly match those in the invoice. Mismatches will cause the transfer to be rejected by the receiver's client-side validator.
+</Warning>
 
 ## Step 9: Verify the Transfer
 
@@ -207,20 +228,26 @@ const senderBtcBalance = await wallet.getBtcBalance();
 console.log('Sender BTC balance (satoshis):', senderBtcBalance);
 ```
 
-Expected result: the receiver's asset list shows a balance of `100` for the USDT asset. If the transfer is still pending confirmation, call `refreshWallet()` again after the next Bitcoin block. RGB transfers require Bitcoin confirmation to finalize. On testnet, a new block typically arrives every 1–10 minutes.
+Expected result: the receiver's asset list shows a balance of `100` for the USDT asset. If the transfer is still pending confirmation, call `refreshWallet()` again after the next Bitcoin block.
+
+<Info>
+  RGB transfers require Bitcoin confirmation to finalize. On testnet, a new block typically arrives every 1–10 minutes.
+</Info>
 
 ## Troubleshooting
 
 | Issue | Likely cause | Fix |
 | --- | --- | --- |
 | `initialize()` hangs or times out | No network connection to indexer | Check your internet connection and firewall settings |
-| `createUtxos()` fails | Insufficient BTC balance | Fund your wallet with more testnet BTC via `/getbtc` on [@Utexo\_RLN\_bot](https://t.me/Utexo_RLN_bot) |
+| `createUtxos()` fails | Insufficient BTC balance | Fund your wallet with more testnet BTC via `/getbtc` on [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot) |
 | Invoice rejected | Invoice has expired | Generate a new invoice and retry |
 | `send()` fails with validation error | `amount` or `assetId` mismatch | Confirm the send parameters exactly match the invoice |
 | Balance not updated after send | Wallet not synced | Call `refreshWallet()` on both sender and receiver wallets |
 | Asset ID not found | Asset not yet in wallet | Check `listAssets()` or obtain the canonical asset ID from the SDK reference |
 
-If you encounter an issue not listed here, join the [Utexo Discord](https://discord.gg/utexo) for community support.
+<Info>
+  If you encounter an issue not listed here, join the [Utexo Discord](https://discord.gg/utexo) for community support.
+</Info>
 
 ## Next Steps
 
