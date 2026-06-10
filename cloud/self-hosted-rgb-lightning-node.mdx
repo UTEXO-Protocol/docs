@@ -1,0 +1,381 @@
+---
+title: "Self-Hosted RGB Lightning Node"
+description: "Step-by-step guide to running an RGB Lightning Node (RLN) on your own infrastructure — installation, configuration, authentication, and API usage."
+---
+
+The RGB Lightning Node (RLN) is an RGB-enabled Lightning Network daemon built on top of LDK. It lets you open payment channels that carry RGB assets and route RGB-denominated payments across the network with the same user experience and security model as standard Bitcoin Lightning payments.
+
+<Warning>
+  RLN is early alpha software. Run it on regtest or testnet first. The maintainers take no responsibility for loss of funds.
+</Warning>
+
+<Info>
+  Source repository: [https://github.com/UTEXO-Protocol/rgb-lightning-node](https://github.com/UTEXO-Protocol/rgb-lightning-node)
+
+  Full OpenAPI / Swagger reference: [https://rgb-tools.github.io/rgb-lightning-node](https://rgb-tools.github.io/rgb-lightning-node)
+</Info>
+
+## Prerequisites
+
+Before starting, make sure you have the following available:
+
+| Dependency | Purpose |
+| --- | --- |
+| **bitcoind** | Bitcoin full node the RLN daemon connects to |
+| **Electrum or Esplora indexer** | Required for UTXO lookups |
+| **RGB Proxy Server** | Relay for RGB state transitions (see [rgb-proxy-server](https://github.com/RGB-Tools/rgb-proxy-server)) |
+| **Rust toolchain** (stable) | Needed to build from source |
+| **Docker**_(optional)_ | For the containerised setup and regtest helper scripts |
+
+## Installation
+
+### Build from Source
+
+Clone the repository with its submodules:
+
+```sh
+git clone https://github.com/RGB-Tools/rgb-lightning-node \
+  --recurse-submodules --shallow-submodules
+```
+
+Install the `rgb-lightning-node` binary:
+
+```sh
+cargo install --locked --path .
+```
+
+### Docker Image
+
+Build the Docker image locally:
+
+```sh
+docker build -t rgb-lightning-node .
+```
+
+## Running the Node
+
+Each RLN daemon is started with `rgb-lightning-node` and requires the following arguments:
+
+| Flag | Description |
+| --- | --- |
+| `<data-dir>` | Directory where node state is persisted |
+| `--daemon-listening-port` | Port for the REST API |
+| `--ldk-peer-listening-port` | Port for Lightning peer connections |
+| `--network` | One of `regtest`, `testnet`, `testnet4` |
+| `--disable-authentication` | Skip token auth (development only) |
+| `--root-public-key` | Public key used to verify Biscuit tokens (production) |
+
+### Regtest (Local Development)
+
+Start the required Docker services (bitcoind, electrs, proxy):
+
+```sh
+./regtest.sh start
+```
+
+Launch three nodes in separate shells:
+
+```sh
+# Shell 1
+rgb-lightning-node dataldk0/ \
+  --daemon-listening-port 3001 \
+  --ldk-peer-listening-port 9735 \
+  --network regtest \
+  --disable-authentication
+
+# Shell 2
+rgb-lightning-node dataldk1/ \
+  --daemon-listening-port 3002 \
+  --ldk-peer-listening-port 9736 \
+  --network regtest \
+  --disable-authentication
+
+# Shell 3
+rgb-lightning-node dataldk2/ \
+  --daemon-listening-port 3003 \
+  --ldk-peer-listening-port 9737 \
+  --network regtest \
+  --disable-authentication
+```
+
+**Regtest unlock parameters:**
+
+```text
+bitcoind_rpc_username: user
+bitcoind_rpc_password: password
+bitcoind_rpc_host:     localhost
+bitcoind_rpc_port:     18433
+indexer_url:           127.0.0.1:50001
+proxy_endpoint:        rpc://127.0.0.1:3000/json-rpc
+```
+
+#### Regtest Helper Commands
+
+```sh
+# Fund a node — first get an address via POST /address, then:
+./regtest.sh sendtoaddress <address> <amount>
+
+# Mine blocks
+./regtest.sh mine
+
+# Stop services and clean data
+./regtest.sh stop
+
+# Full help
+./regtest.sh -h
+```
+
+### Regtest with Docker
+
+To run a node inside Docker while using the shared regtest network:
+
+```sh
+docker run \
+  --rm -it \
+  -p 3001:3001 \
+  -v RLNdata1:/RLNdata \
+  --network rgb-lightning-node_default \
+  rgb-lightning-node \
+  --daemon-listening-port 3001 \
+  --ldk-peer-listening-port 9735 \
+  --network regtest \
+  --disable-authentication \
+  RLNdata
+```
+
+Data is persisted in the `RLNdata1` volume. To start fresh:
+
+```sh
+docker volume rm RLNdata1
+```
+
+When unlocking a node in this mode use:
+
+```text
+bitcoind_rpc_host: bitcoind
+bitcoind_rpc_port: 18433
+indexer_url:       electrs:50001
+proxy_endpoint:    rpc://proxy:3000/json-rpc
+```
+
+### Testnet3
+
+No local Docker services needed — the node uses public infrastructure:
+
+```sh
+rgb-lightning-node dataldk0/ \
+  --daemon-listening-port 3001 \
+  --ldk-peer-listening-port 9735 \
+  --network testnet \
+  --disable-authentication
+```
+
+**Testnet3 unlock parameters:**
+
+```text
+bitcoind_rpc_username: user
+bitcoind_rpc_password: password
+bitcoind_rpc_host:     electrum.iriswallet.com
+bitcoind_rpc_port:     18332
+indexer_url:           ssl://electrum.iriswallet.com:50013
+proxy_endpoint:        rpcs://proxy.iriswallet.com/0.2/json-rpc
+```
+
+### Testnet4
+
+Same as testnet3, with the following differences:
+
+```text
+--network testnet4
+bitcoind_rpc_port: 18443
+indexer_url:       ssl://electrum.iriswallet.com:50053
+```
+
+## Authentication
+
+RLN uses [Biscuit tokens](https://www.biscuitsec.org/) for API authentication. For production deployments **never** use `--disable-authentication`.
+
+### One-Time Setup
+
+Install the Biscuit CLI and generate a root keypair:
+
+```sh
+cargo install biscuit-cli
+
+# Generate a keypair (prints both public and private keys)
+biscuit keypair
+
+# Or export only the private key to a file
+biscuit keypair --only-private-key > private-key-file
+
+# Derive the public key later
+biscuit keypair --from-file private-key-file --only-public-key
+```
+
+<Warning>
+  Store your private key in a secret manager (e.g. HashiCorp Vault, AWS Secrets Manager). Anyone with the private key can mint valid tokens.
+</Warning>
+
+Start the node with the public key:
+
+```sh
+rgb-lightning-node dataldk0/ \
+  --daemon-listening-port 3001 \
+  --ldk-peer-listening-port 9735 \
+  --network testnet \
+  --root-public-key <YOUR_PUBLIC_KEY>
+```
+
+### Minting Tokens
+
+Three built-in roles are available:
+
+**Admin** (full access):
+
+```sh
+echo 'role("admin");' \
+  | biscuit generate --private-key-file private-key-file -
+```
+
+**Read-only** (GET endpoints only):
+
+```sh
+echo 'role("read-only");' \
+  | biscuit generate --private-key-file private-key-file -
+```
+
+**Custom** (specific endpoints only):
+
+```sh
+echo 'role("custom"); right("api", "/nodeinfo"); right("api", "/networkinfo");' \
+  | biscuit generate --private-key-file private-key-file -
+```
+
+Add an expiry date to any token:
+
+```sh
+echo 'role("admin"); check if time($t), $t <= 2025-12-31T00:00:00Z;' \
+  | biscuit generate --private-key-file private-key-file -
+```
+
+### Using Tokens
+
+Pass the token in the `Authorization` header:
+
+```sh
+curl -H "Authorization: Bearer <TOKEN>" \
+  http://localhost:3001/nodeinfo
+```
+
+In the Swagger UI click the **Authorize** (lock) button, paste the token, and click **Authorize**.
+
+### Revoking Tokens
+
+To revoke a token before its expiry:
+
+```sh
+curl -X POST \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"token": "<TOKEN_TO_REVOKE>"}' \
+  http://localhost:3001/revoketoken
+```
+
+## Using the REST API
+
+Once a daemon is running, interact with it via its REST API. Example — issue an RGB asset:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"ticker": "USDT", "name": "Tether", "amounts": [666], "precision": 0}' \
+  http://localhost:3001/issueasset
+```
+
+### Key Endpoints
+
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/init` | POST | Initialise and unlock the node |
+| `/unlock` | POST | Unlock a locked node |
+| `/lock` | POST | Lock the node |
+| `/nodeinfo` | GET | Return node identity and status |
+| `/networkinfo` | GET | Return network-level info |
+| `/btcbalance` | POST | Get on-chain BTC balance |
+| `/address` | POST | Generate a new Bitcoin address |
+| `/openchannel` | POST | Open an RGB payment channel |
+| `/closechannel` | POST | Close a channel |
+| `/listchannels` | GET | List all channels |
+| `/connectpeer` | POST | Connect to a Lightning peer |
+| `/listpeers` | GET | List connected peers |
+| `/lninvoice` | POST | Create a Lightning invoice |
+| `/sendpayment` | POST | Pay a Lightning invoice |
+| `/rgbinvoice` | POST | Create an RGB invoice |
+| `/sendrgb` | POST | Send RGB assets on-chain |
+| `/issueasset` | POST | Issue a new NIA RGB asset |
+| `/issueassetcfa` | POST | Issue a CFA RGB asset |
+| `/listassets` | POST | List all RGB assets |
+| `/assetbalance` | POST | Get balance of a specific asset |
+| `/backup` | POST | Create an encrypted backup |
+| `/restore` | POST | Restore from an encrypted backup |
+| `/shutdown` | POST | Gracefully stop the daemon |
+
+<Info>
+  The complete list of all 50\+ endpoints with request/response schemas is available in the interactive Swagger UI at [https://rgb-tools.github.io/rgb-lightning-node](https://rgb-tools.github.io/rgb-lightning-node).
+</Info>
+
+### Running a Local Swagger UI
+
+You can also expose the OpenAPI spec locally:
+
+```sh
+docker run -it \
+  -p 8246:8080 \
+  -e SWAGGER_JSON=/var/specs/openapi.yaml \
+  -v $PWD/openapi.yaml:/var/specs/openapi.yaml \
+  swaggerapi/swagger-ui
+```
+
+Open `http://localhost:8246` in your browser. If a daemon is running on one of the example ports you can call the APIs directly from the UI.
+
+## Running Tests
+
+Integration tests use the same regtest services as `regtest.sh` (they cannot run simultaneously):
+
+```sh
+cargo test
+```
+
+## Production Checklist
+
+<Steps>
+  <Step title="Secure your private key">
+    Store the Biscuit issuer private key in a dedicated secret manager. Never commit it to version control.
+  </Step>
+  <Step title="Enable authentication">
+    Remove `--disable-authentication` and pass `--root-public-key` when starting the daemon.
+  </Step>
+  <Step title="Restrict network access">
+    Expose only the daemon REST port (default `3001`) to trusted clients. Firewall the LN peer port (`9735`) as appropriate.
+  </Step>
+  <Step title="Persist data">
+    Mount the node data directory on durable storage (e.g. a named Docker volume or a cloud disk) to survive container restarts.
+  </Step>
+  <Step title="Monitor the daemon">
+    Poll `GET /nodeinfo` and `GET /networkinfo` periodically to verify the node is reachable and in sync.
+  </Step>
+  <Step title="Backup regularly">
+    Call `POST /backup` on a schedule and store the encrypted backup off-node.
+  </Step>
+  <Step title="Rotate tokens">
+    Issue short-lived tokens with expiry dates and rotate them regularly. Revoke compromised tokens immediately via `POST /revoketoken`.
+  </Step>
+</Steps>
+
+## References
+
+- [UTEXO RGB Lightning Node repository](https://github.com/UTEXO-Protocol/rgb-lightning-node)
+- [OpenAPI Swagger UI](https://rgb-tools.github.io/rgb-lightning-node)
+- [RGB on the Lightning Network — docs.rgb.info](https://docs.rgb.info/lightning-network-compatibility)
+- [RGB Proxy Server](https://github.com/RGB-Tools/rgb-proxy-server)
+- [Biscuit token specification](https://www.biscuitsec.org/)
