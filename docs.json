@@ -54,9 +54,10 @@
             ]
           },
           {
-            "group": "Cloud",
+            "group": "RGB Lightning Node",
             "pages": [
               "product-suite/cloud",
+              "cloud/self-hosted-rgb-lightning-node",
               "cloud/rgb-lightning-node-api",
               "cloud/webhooks",
               {
@@ -88,8 +89,7 @@
                   "access-token-authorization/create-api-token",
                   "access-token-authorization/cloud-api"
                 ]
-              },
-              "cloud/self-hosted-rgb-lightning-node"
+              }
             ]
           },
           {
