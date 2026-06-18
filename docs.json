@@ -96,7 +96,8 @@
             "group": "Mint",
             "pages": [
               "product-suite/mint",
-              "mint/getting-started"
+              "mint/getting-started",
+              "product-suite/mint-api-reference"
             ]
           },
           {
