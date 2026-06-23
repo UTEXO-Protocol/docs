@@ -1,11 +1,11 @@
 ---
 title: "Mint API Reference"
-description: "REST API for bridging assets between EVM networks (Arbitrum) and RGB. Use this reference to discover networks and tokens, estimate fees, initiate transfers, and track transfer status."
+description: "REST API for minting assets between EVM networks (Arbitrum) and RGB. Use this reference to discover networks and tokens, estimate fees, initiate transfers, and track transfer status."
 ---
 
 ## Overview
 
-The **Utexo Bridge API** exposes a REST interface for cross-chain asset transfers between EVM-compatible networks (currently Arbitrum) and the RGB protocol on Bitcoin.
+The **Utexo Mint API** exposes a REST interface for cross-chain asset transfers between EVM-compatible networks (currently Arbitrum) and the RGB protocol on Bitcoin.
 
 <Info>
   **Base URL (testnet / dev):** `https://transfer.dev.utexo.com/api/v0`
@@ -35,13 +35,13 @@ Move assets from an EVM network (e.g., Arbitrum) to an RGB wallet.
     `GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}` — get fee and confirmation time estimate before committing.
   </Step>
   <Step title="Pre-register the transfer">
-    `POST /transfers/bridge-in-signature` — pre-register the transfer. Returns a `transferId`, fee estimation, and an empty signature (`0x`).
+    `POST /transfers/mint-in-signature` — pre-register the transfer. Returns a `transferId`, fee estimation, and an empty signature (`0x`).
   </Step>
   <Step title="Call fundsIn() on the EVM contract">
-    The user calls `fundsIn()` directly on the EVM bridge contract using the data returned in Step 3. This step happens **client-side** — the API does not broadcast this transaction.
+    The user calls `fundsIn()` directly on the EVM mint contract using the data returned in Step 3. This step happens **client-side** — the API does not broadcast this transaction.
   </Step>
   <Step title="Confirm the transaction">
-    `POST /transfers/verify-bridge-in` — notify the bridge with the on-chain tx hash to confirm the transfer.
+    `POST /transfers/verify-mint-in` — notify the mint with the on-chain tx hash to confirm the transfer.
   </Step>
   <Step title="Poll transfer status">
     `GET /transfers/{tx}` — poll using the triggering tx hash until the transfer reaches a terminal status (`FINISHED`, `CANCELLED`, or `FAILED`).
@@ -63,13 +63,13 @@ Move assets from an RGB wallet to an EVM network.
     Same as EVM → RGB Step 2.
   </Step>
   <Step title="Pre-register the transfer">
-    `POST /transfers/bridge-in-signature` — returns an **RGB invoice string** in the `signature` field. This invoice is what the user sends assets to.
+    `POST /transfers/mint-in-signature` — returns an **RGB invoice string** in the `signature` field. This invoice is what the user sends assets to.
   </Step>
   <Step title="Send RGB assets">
     The user sends RGB assets to the invoice string returned in Step 3 using their RGB wallet.
   </Step>
   <Step title="Confirm the transfer">
-    `POST /transfers/verify-bridge-in` — notify the bridge that the RGB send has been completed.
+    `POST /transfers/verify-mint-in` — notify the mint that the RGB send has been completed.
   </Step>
   <Step title="Poll transfer status">
     `GET /transfers/{tx}` — poll for status as in the EVM → RGB flow.
@@ -82,7 +82,7 @@ Move assets from an RGB wallet to an EVM network.
 
 Read-only endpoints (all `GET` requests) require no authentication.
 
-The `POST /transfers/verify-bridge-in` endpoint validates the caller's identity using a cryptographic signature embedded in the request body:
+The `POST /transfers/verify-mint-in` endpoint validates the caller's identity using a cryptographic signature embedded in the request body:
 
 | Field | Description |
 | --- | --- |
@@ -120,7 +120,7 @@ Returns all connected networks. Optionally filter by token or name.
     "id": 1,
     "name": "arbitrum",
     "type": "EVM",
-    "bridgeContract": "0x...",
+    "mintContract": "0x...",
     "gasLimit": 200000,
     "iconLink": "https://...",
     "active": true,
@@ -540,7 +540,7 @@ The following items require validation from the Utexo engineering or product tea
 
 1. **Authentication signing procedure** — The message format and signing algorithm for `authenticationSignature` are not defined in the Swagger spec. Developers cannot implement `verify-bridge-in` or `history` without this information.
 2. **`transferType` enum semantics** — The values `LP`, `WU`, `CCTP`, `NTV`, `MLT`, `BDXS`, `LPN` appear in the spec enum but are not described. If transfer type affects the caller's required behavior (e.g., approvals, contract calls), this must be documented.
-3. **`additionalAddresses` field** — Present in `BridgeInSignatureRequest` but its purpose and expected values are undocumented. Needs clarification.
+3. **`additionalAddresses` field** — Present in `MintInSignatureRequest` but its purpose and expected values are undocumented. Needs clarification.
 4. **Mainnet base URL** — The current spec host is empty; `transfer.dev.utexo.com` is the dev/testnet environment. The production base URL must be published before this reference goes external.
 5. **`SupportedTokensResponse` PascalCase fields** — Confirmed from the spec (`NOTE: fields are PascalCase`). This is an unusual JSON convention and should be explicitly called out in SDK wrappers or normalized in a future API version.
 
@@ -553,8 +553,8 @@ The following items require validation from the Utexo engineering or product tea
 | **RGB** | A client-side validated smart contract protocol built on Bitcoin. Assets are issued and transferred using Bitcoin UTXOs as state anchors. |
 | **RGB Invoice** | A blinded payment request string used to receive RGB assets. Contains blinded UTXO data to preserve receiver privacy. |
 | **EVM** | Ethereum Virtual Machine — the execution environment used by Arbitrum and other compatible chains. |
-| **Bridge Contract** | The EVM smart contract that locks or releases assets on the EVM side of a cross-chain transfer. |
-| **`fundsIn()`** | The method on the EVM bridge contract the sender calls to deposit assets for bridging. |
-| **transferId** | The bridge's internal identifier for a pre-registered transfer. Used in `verify-bridge-in` and invoice retrieval. |
-| **Triggering Tx** | The on-chain transaction that initiates the bridge — the EVM deposit tx (EVM → RGB) or the RGB send (RGB → EVM). |
+| **Mint Contract** | The EVM smart contract that locks or releases assets on the EVM side of a cross-chain transfer. |
+| **`fundsIn()`** | The method on the EVM mint contract the sender calls to deposit assets for minting. |
+| **transferId** | The mint's internal identifier for a pre-registered transfer. Used in `verify-mint-in` and invoice retrieval. |
+| **Triggering Tx** | The on-chain transaction that initiates the mint — the EVM deposit tx (EVM → RGB) or the RGB send (RGB → EVM). |
 | **UTXO** | Unspent Transaction Output — the fundamental unit of Bitcoin accounting. RGB asset state is anchored to UTXOs. |
