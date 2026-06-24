@@ -74,8 +74,9 @@ The following steps describe a complete cross-chain transfer:
 
 | Network | Type | Direction |
 | --- | --- | --- |
-| Arbitrum | EVM (secp256k1) | Inbound & Outbound |
 | Bitcoin (RGB layer) | Taproot / Schnorr / Segwit | Inbound & Outbound |
+| Lightning | Taproot / Schnorr / Segwit | Inbound & Outbound |
+| Arbitrum | EVM (secp256k1) | Inbound & Outbound |
 | Berachain | EVM (secp256k1) | Inbound & Outbound |
 | Celo | EVM (secp256k1) | Inbound & Outbound |
 | Conflux eSpace | EVM (secp256k1) | Inbound & Outbound |
@@ -108,8 +109,8 @@ USDT from **Ethereum**, **Tron**, and **Solana** is supported at the user level 
 
 | Asset | Source Network | Representation on Bitcoin |
 | --- | --- | --- |
-| USDT | EVM, Tron, Solana (via USDT0) | USDT on Bitcoin |
-| USDT0 | Arbitrum | USDT on Bitcoin |
+| USDT | Bitcoin (RGB layer), Lightning | USDT on Bitcoin |
+| USDT0 | Arbitrum (native Hub), other EVM, Tron, Solana (via bridge) | USDT on Bitcoin |
 
 ## Fees
 
