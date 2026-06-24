@@ -35,13 +35,13 @@ Move assets from an EVM network (e.g., Arbitrum) to an RGB wallet.
     `GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}` — get fee and confirmation time estimate before committing.
   </Step>
   <Step title="Pre-register the transfer">
-    `POST /transfers/mint-in-signature` — pre-register the transfer. Returns a `transferId`, fee estimation, and an empty signature (`0x`).
+    `POST /transfers/bridge-in-signature` — pre-register the transfer. Returns a `transferId`, fee estimation, and an empty signature (`0x`).
   </Step>
   <Step title="Call fundsIn() on the EVM contract">
     The user calls `fundsIn()` directly on the EVM mint contract using the data returned in Step 3. This step happens **client-side** — the API does not broadcast this transaction.
   </Step>
   <Step title="Confirm the transaction">
-    `POST /transfers/verify-mint-in` — notify the mint with the on-chain tx hash to confirm the transfer.
+    `POST /transfers/verify-bridge-in` — notify the mint with the on-chain tx hash to confirm the transfer.
   </Step>
   <Step title="Poll transfer status">
     `GET /transfers/{tx}` — poll using the triggering tx hash until the transfer reaches a terminal status (`FINISHED`, `CANCELLED`, or `FAILED`).
@@ -63,7 +63,7 @@ Move assets from an RGB wallet to an EVM network.
     Same as EVM → RGB Step 2.
   </Step>
   <Step title="Pre-register the transfer">
-    `POST /transfers/mint-in-signature` — returns an **RGB invoice string** in the `signature` field. This invoice is what the user sends assets to.
+    `POST /transfers/bridge-in-signature` — returns an **RGB invoice string** in the `signature` field. This invoice is what the user sends assets to.
   </Step>
   <Step title="Send RGB assets">
     The user sends RGB assets to the invoice string returned in Step 3 using their RGB wallet.
@@ -653,7 +653,7 @@ Returns a `TransferEstimate` object with fee and timing information.
 
 ---
 
-### POST /transfers/mint-in-signature
+### POST /transfers/bridge-in-signature
 
 **Summary:** Pre-register an EVM to RGB transfer
 
@@ -685,7 +685,7 @@ Returns a `MintInSignatureResponse` with the `transferId` and EVM call data.
 
 ---
 
-### POST /transfers/verify-mint-in
+### POST /transfers/verify-bridge-in
 
 **Summary:** Confirm an EVM to RGB transfer
 
@@ -696,7 +696,7 @@ Notifies the mint with the on-chain EVM transaction hash after the user has call
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `authenticationSignature` | string | Yes | Authentication signature |
-| `transferId` | string | Yes | Transfer ID from `POST /transfers/mint-in-signature` |
+| `transferId` | string | Yes | Transfer ID from `POST /transfers/bridge-in-signature` |
 | `txHash` | string | Yes | EVM transaction hash of the `fundsIn()` call |
 
 **Response 200**
