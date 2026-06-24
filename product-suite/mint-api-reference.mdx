@@ -558,3 +558,217 @@ The following items require validation from the Utexo engineering or product tea
 | **transferId** | The mint's internal identifier for a pre-registered transfer. Used in `verify-mint-in` and invoice retrieval. |
 | **Triggering Tx** | The on-chain transaction that initiates the mint — the EVM deposit tx (EVM → RGB) or the RGB send (RGB → EVM). |
 | **UTXO** | Unspent Transaction Output — the fundamental unit of Bitcoin accounting. RGB asset state is anchored to UTXOs. |
+
+---
+
+## Endpoint Reference
+
+All endpoints are relative to the base URL (`https://transfer.dev.utexo.com/api/v0`).
+
+---
+
+### GET /networks
+
+**Summary:** List connected networks
+
+Returns all connected networks. If `token-id` is set, returns only networks supporting that token. If `search` is set, filters by network name.
+
+**Query Parameters**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `token-id` | integer | Filter by token ID |
+| `search` | string | Filter by network name |
+
+**Response 200**
+
+Returns an array of `Network` objects.
+
+```json
+[
+  {
+    "id": 42161,
+    "name": "Arbitrum One",
+    "type": "EVM"
+  }
+]
+```
+
+---
+
+### GET /networks/{id}/supported-tokens
+
+**Summary:** List supported tokens for a network
+
+Returns all tokens supported on the given network.
+
+**Path Parameters**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `id` | integer | Network ID |
+
+**Query Parameters**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `search` | string | Filter by token name |
+
+**Response 200**
+
+Returns a `SupportedTokensResponse` object. Note: response fields are PascalCase.
+
+```json
+{
+  "Tokens": [
+    {
+      "Id": 1,
+      "Name": "USDT",
+      "ContractAddress": "0x..."
+    }
+  ]
+}
+```
+
+---
+
+### GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}
+
+**Summary:** Estimate transfer fees
+
+Returns a fee and confirmation time estimate before committing to a transfer.
+
+**Path Parameters**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `sender-network` | integer | Source network ID |
+| `recipient-network` | integer | Destination network ID |
+| `token-id` | integer | Token ID to transfer |
+| `amount` | string | Transfer amount |
+
+**Response 200**
+
+Returns a `TransferEstimate` object with fee and timing information.
+
+---
+
+### POST /transfers/mint-in-signature
+
+**Summary:** Pre-register an EVM to RGB transfer
+
+Pre-registers the transfer on the mint. Returns a `transferId`, fee estimation, and an empty EVM signature (`0x`) that the caller must populate before calling `fundsIn()` on the EVM mint contract.
+
+**Request Body** (`application/json`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `authenticationSignature` | string | Yes | Authentication signature (see [Authentication](#authentication)) |
+| `senderAddress` | string | Yes | EVM sender address |
+| `recipientInvoice` | string | Yes | RGB invoice from the recipient's wallet |
+| `networkId` | integer | Yes | Source EVM network ID |
+| `tokenId` | integer | Yes | Token ID to transfer |
+| `amount` | string | Yes | Transfer amount |
+| `additionalAddresses` | array | No | Additional addresses (purpose TBD - contact Utexo team) |
+
+**Response 200**
+
+Returns a `MintInSignatureResponse` with the `transferId` and EVM call data.
+
+```json
+{
+  "transferId": "abc123",
+  "signature": "0x",
+  "feeEstimate": "0.001"
+}
+```
+
+---
+
+### POST /transfers/verify-mint-in
+
+**Summary:** Confirm an EVM to RGB transfer
+
+Notifies the mint with the on-chain EVM transaction hash after the user has called `fundsIn()`. The mint validates the transaction and initiates the RGB asset transfer.
+
+**Request Body** (`application/json`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `authenticationSignature` | string | Yes | Authentication signature |
+| `transferId` | string | Yes | Transfer ID from `POST /transfers/mint-in-signature` |
+| `txHash` | string | Yes | EVM transaction hash of the `fundsIn()` call |
+
+**Response 200**
+
+Returns confirmation of receipt.
+
+---
+
+### GET /transfers/{tx}
+
+**Summary:** Poll transfer status
+
+Returns the current status of a transfer by its triggering transaction hash.
+
+**Path Parameters**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `tx` | string | Triggering transaction hash |
+
+**Response 200**
+
+Returns a `TransferStatus` object.
+
+```json
+{
+  "status": "pending",
+  "transferId": "abc123"
+}
+```
+
+---
+
+### GET /transfers/invoice/{tx-id}/{network-id}
+
+**Summary:** Get RGB invoice for RGB to EVM transfer
+
+Generates an RGB invoice that the sender uses to initiate an RGB to EVM transfer. The invoice encodes the blinded UTXO and transfer parameters.
+
+**Path Parameters**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `tx-id` | string | Transfer ID |
+| `network-id` | integer | Destination EVM network ID |
+
+**Response 200**
+
+Returns an `InvoiceResponse` containing the RGB invoice string.
+
+```json
+{
+  "invoice": "rgb:..."
+}
+```
+
+---
+
+### POST /transfers/verify-bridge-in
+
+**Summary:** Confirm an RGB to EVM transfer
+
+Confirms an RGB to EVM transfer after the sender has broadcast the RGB transaction. Provide the RGB send transaction details so the mint can verify and release EVM-side assets.
+
+**Request Body** (`application/json`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `authenticationSignature` | string | Yes | Authentication signature |
+| `transferId` | string | Yes | Transfer ID |
+| `rgbTxData` | string | Yes | Signed RGB transaction data |
+
+**Response 200**
+
+Returns confirmation of receipt.
