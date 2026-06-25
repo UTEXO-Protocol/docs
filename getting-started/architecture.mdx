@@ -18,7 +18,7 @@ Utexo is built on a layered stack. Each layer has a distinct and non-overlapping
 | Lightning Network | Off-chain execution and value transfer | High-throughput payments, near-instant finality, predictable latency |
 | RGB | Asset issuance and client-side validation | Stablecoin creation, privacy-preserving transfers, Bitcoin-secured ownership |
 | Utexo | Execution and coordination layer | Routing, liquidity, fee management, SDK/API abstraction |
-| Mint | USDT Cross-chain connectivity | Inbound and outbound transfers between Ethereum, Tron, Arch, Concordium and the RGB layer |
+| Mint | USDT Cross-chain connectivity | Inbound and outbound transfers between Ethereum, Tron and the RGB layer |
 | Swap | Cross-chain swap | Cross-chain BTC ↔ USDT swaps on Bitcoin and Lightning via the HotPot intent protocol |
 
 In the Utexo model, ownership proofs are validated locally by users' wallets (client-side validation), while actual payments occur through bidirectional Lightning channels. There is no global state to synchronise. Each transaction is a direct peer-to-peer exchange verified by cryptographic commitments.

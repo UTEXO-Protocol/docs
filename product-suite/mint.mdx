@@ -1,11 +1,11 @@
 ---
 title: "Mint"
 sidebarTitle: "Mint"
-description: "Cross-chain stablecoin transfers between EVM, Tron, Solana, Arch, Concordium and the Bitcoin RGB layer."
+description: "Cross-chain stablecoin transfers between EVM, Tron, Solana and the Bitcoin RGB layer."
 ---
 
 <Frame>
-  ![Screenshot 2026 05 28 At 09 34 37](/images/Screenshot-2026-05-28-at-09.34.37.png)
+  ![Screenshot 2026 06 25 At 12 32 00 1](/images/Screenshot-2026-06-25-at-12.32.00-1.png)
 </Frame>
 
 The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as USDT on Bitcoin. Minted USDT is represented as USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges or custodial intermediaries.
@@ -74,8 +74,9 @@ The following steps describe a complete cross-chain transfer:
 
 | Network | Type | Direction |
 | --- | --- | --- |
+| Bitcoin (RGB layer) | Schnorr / Segwit | Inbound & Outbound |
+| Lightning | Schnorr / Segwit | Inbound & Outbound |
 | Arbitrum | EVM (secp256k1) | Inbound & Outbound |
-| Bitcoin (RGB layer) | Taproot / Schnorr | Inbound & Outbound |
 | Berachain | EVM (secp256k1) | Inbound & Outbound |
 | Celo | EVM (secp256k1) | Inbound & Outbound |
 | Conflux eSpace | EVM (secp256k1) | Inbound & Outbound |
@@ -108,14 +109,14 @@ USDT from **Ethereum**, **Tron**, and **Solana** is supported at the user level 
 
 | Asset | Source Network | Representation on Bitcoin |
 | --- | --- | --- |
-| USDT | EVM, Tron, Solana (via USDT0) and <br />Arch, Concordium | USDT on Bitcoin |
-| USDT0 | Arbitrum | USDT on Bitcoin |
+| USDT | Bitcoin (RGB layer), Lightning | USDT on Bitcoin |
+| USDT0 | Arbitrum (native Hub), other EVM, Tron, Solana (via bridge) | USDT on Bitcoin |
 
 ## Fees
 
 Commissions are managed on-chain through the `CommissionManager` contract. For token transfers (USDT, USDT0), fees can be applied on both `FundsIn` and `FundsOut`. For native currency, fees are only taken on `FundsIn` — charging on `FundsOut` is not applicable since that leg is triggered by the protocol rather than the user.
 
-The current fee rate is **0.4%** across supported networks.
+The current fee rate is **0.03%** across supported networks.
 
 ## Security
 
