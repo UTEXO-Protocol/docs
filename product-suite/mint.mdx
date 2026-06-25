@@ -5,7 +5,7 @@ description: "Cross-chain stablecoin transfers between EVM, Tron, Solana and the
 ---
 
 <Frame>
-  ![Screenshot 2026 05 28 At 09 34 37](/images/Screenshot-2026-05-28-at-09.34.37.png)
+  ![Screenshot 2026 06 25 At 12 32 00 1](/images/Screenshot-2026-06-25-at-12.32.00-1.png)
 </Frame>
 
 The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as USDT on Bitcoin. Minted USDT is represented as USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges or custodial intermediaries.
@@ -74,8 +74,8 @@ The following steps describe a complete cross-chain transfer:
 
 | Network | Type | Direction |
 | --- | --- | --- |
-| Bitcoin (RGB layer) | Taproot / Schnorr / Segwit | Inbound & Outbound |
-| Lightning | Taproot / Schnorr / Segwit | Inbound & Outbound |
+| Bitcoin (RGB layer) | Schnorr / Segwit | Inbound & Outbound |
+| Lightning | Schnorr / Segwit | Inbound & Outbound |
 | Arbitrum | EVM (secp256k1) | Inbound & Outbound |
 | Berachain | EVM (secp256k1) | Inbound & Outbound |
 | Celo | EVM (secp256k1) | Inbound & Outbound |
