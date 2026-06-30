@@ -151,6 +151,66 @@ console.log('Receiver assets:', JSON.stringify(receiverAssets, null, 2));
 
 Expected result: the receiver's asset list shows a balance of `100` for the USDT asset. RGB transfers require Bitcoin confirmation to finalise. If the transfer is still pending, call `refreshWallet()` again after the next Bitcoin block. On testnet, a new block typically arrives every 1–10 minutes.
 
+## Step 10: Create and Pay a Lightning Invoice
+
+With channels open (see the [Architecture](/getting-started/architecture) guide for how to open a channel), you can send and receive Lightning payments.
+
+```javascript
+import { UTEXOWallet } from '@utexo/rgb-sdk-rn';
+
+// Receiver: create a Lightning invoice (BTC)
+const inv = await receiverWallet.createLightningInvoice({
+  amountSats: 3000,
+  expirySeconds: 900,
+  asset: { assetId: '', amount: 0 }, // use assetId + amount for RGB-asset payments
+});
+
+// Sender: pay the invoice
+const result = await senderWallet.payLightningInvoice({
+  lnInvoice: inv.lnInvoice,
+});
+
+// Poll until settled
+const payment = await senderWallet.getLightningSendRequest(result.txid);
+// payment.status === 'Settled' when complete
+```
+
+For RGB-asset Lightning payments (e.g. USDT over Lightning), set `asset.assetId` to the asset ID and `asset.amount` to the RGB amount on the invoice.
+
+## Step 11: On-Chain Receive and Send
+
+The same wallet handles on-chain Bitcoin addresses and RGB on-chain transfers.
+
+```javascript
+// Get a Bitcoin deposit address
+const address = await wallet.getAddress();
+// Send testnet BTC to this address to fund the wallet
+
+// Receiver: generate a blinded invoice for on-chain RGB receipt
+const receiveData = await receiverWallet.blindReceive({
+  minConfirmations: 1,
+  durationSeconds: 3600,
+});
+
+// Sender: broadcast an on-chain RGB transfer
+await senderWallet.send({
+  invoice: receiveData.invoice,
+  assetId: usdtAssetId,
+  amount: 100,
+  donation: false,
+  feeRate: 7,
+  minConfirmations: 1,
+});
+await senderWallet.refreshWallet();
+
+// Receiver: sync to see the incoming transfer
+await receiverWallet.refreshWallet();
+```
+
+<Info>
+  `getAddress()` returns a standard Bitcoin address for on-chain funding. `blindReceive()` returns an RGB blinded invoice for asset transfers. Both work the same way on iOS and Android.
+</Info>
+
 ## React Native-Specific Notes
 
 **Storage.** The wallet database is written to the app's document directory. Use `RNFS.DocumentDirectoryPath` or `expo-file-system`'s `documentDirectory` to construct the `dataDir` path. Do not use temporary or cache directories — the wallet state must persist across app restarts.
