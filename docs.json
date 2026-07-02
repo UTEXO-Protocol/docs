@@ -103,15 +103,7 @@
           {
             "group": "Swap",
             "pages": [
-              "product-suite/swap",
-              {
-                "group": "Bitcoin Basics",
-                "pages": []
-              },
-              {
-                "group": "Legacy AMM Swap",
-                "pages": []
-              }
+              "product-suite/swap"
             ]
           }
         ]

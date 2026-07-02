@@ -151,6 +151,87 @@ console.log('Receiver assets:', JSON.stringify(receiverAssets, null, 2));
 
 Expected result: the receiver's asset list shows a balance of `100` for the USDT asset. RGB transfers require Bitcoin confirmation to finalise. If the transfer is still pending, call `refreshWallet()` again after the next Bitcoin block. On testnet, a new block typically arrives every 1–10 minutes.
 
+## Step 10: Create and Pay a Lightning Invoice
+
+Lightning payments require an open channel between your wallet and the node. Use `openChannel()` to request a channel, then verify it is active with `listChannels()` before sending or receiving.
+
+```javascript
+import { UTEXOWallet } from '@utexo/rgb-sdk-rn';
+
+// Open a channel with the Utexo LSP node (values in satoshis)
+await wallet.openChannel({
+  nodeId: '<LSP_NODE_ID>',    // provided by your Utexo node operator
+  capacitySats: 100000,
+  pushAmountSats: 0,
+});
+
+// Verify the channel is active before transacting
+const channels = await wallet.listChannels();
+console.log('Open channels:', channels);
+```
+
+<Info>
+  Channel opening is an on-chain Bitcoin transaction and requires a confirmed BTC balance. Allow 1–3 confirmations before the channel becomes usable. On testnet a new block arrives every 1–10 minutes.
+</Info>
+
+With an active channel you can send and receive Lightning payments:
+
+```javascript
+import { UTEXOWallet } from '@utexo/rgb-sdk-rn';
+
+// Receiver: create a Lightning invoice (BTC)
+const inv = await receiverWallet.createLightningInvoice({
+  amountSats: 3000,
+  expirySeconds: 900,
+  asset: { assetId: '', amount: 0 }, // use assetId + amount for RGB-asset payments
+});
+
+// Sender: pay the invoice
+const result = await senderWallet.payLightningInvoice({
+  lnInvoice: inv.lnInvoice,
+});
+
+// Poll until settled
+const payment = await senderWallet.getLightningSendRequest(result.txid);
+// payment.status === 'Settled' when complete
+```
+
+For RGB-asset Lightning payments (e.g. USDT over Lightning), set `asset.assetId` to the asset ID and `asset.amount` to the RGB amount on the invoice.
+
+## Step 11: On-Chain Receive and Send
+
+The same wallet handles on-chain Bitcoin addresses and RGB on-chain transfers.
+
+```javascript
+// Get a Bitcoin deposit address
+const address = await wallet.getAddress();
+// Send testnet BTC to this address to fund the wallet
+
+// Receiver: generate a blinded invoice for on-chain RGB receipt
+const receiveData = await receiverWallet.blindReceive({
+  minConfirmations: 1,
+  durationSeconds: 3600,
+});
+
+// Sender: broadcast an on-chain RGB transfer
+await senderWallet.send({
+  invoice: receiveData.invoice,
+  assetId: usdtAssetId,
+  amount: 100,
+  donation: false,
+  feeRate: 7,
+  minConfirmations: 1,
+});
+await senderWallet.refreshWallet();
+
+// Receiver: sync to see the incoming transfer
+await receiverWallet.refreshWallet();
+```
+
+<Info>
+  `getAddress()` returns a standard Bitcoin address for on-chain funding. `blindReceive()` returns an RGB blinded invoice for asset transfers. Both work the same way on iOS and Android.
+</Info>
+
 ## React Native-Specific Notes
 
 **Storage.** The wallet database is written to the app's document directory. Use `RNFS.DocumentDirectoryPath` or `expo-file-system`'s `documentDirectory` to construct the `dataDir` path. Do not use temporary or cache directories — the wallet state must persist across app restarts.
@@ -174,6 +255,6 @@ If you encounter an issue not listed here, join the [Utexo Discord](https://disc
 
 ## Next Steps
 
-- [SDK Reference](/sdk/utexo-sdk) — Full method reference for `UTEXOWallet`, including backup and restore
+- [SDK Reference](/product-suite/sdk) — Full method reference for `UTEXOWallet`, including backup and restore
 - [Architecture](/getting-started/architecture) — Understand how Bitcoin, Lightning, and RGB fit together
 - [Glossary](/getting-started/glossary) — Definitions for RGB, PSBT, blinded invoice, UTXO, and other key terms

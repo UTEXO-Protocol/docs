@@ -35,6 +35,59 @@ All asset state is validated client-side. Neither party needs to trust a third p
   New to RGB or UTXOs? See the [Glossary](/getting-started/glossary) for definitions, and [Architecture](/getting-started/architecture) for how Bitcoin, Lightning, and RGB fit together.
 </Info>
 
+## Lightning & On-Chain Payments
+
+Beyond RGB asset transfers, the SDK exposes Lightning and on-chain Bitcoin payment methods that work the same way across all three platform packages.
+
+### Lightning Payments
+
+Create and pay Lightning invoices using `createLightningInvoice` and `payLightningInvoice`:
+
+```typescript
+// Receiver: create a Lightning invoice
+const inv = await wallet.createLightningInvoice({
+  amountSats: 3000,
+  expirySeconds: 900,
+  asset: { assetId: '', amount: 0 }, // omit asset for BTC-only
+});
+
+// Sender: pay the invoice
+const result = await senderWallet.payLightningInvoice({ lnInvoice: inv.lnInvoice });
+
+// Poll until settled
+await senderWallet.getLightningSendRequest(result.txid); // resolves when status === 'Settled'
+```
+
+For RGB-asset Lightning payments, set `asset.assetId` and `asset.amount` on the invoice.
+
+### On-Chain Receive & Send
+
+Get a deposit address and send on-chain assets using `getAddress` and `send`:
+
+```typescript
+// Receiver: get a Bitcoin address
+const address = await wallet.getAddress();
+
+// Receiver: generate a blinded RGB invoice for on-chain receipt
+const receiveData = await wallet.blindReceive({
+  minConfirmations: 1,
+  durationSeconds: 3600,
+});
+
+// Sender: broadcast an on-chain RGB transfer
+await senderWallet.send({
+  invoice: receiveData.invoice,
+  assetId: usdtAssetId,
+  amount: 100,
+  donation: false,
+  feeRate: 7,
+  minConfirmations: 1,
+});
+await senderWallet.refreshWallet();
+```
+
+See the platform-specific Quickstart guides for initialisation details before calling these methods.
+
 ## Network Endpoints
 
 All SDK platforms connect to the same underlying network infrastructure. No endpoint configuration is needed to follow any of the Quickstart guides — the defaults below are used automatically on testnet.
