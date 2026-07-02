@@ -153,7 +153,28 @@ Expected result: the receiver's asset list shows a balance of `100` for the USDT
 
 ## Step 10: Create and Pay a Lightning Invoice
 
-With channels open (see the [Architecture](/getting-started/architecture) guide for how to open a channel), you can send and receive Lightning payments.
+Lightning payments require an open channel between your wallet and the node. Use `openChannel()` to request a channel, then verify it is active with `listChannels()` before sending or receiving.
+
+```javascript
+import { UTEXOWallet } from '@utexo/rgb-sdk-rn';
+
+// Open a channel with the Utexo LSP node (values in satoshis)
+await wallet.openChannel({
+  nodeId: '<LSP_NODE_ID>',    // provided by your Utexo node operator
+  capacitySats: 100000,
+  pushAmountSats: 0,
+});
+
+// Verify the channel is active before transacting
+const channels = await wallet.listChannels();
+console.log('Open channels:', channels);
+```
+
+<Info>
+  Channel opening is an on-chain Bitcoin transaction and requires a confirmed BTC balance. Allow 1–3 confirmations before the channel becomes usable. On testnet a new block arrives every 1–10 minutes.
+</Info>
+
+With an active channel you can send and receive Lightning payments:
 
 ```javascript
 import { UTEXOWallet } from '@utexo/rgb-sdk-rn';
@@ -234,6 +255,6 @@ If you encounter an issue not listed here, join the [Utexo Discord](https://disc
 
 ## Next Steps
 
-- [SDK Reference](/sdk/utexo-sdk) — Full method reference for `UTEXOWallet`, including backup and restore
+- [SDK Reference](/product-suite/sdk) — Full method reference for `UTEXOWallet`, including backup and restore
 - [Architecture](/getting-started/architecture) — Understand how Bitcoin, Lightning, and RGB fit together
 - [Glossary](/getting-started/glossary) — Definitions for RGB, PSBT, blinded invoice, UTXO, and other key terms
