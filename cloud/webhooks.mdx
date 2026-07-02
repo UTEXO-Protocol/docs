@@ -33,14 +33,14 @@ curl -s \
 When a node state changes or an operation completes, ThunderStack sends a `POST` request to your endpoint including:
 
 - A **JSON payload** with the event data and `nodeId`
-- A **`X-ThunderStack-Signature` header** containing a cryptographic signature
+- **`A *X-Utexo-Signature` header** containing a cryptographic signature
 
 ## Node Status Values
 
 Webhook events reflect the following node status transitions:
 
 | Status | Description |
-|---|---|
+| --- | --- |
 | `RUNNING` | Node is fully operational |
 | `STARTING` | Node is starting up |
 | `PAUSED` | Node has been paused |
@@ -49,7 +49,7 @@ Webhook events reflect the following node status transitions:
 
 ## Verifying Webhook Signatures
 
-All webhook requests include a `X-ThunderStack-Signature` header that should be validated to confirm authenticity.
+All webhook requests include a `X-Utexo-Signature` header that should be validated to confirm authenticity.
 
 ### Step 1: Retrieve the Public Key
 
@@ -63,7 +63,7 @@ This returns the public key used to sign all webhook payloads from your account.
 
 ### Step 2: Validate the Signature
 
-Use the public key to verify the `X-ThunderStack-Signature` header on each incoming request.
+Use the public key to verify the `X-Utexo-Signature` header on each incoming request.
 
 ### Step 3: Validate the Payload
 
@@ -72,9 +72,9 @@ Ensure the `nodeId` in the payload matches the expected node to prevent spoofing
 ## Security Best Practices
 
 <Warning>
-Always verify the `X-ThunderStack-Signature` header before processing any webhook payload.
+  Always verify the \`X-Utexo-Signature header before processing any webhook payload.
 </Warning>
 
 1. **Use HTTPS** — Your webhook endpoint must use HTTPS to protect data in transit.
-2. **Verify the signature** — Validate the `X-ThunderStack-Signature` header using the public key on every request.
+2. **Verify the signature** — Validate the `X-Utexo-Signature` header using the public key on every request.
 3. **Validate the node ID** — Confirm the `nodeId` in the payload matches the node you expect.

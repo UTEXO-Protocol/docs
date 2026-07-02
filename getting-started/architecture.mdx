@@ -4,7 +4,7 @@ description: "How Bitcoin, the Lightning Network, RGB, the Utexo execution layer
 sidebarTitle: "Architecture"
 ---
 
-Utexo is built on a layered stack. Each layer has a distinct and non-overlapping role. Together they deliver the properties that make Bitcoin-native stablecoin settlement viable for production payment systems: deterministic costs, settlement privacy, and Bitcoin-backed security. The Mint and Swap layers extend this stack outward — connecting external EVM-based networks and enabling non-custodial BTC/USDT exchange on Bitcoin.
+Utexo is built on a layered stack. Each layer has a distinct and non-overlapping role. Together they deliver the properties that make Bitcoin-native stablecoin settlement viable for production payment systems: deterministic costs, settlement privacy, and Bitcoin-backed security. The Mint and Swap layers extend this stack outward, connecting external EVM-based networks and enabling non-custodial BTC/USDT exchange on Bitcoin.
 
 <Frame caption="Utexo Architecture">
   ![Screenshot 2026 05 28 At 19 41 21](/images/Screenshot-2026-05-28-at-19.41.21.png)
@@ -102,16 +102,16 @@ The Mint is composed of five coordinated components:
 
 ## Swap
 
-The Utexo Swap enables cross-chain swaps, with BTC ↔ USDT exchange directly on Bitcoin, also on Solana, Ethereum, Tron powered by the [HotPot](https://docs.hotpot.tech) intent protocol. It provides internal BTC/USDT execution for settlement, treasury management, and payments — reducing reliance on centralised venues for rebalancing and conversion.
+The Utexo Swap enables cross-chain swaps, with BTC ↔ USDT exchange directly on Bitcoin, also on Solana, Ethereum, Tron powered by the [HotPot](https://docs.hotpot.tech) intent protocol. It provides internal BTC/USDT execution for settlement, treasury management and payments, reducing reliance on centralised venues for rebalancing and conversion.
 
 **How it works:**
 
-Swap uses an intent-based execution model with two participants: the **user**, who initiates the swap, and a **resolver**, who executes it.
+Swap uses an intent-based execution model with two participants: the **user**, who initiates the swap and a **resolver**, who executes it.
 
-1. **Quote** — The user requests a quote for their desired currency pair and amount via the HotPot Quote API. The API returns a time-limited execution estimate with all pricing information.
-2. **Intent creation** — The user creates a structured intent specifying their addresses and the agreed quote identifier, representing their intention to execute the swap under the quoted conditions.
-3. **Signing** — The user signs the intent off-chain, cryptographically authorising resolvers to execute the swap according to the quoted conditions.
-4. **Execution** — HotPot notifies the winning resolver, who deposits assets into a per-swap escrow contract. Funds are only released once fulfillment is verified on-chain. The swap either completes in full or reverts — there is no partial execution risk.
+1. **Quote** - The user requests a quote for their desired currency pair and amount via the HotPot Quote API. The API returns a time-limited execution estimate with all pricing information.
+2. **Intent creation** - The user creates a structured intent specifying their addresses and the agreed quote identifier, representing their intention to execute the swap under the quoted conditions.
+3. **Signing** - The user signs the intent off-chain, cryptographically authorising resolvers to execute the swap according to the quoted conditions.
+4. **Execution** - HotPot notifies the winning resolver, who deposits assets into a per-swap escrow contract. Funds are only released once fulfillment is verified on-chain. The swap either completes in full or reverts, there is no partial execution risk.
 
 **Key properties:**
 

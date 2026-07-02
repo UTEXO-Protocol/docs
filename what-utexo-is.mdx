@@ -9,10 +9,10 @@ Utexo is a Bitcoin-native execution and settlement layer that allows payment ope
 
 Existing stablecoin payment infrastructure was built for public blockchains, not business operations:
 
-- **Unpredictable fees** — gas markets fluctuate with network demand, making unit economics unreliable for payment operators.
-- **Public execution** — every transaction is visible on-chain, exposing business-sensitive payment flows.
-- **Fragmented settlement** — routing, liquidity management, and asset validation are handled by separate systems, increasing integration complexity.
-- **No Bitcoin finality** — most stablecoin rails depend on smart contract platforms without Bitcoin's proof-of-work security guarantees.
+- **Unpredictable fees** - gas markets fluctuate with network demand, making unit economics unreliable for payment operators.
+- **Public execution** - every transaction is visible on-chain, exposing business-sensitive payment flows.
+- **Fragmented settlement** - routing, liquidity management, and asset validation are handled by separate systems, increasing integration complexity.
+- **No Bitcoin finality** - most stablecoin rails depend on smart contract platforms without Bitcoin's proof-of-work security guarantees.
 
 These constraints make stablecoin settlement operationally brittle for payment systems, exchanges, wallets and financial operators that need deterministic margins and compliance-friendly infrastructure.
 
@@ -20,10 +20,10 @@ These constraints make stablecoin settlement operationally brittle for payment s
 
 Utexo redefines stablecoin settlement by combining four core design principles:
 
-- **Deterministic cost model** — fees are predefined and fixed at the protocol level. Transactions do not compete for global blockspace and are not subject to congestion-driven pricing.
-- **Off-chain execution with on-chain anchoring** — execution occurs off-chain for performance and scalability, while cryptographic commitments are anchored to Bitcoin for correctness and dispute resolution.
-- **Bitcoin \+ RGB \+ Lightning convergence** — stablecoins are issued and transferred using the RGB protocol, while payments are executed over the Lightning Network for instant settlement and low latency. Bitcoin provides the trust anchor for the entire stack.
-- **Single execution layer** — Utexo abstracts routing, liquidity management, asset validation and settlement coordination into a unified layer exposed via SDK and API, eliminating the need to integrate multiple systems.
+- **Deterministic cost model** - fees are predefined and fixed at the protocol level. Transactions do not compete for global blockspace and are not subject to congestion-driven pricing.
+- **Off-chain execution with on-chain anchoring** - execution occurs off-chain for performance and scalability, while cryptographic commitments are anchored to Bitcoin for correctness and dispute resolution.
+- **Bitcoin \+ RGB \+ Lightning convergence** - stablecoins are issued and transferred using the RGB protocol, while payments are executed over the Lightning Network for instant settlement and low latency. Bitcoin provides the trust anchor for the entire stack.
+- **Single execution layer** - Utexo abstracts routing, liquidity management, asset validation and settlement coordination into a unified layer exposed via SDK and API, eliminating the need to integrate multiple systems.
 
 ## Getting Started
 
@@ -47,7 +47,6 @@ Applications integrate through a single SDK and API. Utexo handles routing, liqu
 
 ## Further Reading
 
-- [The Problem](/getting-started/the-problem) — Why existing stablecoin rails fail for business settlement.
-- [Architecture](/getting-started/architecture) — How Bitcoin, the Lightning Network, RGB, and Utexo fit together.
-- [Product Suite](/product-suite) — SDK/API, Cloud Modules, Mint, and Cross-chain Swap.
-- [Business Applications](/business-applications) — Bitcoin-native stablecoin payments at scale.
+- [The Problem](/getting-started/the-problem) - Why existing stablecoin rails fail for business settlement.
+- [Architecture](/getting-started/architecture) - How Bitcoin, the Lightning Network, RGB, and Utexo fit together.
+- [Product Suite](/product-suite) - SDK/API, Cloud Modules, Mint, and Cross-chain Swap.

@@ -5,11 +5,11 @@ description: "REST JSON API reference for interacting with running RGB Lightning
 
 ## Overview
 
-Once an RLN node is running on Utexo Cloud, it exposes a REST JSON API that can be called directly to perform Lightning and RGB operations — channel management, asset issuance, payments, peer connections, and more.
+Once an RLN node is running on Utexo Cloud, it exposes a REST JSON API that can be called directly to perform Lightning and RGB operations: channel management, asset issuance, payments, peer connections and more.
 
 ### Base URL
 
-Each node has a unique endpoint URL visible on its dashboard page (`/nodes/{nodeId}`). Connections can be made via mTLS or API token. See [Connect to RLN Node](/cloud/rln-node/connect-rln-node) for details.
+Each node has a unique endpoint URL visible on its dashboard page (`/nodes/{nodeId}`). Connections can be made via mTLS or API token. See \[Connect to RLN Node\](/product-suite/rgb-lightning-node for details.
 
 ### Example Request
 
@@ -27,7 +27,7 @@ The node exposes the following REST endpoints, all using `POST` unless noted:
 ### Wallet & Balances
 
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/address` | POST | Generate a new on-chain address |
 | `/btcbalance` | POST | Get BTC balance |
 | `/assetbalance` | POST | Get RGB asset balance |
@@ -37,7 +37,7 @@ The node exposes the following REST endpoints, all using `POST` unless noted:
 ### Asset Management
 
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/issueassetnia` | POST | Issue a NIA (non-inflatable) asset |
 | `/issueassetcfa` | POST | Issue a CFA (collectible) asset |
 | `/issueassetuda` | POST | Issue a UDA (unique digital asset) |
@@ -53,7 +53,7 @@ The node exposes the following REST endpoints, all using `POST` unless noted:
 ### Payments & Invoices
 
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/lninvoice` | POST | Create a Lightning invoice |
 | `/rgbinvoice` | POST | Create an RGB invoice |
 | `/decodelninvoice` | POST | Decode a Lightning invoice |
@@ -67,7 +67,7 @@ The node exposes the following REST endpoints, all using `POST` unless noted:
 ### Channels
 
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/openchannel` | POST | Open a Lightning channel |
 | `/closechannel` | POST | Close a Lightning channel |
 | `/listchannels` | GET | List all channels |
@@ -76,7 +76,7 @@ The node exposes the following REST endpoints, all using `POST` unless noted:
 ### Peers & Network
 
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/connectpeer` | POST | Connect to a peer |
 | `/disconnectpeer` | POST | Disconnect from a peer |
 | `/listpeers` | GET | List connected peers |
@@ -91,7 +91,7 @@ The node exposes the following REST endpoints, all using `POST` unless noted:
 ### Swaps
 
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/makerinit` | POST | Initialize as swap maker |
 | `/makerexecute` | POST | Execute swap as maker |
 | `/taker` | POST | Participate as swap taker |
@@ -100,7 +100,7 @@ The node exposes the following REST endpoints, all using `POST` unless noted:
 ### Node Lifecycle
 
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/init` | POST | Initialize node after creation |
 | `/unlock` | POST | Unlock node with password |
 | `/lock` | POST | Lock node |
