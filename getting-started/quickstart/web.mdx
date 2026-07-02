@@ -141,6 +141,68 @@ console.log('Receiver assets:', JSON.stringify(receiverAssets, null, 2));
 
 Expected result: the receiver's asset list shows a balance of `100` for the USDT asset. RGB transfers require Bitcoin confirmation to finalise. If the transfer is still pending, call `refreshWallet()` again after the next Bitcoin block. On testnet, a new block typically arrives every 1–10 minutes.
 
+## Step 10: Lightning
+
+Lightning payments are managed using `createLightningInvoice` and `payLightningInvoice`. Channel management requires a funded node connected to a peer.
+
+<Info>
+  Opening a channel requires a funded node connected to a peer. Refer to the [RGB Lightning Node](/product-suite/rgb-lightning-node) section for channel management details.
+</Info>
+
+```javascript
+// Receiver: create a Lightning invoice (BTC-only)
+const inv = await receiverWallet.createLightningInvoice({
+  amountSats: 3000,
+  expirySeconds: 900,
+  asset: { assetId: '', amount: 0 }, // set assetId + amount for RGB-asset payments
+});
+
+// Sender: pay the invoice
+const result = await senderWallet.payLightningInvoice({
+  lnInvoice: inv.lnInvoice,
+});
+
+// Poll until settled
+const payment = await senderWallet.getLightningSendRequest(result.txid);
+console.log('Payment status:', payment.status); // 'Settled' when complete
+```
+
+For USDT-over-Lightning payments, set `asset.assetId` to the USDT asset ID and `asset.amount` to the RGB amount on the invoice.
+
+## Step 11: On-Chain Receive and Send
+
+The same `UTEXOWallet` instance handles on-chain Bitcoin addresses and RGB on-chain transfers.
+
+```javascript
+// Get a Bitcoin deposit address for on-chain funding
+const address = await wallet.getAddress();
+console.log('Deposit address:', address);
+
+// Receiver: generate a blinded RGB invoice for on-chain receipt
+const receiveData = await receiverWallet.blindReceive({
+  minConfirmations: 1,
+  durationSeconds: 3600,
+});
+
+// Sender: broadcast an on-chain RGB transfer
+await senderWallet.send({
+  invoice: receiveData.invoice,
+  assetId: usdtAssetId,
+  amount: 100,
+  donation: false,
+  feeRate: 7,
+  minConfirmations: 1,
+});
+
+// Both parties sync state
+await senderWallet.refreshWallet();
+await receiverWallet.refreshWallet();
+```
+
+<Info>
+  `getAddress()` returns a standard Bitcoin address for on-chain BTC deposits. `blindReceive()` returns an RGB blinded invoice for asset transfers. Both are available on every `UTEXOWallet` instance without additional setup.
+</Info>
+
 ## Web-Specific Notes
 
 **Bundler configuration.** The `@utexo/rgb-sdk-web` package includes a WebAssembly binary. Ensure your bundler is configured to handle `.wasm` files. For Vite, no additional configuration is required. For Webpack, enable `experiments.asyncWebAssembly` in your config.
