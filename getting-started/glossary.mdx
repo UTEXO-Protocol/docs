@@ -17,6 +17,8 @@ Key terms used throughout the Utexo documentation.
 
 ## C
 
+**CFA (Collectible Fungible Asset)** An RGB asset type for tokens with a fixed supply cap per issuance batch. CFAs are used for assets such as stablecoins and limited-edition tokens. Unlike NIA assets, multiple CFA issuances can be made by the same issuer up to a defined global cap.
+
 **Channel (Lightning)** A bidirectional payment channel opened between two Lightning Network nodes. Channels allow off-chain USDT and BTC transfers with instant settlement. Utexo manages channel lifecycle, routing, and liquidity on behalf of integrators.
 
 **Client-Side Validation** The RGB protocol's core security model. Instead of verifying asset state on a public blockchain, the recipient validates the full chain of ownership locally using cryptographic proofs. This preserves privacy and removes the need for global consensus on asset balances.
@@ -35,11 +37,19 @@ Key terms used throughout the Utexo documentation.
 
 **FundsOut** A transaction issued by the Mint Connector on the destination chain to release assets to the recipient, following a validated `FundsIn` event. The Enclave Signer signs the `FundsOut` payload inside the TEE before it is broadcast.
 
+## H
+
+**HODL Invoice** A Lightning invoice that does not immediately settle upon payment. The funds are held ("HODLed") in a Hash Time-Locked Contract (HTLC) until the recipient explicitly accepts or the invoice expires. Used in atomic swap protocols and escrow flows to coordinate cross-chain payments.
+
 ## L
 
 **Lightning Invoice** A standard BOLT-11 or BOLT-12 payment request used to receive BTC or RGB assets over Lightning channels. Generated via `wallet.createLightningInvoice()`.
 
 **Lightning Network** A Bitcoin Layer 2 payment protocol that enables instant, low-cost transfers via off-chain payment channels. Utexo uses Lightning as the execution layer for RGB asset transfers, providing near-instant settlement and predictable fees.
+
+**LDK (Lightning Development Kit)** An open-source library by Spiral (Block) that implements the Lightning Network protocol in Rust. The Utexo RGB Lightning Node is built on top of LDK, enabling it to manage payment channels and route Lightning payments for RGB assets.
+
+**LSP (Lightning Service Provider)** A node operator that provides channel liquidity and routing services to wallet users. Utexo acts as an LSP, opening inbound channels on behalf of users so they can receive Lightning payments without running their own node.
 
 ## M
 
@@ -73,7 +83,11 @@ Key terms used throughout the Utexo documentation.
 
 ## U
 
+**UDA (Unique Digital Asset)** An RGB asset type for non-fungible tokens (NFTs) on Bitcoin. Each UDA has a unique token ID and represents a one-of-a-kind digital item. UDAs are issued and transferred using the RGB protocol with client-side validation.
+
 **USDT (RGB)** Tether's USDT stablecoin issued natively on Bitcoin using the RGB protocol. Distinct from ERC-20 USDT (Ethereum) and TRC-20 USDT (Tron). RGB USDT is transferred over Lightning channels and validated client-side.
+
+**UTEXOWallet** The primary class exported by the `@utexo/rgb-sdk`, `@utexo/rgb-sdk-rn`, and `@utexo/rgb-sdk-web` packages. It encapsulates all wallet operations including initialization, asset transfers, Lightning invoice creation and payment, balance checking, and backup/restore. All SDK interactions go through an instance of `UTEXOWallet`.
 
 **UTXO (Unspent Transaction Output)** A unit of Bitcoin that has been received but not yet spent. In RGB, UTXOs serve as anchors for asset state — each RGB asset allocation is bound to a specific UTXO.
 
