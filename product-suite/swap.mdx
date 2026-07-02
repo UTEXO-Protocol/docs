@@ -51,3 +51,15 @@ The Utexo Swap is secured by the HotPot protocol's on-chain settlement logic:
 - **Resolver constraints** — Resolvers can only move user-approved assets into the swap-specific escrow, execute the swap according to the signed intent, and withdraw escrowed funds **only after** fulfillment is verified. They cannot withdraw funds before fulfillment conditions are met or access funds from any other swap.
 - **Escrow protection** — A dedicated escrow is created for each swap on supported networks. User funds are locked inside this escrow and can only be released once the swap is fulfilled.
 - **Client-side validation** — RGB asset delivery is validated locally by the user's Utexo Wallet before the transaction is confirmed, consistent with the broader Utexo privacy model.
+
+## SDK Integration
+
+<Info>
+  The Utexo SDK does not currently expose a dedicated swap method. To initiate a swap programmatically from a `UTEXOWallet` instance, use the HotPot REST API directly with the wallet's RGB address and a Lightning invoice generated via `wallet.createInvoice()`. The flow is:
+
+  1. **Get a quote** — call the [HotPot Quote API](https://affiliate-docs.hotpot.tech/affiliate/docs/#/quotes) with the desired asset pair and amount.
+  2. **Create an intent** — sign the intent parameters off-chain and submit via the HotPot Intent API.
+  3. **Receive payment** — generate a `UTEXOWallet` invoice for the RGB asset amount and pass it as the destination in the intent.
+
+  Full Utexo SDK swap helpers are planned for a future SDK release.
+</Info>
