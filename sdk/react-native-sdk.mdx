@@ -1,7 +1,7 @@
 ---
-title: 'React Native SDK Reference'
-description: 'Complete reference for @utexo/rgb-sdk-rn — on-device Lightning node, RGB asset management, and Lightning payments for iOS and Android.'
-sidebarTitle: 'React Native'
+title: "React Native SDK Reference"
+description: "Complete reference for @utexo/rgb-sdk-rn — on-device Lightning node, RGB asset management, and Lightning payments for iOS and Android."
+sidebarTitle: "React Native"
 ---
 
 The `@utexo/rgb-sdk-rn` package is the React Native SDK for iOS and Android applications built on the Utexo stack. Unlike the Node.js and Web SDKs, it embeds a full **RGB Lightning Node (RLN)** directly on-device — a native LDK-based node that runs locally without requiring a remote node or server.
@@ -71,7 +71,7 @@ const wallet = new UTEXOWallet(
 #### `UTEXOWalletNodeParams`
 
 | Field | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `storageDirPath` | `string` | Directory where the node persists its data |
 | `daemonListeningPort` | `number` | RLN daemon HTTP port |
 | `ldkPeerListeningPort` | `number` | LDK peer-to-peer port |
@@ -122,13 +122,13 @@ const signer = new PasswordRLNSigner('my-secure-password');
 A `UTEXOWallet` goes through four phases:
 
 | Phase | Method | When to call |
-|---|---|---|
+| --- | --- | --- |
 | First-time setup | `init()` | Once per new wallet — writes key material to `storageDirPath` |
 | Connect & unlock | `unlock(params)` | Every start (first run and restarts) — connects to bitcoind, electrum, and proxy |
 | Graceful stop | `shutdown()` | When pausing the node — state preserved on disk |
-| Full teardown | `destroy()` | On logout or in `finally` blocks — shutdown + destroyNode + release signer |
+| Full teardown | `destroy()` | On logout or in `finally` blocks — shutdown \+ destroyNode \+ release signer |
 
-`initialize()` is a backward-compatible alias for `init()`. `reinit(params)` combines `shutdown()` + `init()` + `unlock()` in one call for restarts on the same instance.
+`initialize()` is a backward-compatible alias for `init()`. `reinit(params)` combines `shutdown()` \+ `init()` \+ `unlock()` in one call for restarts on the same instance.
 
 ```typescript
 const unlockParams = {
@@ -154,30 +154,28 @@ await wallet.destroy();
 
 #### `IRLNUnlockParams`
 
-| Field | Type | Description |
-|---|---|---|
-| `bitcoindRpcUsername` | `string` | Bitcoin RPC username |
-| `bitcoindRpcPassword` | `string` | Bitcoin RPC password |
-| `bitcoindRpcHost` | `string` | Bitcoin RPC host |
-| `bitcoindRpcPort` | `number` | Bitcoin RPC port |
-| `indexerUrl` | `string?` | Electrum indexer URL (e.g. `'127.0.0.1:50001'`) |
-| `proxyEndpoint` | `string?` | RGB proxy endpoint (e.g. `'rpc://host:3000/json-rpc'`) |
-| `announceAddresses` | `string[]?` | Public addresses to announce to the network |
-| `announceAlias` | `string \| null?` | Node alias |
+| Field | Type | Description |  |
+| --- | --- | --- | --- |
+| `bitcoindRpcUsername` | `string` | Bitcoin RPC username |  |
+| `bitcoindRpcPassword` | `string` | Bitcoin RPC password |  |
+| `bitcoindRpcHost` | `string` | Bitcoin RPC host |  |
+| `bitcoindRpcPort` | `number` | Bitcoin RPC port |  |
+| `indexerUrl` | `string?` | Electrum indexer URL (e.g. `'127.0.0.1:50001'`) |  |
+| `proxyEndpoint` | `string?` | RGB proxy endpoint (e.g. `'rpc://host:3000/json-rpc'`) |  |
+| `announceAddresses` | `string[]?` | Public addresses to announce to the network |  |
+| `announceAlias` | \`string | null?\` | Node alias |
 
 <Note>
+  **Utexo Network Faucet** — To get test BTC and RGB assets on the Utexo network, use the Telegram bot [@Utexo\_RLN\_bot](https://t.me/Utexo_RLN_bot).
 
-**Utexo Network Faucet** — To get test BTC and RGB assets on the Utexo network, use the Telegram bot [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot).
+  | Command | Description |
+  | --- | --- |
+  | `/getbtc` | Send your Bitcoin address to receive test satoshis |
+  | `/getasset` | Send an RGB invoice to receive test RGB assets |
+  | `/getinvoice` | Get an RGB Lightning invoice to test paying |
+  | `/getnodeinfo` | Get the faucet node URI, asset ID, and ticker |
 
-| Command | Description |
-|---|---|
-| `/getbtc` | Send your Bitcoin address to receive test satoshis |
-| `/getasset` | Send an RGB invoice to receive test RGB assets |
-| `/getinvoice` | Get an RGB Lightning invoice to test paying |
-| `/getnodeinfo` | Get the faucet node URI, asset ID, and ticker |
-
-Limited to 2 requests per 24 hours per user.
-
+  Limited to 2 requests per 24 hours per user.
 </Note>
 
 ## Method Reference
@@ -185,7 +183,7 @@ Limited to 2 requests per 24 hours per user.
 ### Balance & Address
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `getBtcBalance()` | BTC balance split by `vanilla` and `colored` paths, each with `settled`, `future`, `spendable` |
 | `getAddress()` | Current on-chain deposit address |
 | `getXpub()` | Returns `{ xpubVan, xpubCol }` |
@@ -194,7 +192,7 @@ Limited to 2 requests per 24 hours per user.
 ### UTXO Management
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `createUtxos({ upTo?, num?, size?, feeRate? })` | Create colored UTXOs for RGB operations |
 | `listUnspents()` | List unspent UTXOs with RGB allocations (`outpoint`, `btcAmount`, `colorable`, `rgbAllocations`) |
 
@@ -205,7 +203,7 @@ Limited to 2 requests per 24 hours per user.
 ### RGB Assets
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `listAssets()` | All RGB assets held by the node (NIA, CFA, IFA, UDA) |
 | `getAssetBalance(assetId)` | Balance for a specific RGB asset |
 | `issueAssetNia({ ticker, name, precision, amounts })` | Issue a Non-Inflationary Asset |
@@ -218,13 +216,13 @@ Limited to 2 requests per 24 hours per user.
 ### BTC Sends
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `sendBtc({ address, amount, feeRate, skipSync? })` | On-chain BTC send |
 
 ### Transactions & Transfers
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `listTransactions()` | On-chain transaction history |
 | `listTransfers(assetId?)` | RGB transfer history. Statuses: `WaitingCounterparty`, `WaitingConfirmations`, `Settled`, `Failed` |
 | `failTransfers(params)` | Mark pending transfers as failed |
@@ -234,14 +232,14 @@ Limited to 2 requests per 24 hours per user.
 ### Fees & Backup
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `estimateFeeRate(blocks)` | Fee rate estimate for target confirmation depth |
 | `createBackup({ backupPath, password })` | Encrypted local backup |
 
 ### Lightning
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `createLightningInvoice({ amountSats?, asset, expirySeconds? })` | Create a Lightning invoice (BTC or RGB asset) |
 | `payLightningInvoice({ lnInvoice, amount?, assetId? })` | Pay a Lightning invoice |
 | `getLightningSendRequest(paymentHash)` | Poll send status: `'WaitingCounterparty'` → `'Settled'` or `'Failed'` |
@@ -251,7 +249,7 @@ Limited to 2 requests per 24 hours per user.
 ### On-chain RGB
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `onchainReceive({ assetId?, amount?, durationSeconds?, minConfirmations?, witness? })` | RGB invoice — witness by default (`witness: true`). Pass `witness: false` for a blinded invoice |
 | `onchainSend({ invoice, assetId?, amount?, donation?, feeRate?, minConfirmations?, skipSync?, witnessData? })` | RGB send via decoded invoice |
 | `listOnchainTransfers(assetId?)` | RGB on-chain transfer history |
@@ -259,14 +257,14 @@ Limited to 2 requests per 24 hours per user.
 ### Node Info
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `getNodeInfo()` | Node pubkey, channel counts, sync status |
 | `getNetworkInfo()` | Network-level info |
 
 ### Peers
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `connectPeer(peerPubkeyAndAddr)` | Connect to a peer using `pubkey@host:port` format |
 | `disconnectPeer(peerPubkey)` | Disconnect a peer |
 | `listPeers()` | List connected peers |
@@ -274,7 +272,7 @@ Limited to 2 requests per 24 hours per user.
 ### Channels
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `openChannel({ peerPubkeyAndOptAddr, capacitySat, pushMsat, public, withAnchors, assetId?, assetAmount? })` | Open a channel (BTC or RGB asset) |
 | `closeChannel(channelId, peerPubkey, force)` | Close a channel (cooperative or force) |
 | `listChannels()` | List open channels |
@@ -283,7 +281,7 @@ Limited to 2 requests per 24 hours per user.
 ### Payments
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `keysend(destPubkey, amtMsat, assetId?, assetAmount?)` | Spontaneous keysend payment |
 | `decodeLnInvoice(invoice)` | Decode a Lightning invoice |
 | `invoiceStatus(invoice)` | Raw invoice status |
@@ -291,7 +289,7 @@ Limited to 2 requests per 24 hours per user.
 ### Utility
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `checkIndexerUrl(url)` | Validate an Electrum indexer URL |
 | `checkProxyEndpoint(endpoint)` | Validate an RGB proxy endpoint |
 
@@ -440,7 +438,7 @@ try {
 ## Standalone Helpers
 
 | Function | Description |
-|---|---|
+| --- | --- |
 | `generateKeys(network?)` | Generate mnemonic, xpubs, master fingerprint |
 | `createWallet(network?)` | Alias for `generateKeys` |
 | `deriveKeysFromMnemonic(network, mnemonic)` | Derive keys from an existing BIP39 mnemonic |
@@ -478,5 +476,4 @@ npm run ios:release   # or npm run android:release
 ## Further Reading
 
 - [SDK Overview](/product-suite/sdk) — SDK family, key concepts, and execution model.
-- [Architecture](/getting-started/architecture) — The Bitcoin + RGB + Lightning stack the SDK operates on.
-
+- [Architecture](/getting-started/architecture) — The Bitcoin \+ RGB \+ Lightning stack the SDK operates on.
