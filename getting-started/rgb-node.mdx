@@ -1,0 +1,44 @@
+---
+title: "RGB Node"
+sidebarTitle: "RGB Node"
+description: "Self-hosted REST API for issuing, receiving, and transferring RGB assets directly on Bitcoin L1, for on-chain integrations that don't need Lightning."
+---
+
+RGB Node exposes RGB asset issuance, invoicing, and transfers over a simple REST API, for teams that want on-chain RGB support without embedding the RGB protocol stack in their own backend. It covers the same RGB asset layer as the [RGB Lightning Node](/cloud/rgb-lightning-node-api), but settles on-chain rather than over Lightning channels, useful as a starting point if Lightning integration isn't a priority yet, with the option to add Lightning settlement later once there's volume to justify it.
+
+<Info>
+  Rust implementations are also in progress: [`UTEXO-Protocol/rgb-node-rs`](https://github.com/UTEXO-Protocol/rgb-node-rs) (ours) and [`RGB-OS/rgb-node-rust`](https://github.com/RGB-OS/rgb-node-rust) (3rd party).
+</Info>
+
+## Who should use RGB Node
+
+- **Exchanges** can integrate RGB Node directly into their backend — it's designed to sit behind your own infrastructure and expose asset issuance, balances, and transfers to your systems.
+- **Wallets** should integrate through the [Utexo SDK](product-suite/sdk) instead of running RGB Node directly. The SDK wraps the same functionality in a client-friendly way and is the supported path for wallet-side integrations.
+
+<Warning>
+  RGB Node is infrastructure software, not a hosted or shared service. Operating a node grants visibility into wallet activity, xpubs, and UTXO metadata even though private keys are never held by the node itself.
+
+  For this reason, RGB Node should only be deployed within infrastructure you directly control, such as an exchange backend, internal settlement system or enterprise custody environment. Before deployment, confirm that the operating team understands and accepts this privacy exposure. RGB Node is not appropriate for teams unable to operate within this trust boundary.
+</Warning>
+
+## What RGB Node Provides
+
+| Capability | Description |
+| :-- | :-- |
+| Asset issuance | Issue RGB20 (NIA) assets directly on Bitcoin |
+| Invoicing | Create blinded and witness invoices, decode incoming invoices |
+| Transfers | Build, sign (via external signer or client), and finalize PSBT-based transfers |
+| Multi-wallet | Manage multiple RGB wallets concurrently, each with its own xpubs and state |
+| UTXO management | List unspents, create UTXOs, rotate receive addresses |
+| Backup & restore | Encrypted wallet state backup and restore |
+| Refresh worker | Background service that syncs wallet state until transfers settle or fail |
+
+## Deployment model
+
+RGB Node is non-custodial: it never holds private keys. It builds PSBTs, and signing happens either client-side or through a dedicated external signer service. For production deployments, pair it with a signer that holds keys in your own environment, see [`RGB-OS/thunderlink-signer`](https://github.com/RGB-OS/thunderlink-signer) for a reference implementation.
+
+Because it's self-hosted, you're responsible for the deployment (Python/FastAPI service \+ PostgreSQL for the refresh worker), and for putting it behind your own API gateway and auth layer.
+
+## Underlying library
+
+RGB Node is built on `rgb-lib`, the Rust library, maintained by [Bitfinex](https://github.com/RGB-Tools/rgb-lib), that both RGB Node and the Utexo SDK wrap to handle RGB state and PSBT construction. Most integrators won't touch `rgb-lib` directly, since RGB Node and the SDK both sit on top of it, but it's worth knowing it's there. See the [Glossary](/getting-started/glossary) for a short definition.
