@@ -99,6 +99,7 @@ No authentication required.
 | --- | --- | --- |
 | `GET` | `/healthcheck` | Service liveness check |
 | `GET` | `/version` | App version info |
+| `GET` | `/_swagger` | Interactive Swagger UI (spec at `/_swagger/swagger.yaml`) |
 
 ### Wallet Management
 
@@ -126,8 +127,8 @@ All endpoints below require the three wallet authentication headers.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/wallet/issuenia` | Issue a new NIA (Non-Inflatable Asset) |
-| `POST` | `/blindreceive` | Generate an RGB invoice to receive assets |
+| `POST` | `/wallet/issueassetnia` | Issue a new NIA (Non-Inflatable Asset) |
+| `POST` | `/wallet/blindreceive` | Generate an RGB invoice to receive assets |
 | `POST` | `/wallet/failtransfers` | Mark pending transfers as failed |
 
 ### PSBT Signing Flow
@@ -157,7 +158,7 @@ Registers a watch-only wallet. Authentication headers (`xpub-van`, `xpub-col`, `
 }
 ```
 
-### POST /wallet/issuenia
+### POST /wallet/issueassetnia
 
 Issues a new NIA (Non-Inflatable Asset) RGB token.
 
@@ -185,9 +186,11 @@ Issues a new NIA (Non-Inflatable Asset) RGB token.
 }
 ```
 
-### POST /blindreceive
+### POST /wallet/blindreceive
 
 Generates an RGB invoice to receive assets.
+
+A legacy root-level alias `POST /blindreceive` currently also works but is deprecated and will be removed.
 
 **Request body:**
 
@@ -259,16 +262,15 @@ Finalizes the asset send with a signed PSBT.
 
 ## Error Handling
 
-All endpoints return HTTP `422` on validation errors:
+Errors return an appropriate HTTP status (401 Unauthorized, 403 Forbidden, 500 Internal Error, 503 Service Unavailable) with a JSON body:
 
 ```json
 {
-  "detail": [
-    {
-      "loc": ["header", "xpub-van"],
-      "msg": "Field required",
-      "type": "missing"
-    }
-  ]
+  "code": 1001,
+  "status": "BadInput",
+  "message": "...",
+  "details": {}
 }
 ```
+
+`code` is an application-level error code. Codes ≥ 1000 indicate request problems, e.g. 1000 NotFound (no entity for the given params), 1001 BadInput, 1002 InvalidAddress. Codes matching HTTP statuses (401, 403, 500, 503) indicate auth or server-side failures.
