@@ -1,11 +1,13 @@
 ---
 title: "General Overview"
+sidebarTitle: "General Overview"
+description: "An overview of the RGB Node — a standalone, watch-only REST API service for RGB asset issuance and transfers on Bitcoin L1."
 ---
 
-RGB Node exposes RGB asset issuance, invoicing, and transfers through a REST API. It targets teams that need on-chain RGB support without embedding the full RGB protocol stack in their own backend. It covers the same asset layer as the [RGB Lightning Node](/cloud/rgb-lightning-node-api), but settles directly on Bitcoin L1 rather than over Lightning channels — a practical starting point when Lightning isn't a near-term requirement, with a clear upgrade path once volume justifies it.
+RGB Node exposes RGB asset issuance, invoicing, and transfers through a REST API. It targets teams that need on-chain RGB support without embedding the full RGB protocol stack in their own backend. It covers the same asset layer as the [RGB Lightning Node](/cloud/rgb-lightning-node-api), but settles directly on Bitcoin L1 rather than over Lightning channels — a practical starting point when Lightning isn’t a near-term requirement, with a clear upgrade path once volume justifies it.
 
 <Info>
-  Source repository: [`UTEXO-Protocol/rgb-node-rs`](https://github.com/UTEXO-Protocol/rgb-node-rs) (first-party Rust implementation). A third-party Rust implementation is also available at [`RGB-OS/rgb-node-rust`](https://github.com/RGB-OS/rgb-node-rust).
+  Source repository: [`UTEXO-Protocol/rgb-node-api`](https://github.com/UTEXO-Protocol/rgb-node-api) (first-party Rust implementation). A third-party Rust implementation is also available at [`RGB-OS/rgb-node-rust`](https://github.com/RGB-OS/rgb-node-rust).
 </Info>
 
 ## Who should use RGB Node
@@ -24,11 +26,11 @@ RGB Node exposes RGB asset issuance, invoicing, and transfers through a REST API
 | Capability | Description |
 | :-- | :-- |
 | Asset issuance | Issue RGB20 (NIA) assets directly on Bitcoin L1 |
-| Invoicing | Create blinded and witness invoices; decode incoming invoices |
+| Invoicing | Create blinded invoices to receive RGB assets |
 | Transfers | Build unsigned PSBTs, accept signed PSBTs, finalize and broadcast |
 | Multi-wallet | Manage multiple RGB wallets concurrently, each scoped by its own xpubs |
 | UTXO management | List unspents, create UTXOs, rotate receive addresses |
-| Backup and restore | Encrypted wallet state backup and restore |
+| Transfer history | List transactions and RGB transfers per asset |
 | Refresh worker | Background sync that tracks transfers until they settle or fail |
 
 ## Architecture: watch-only, external signing
