@@ -12,10 +12,13 @@ Utexo provides two node runtimes for different integration models: **RGB Node** 
 
 ## Node types
 
-| Node | Primary purpose | Signing model | Lightning support | Deployment |
-| --- | --- | --- | --- | --- |
-| **RGB Node** | Issue and transfer RGB assets on-chain, inspect balances, and manage RGB-capable UTXOs | Watch-only; clients sign PSBTs externally | No | Operator-managed infrastructure |
-| **RGB Lightning Node** | Operate RGB-enabled Lightning channels and perform Lightning, RGB, and on-chain wallet operations | Maintains Lightning state and performs signing operations; external-signer support is experimental | Yes | Self-hosted or Utexo Cloud |
+| Capability | RGB Node | RGB Lightning Node |
+| --- | --- | --- |
+| Primary purpose | Issue and transfer RGB assets on-chain, inspect balances, and manage RGB-capable UTXOs | Operate RGB-enabled Lightning channels and perform Lightning, RGB, and on-chain wallet operations |
+| Signing model | Watch-only; clients sign PSBTs externally | Maintains Lightning state and performs signing operations; external-signer support is experimental |
+| Lightning support | No | Yes |
+| Asset schemas | NIA only | NIA, CFA, UDA |
+| Deployment | Operator-managed infrastructure | Self-hosted or Utexo Cloud |
 
 ## RGB Node
 
@@ -71,6 +74,8 @@ Application
 The **RGB Node API** and **RGB Lightning Node API** operate on their respective node runtimes. The **Cloud API** manages hosted RLN instances; it is not a replacement for the RLN runtime API.
 
 ## Choosing a node
+
+Most applications don't need to run a node. If you're building a wallet or client application, integrate through the [Utexo SDK](/product-suite/sdk) — it wraps the same RGB functionality without requiring you to operate infrastructure. Choose a node runtime below only if you're operating backend infrastructure directly.
 
 Choose **RGB Node** when you need:
 
