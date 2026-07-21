@@ -54,14 +54,6 @@
             ]
           },
           {
-            "group": "Mint",
-            "pages": [
-              "product-suite/mint",
-              "mint/getting-started",
-              "product-suite/mint-api-reference"
-            ]
-          },
-          {
             "group": "Swap",
             "pages": [
               "product-suite/swap"
@@ -70,30 +62,11 @@
           {
             "group": "Node",
             "pages": [
+              "overview",
               {
                 "group": "RGB Lightning Node",
                 "pages": [
-                  "product-suite/RLN-overview",
-                  "cloud/self-hosted-rgb-lightning-node",
                   "cloud/rgb-lightning-node-api",
-                  "cloud/webhooks",
-                  {
-                    "group": "Node Management",
-                    "pages": [
-                      "cloud/getting-started",
-                      {
-                        "group": "Create RLN Node",
-                        "pages": [
-                          "cloud/rln-node/create-rln-node",
-                          "cloud/rln-node/node-ui-actions"
-                        ]
-                      },
-                      "cloud/rln-node/upgrade-rln-node",
-                      "cloud/rln-node/destroy-rln-node",
-                      "cloud/rln-node/connect-rln-node",
-                      "cloud/rln-node/node-backup-restore"
-                    ]
-                  },
                   {
                     "group": "Security",
                     "pages": [
@@ -101,10 +74,40 @@
                     ]
                   },
                   {
-                    "group": "Access Token Authorization",
+                    "group": "Self-hosted",
                     "pages": [
-                      "access-token-authorization/create-api-token",
-                      "access-token-authorization/cloud-api"
+                      "cloud/self-hosted-rgb-lightning-node"
+                    ]
+                  },
+                  {
+                    "group": "Utexo Cloud",
+                    "pages": [
+                      {
+                        "group": "Node Management",
+                        "pages": [
+                          "cloud/getting-started",
+                          {
+                            "group": "Create RLN Node",
+                            "pages": [
+                              "cloud/rln-node/create-rln-node",
+                              "cloud/rln-node/node-ui-actions"
+                            ]
+                          },
+                          "cloud/rln-node/upgrade-rln-node",
+                          "cloud/rln-node/destroy-rln-node",
+                          "cloud/rln-node/connect-rln-node",
+                          "cloud/rln-node/node-backup-restore"
+                        ]
+                      },
+                      {
+                        "group": "Access Token Authorization",
+                        "pages": [
+                          "access-token-authorization/create-api-token",
+                          "access-token-authorization/cloud-api"
+                        ]
+                      },
+                      "product-suite/RLN-overview",
+                      "cloud/webhooks"
                     ]
                   }
                 ]
@@ -116,6 +119,14 @@
                   "cloud/rgb-node/rgb-node-api"
                 ]
               }
+            ]
+          },
+          {
+            "group": "Mint",
+            "pages": [
+              "product-suite/mint",
+              "mint/getting-started",
+              "product-suite/mint-api-reference"
             ]
           }
         ]
