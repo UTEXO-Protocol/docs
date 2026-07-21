@@ -6,7 +6,7 @@ description: "REST API reference for the RGB Node — a standalone, watch-only w
 
 ## Overview
 
-The RGB Node API is a standalone HTTP service for managing **watch-only** RGB wallets. The service holds no private keys and never signs transactions — it is designed to be a semi-public API.
+The RGB Node API is a standalone HTTP service for managing **watch-only** RGB wallets. The service holds no private keys and never signs transactions. It is intended to run within infrastructure controlled by the operator.
 
 Clients register watch-only wallets using their xPubs, read wallet state, and use the `begin`/`end` flow to sign PSBTs client-side.
 
@@ -24,9 +24,13 @@ http://127.0.0.1:34000
 
 The listen address and port are configured in your `config.toml` file.
 
-## Authentication
+## Wallet Identification
 
-All `/wallet/` endpoints authenticate via three required **request headers**. Wallets are registered at runtime and are never stored in the config file.
+All `/wallet/` endpoints require three **request headers** that identify the watch-only wallet. These values are wallet selectors, not authentication credentials, and they do not authorize the caller. Wallets are registered at runtime and are never stored in the config file.
+
+<Warning>
+  RGB Node does not provide application-level authentication or TLS. Do not expose it as a public or semi-public API. Place it behind an authenticated gateway or private network, and treat xPubs and wallet metadata as sensitive.
+</Warning>
 
 | Header | Description |
 | --- | --- |
@@ -49,6 +53,9 @@ The service is configured via a `.toml` file:
 [api]
 listen_address = "127.0.0.1"
 port = 34000
+enable_cors = false
+cors_domain = "https://your-app.example"
+allowed_headers = ["xpub-van", "xpub-col", "master-fingerprint"]
 
 [wallet]
 data_dir = "./rgb-data"
@@ -60,7 +67,11 @@ indexer_address = "tcp://127.0.0.1:50001"
 proxy_address = ["rpc://127.0.0.1:3000/json-rpc"]
 ```
 
+CORS is disabled in this example. If browser clients require cross-origin access, set `enable_cors = true`, replace `cors_domain` with the trusted application origin, and keep the three wallet identification headers in `allowed_headers`.
+
 ## Running the Service
+
+Create a `config.toml` file using the configuration above, then run:
 
 ```bash
 cargo run -- -c config.toml
@@ -102,7 +113,7 @@ No authentication required.
 
 ### Wallet Management
 
-All endpoints below require the three wallet authentication headers.
+All endpoints below require the three wallet identification headers.
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -126,8 +137,8 @@ All endpoints below require the three wallet authentication headers.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/wallet/issuenia` | Issue a new NIA (Non-Inflatable Asset) |
-| `POST` | `/blindreceive` | Generate an RGB invoice to receive assets |
+| `POST` | `/wallet/issueassetnia` | Issue a new NIA (Non-Inflatable Asset) |
+| `POST` | `/wallet/blindreceive` | Generate an RGB invoice to receive assets |
 | `POST` | `/wallet/failtransfers` | Mark pending transfers as failed |
 
 ### PSBT Signing Flow
@@ -141,9 +152,17 @@ All endpoints below require the three wallet authentication headers.
 
 ## Request & Response Schemas
 
+<Warning>
+  JSON field naming is endpoint-specific. Use `assetId` for `/wallet/assetbalance`; `upTo`, `num`, `size`, and `feeRate` for `/wallet/createutxosbegin`; `signedPsbt` for `/wallet/createutxosend`; and snake\_case fields such as `asset_id` for `/wallet/listtransfers` and `signed_psbt` for `/wallet/sendend`.
+</Warning>
+
+<Info>
+  `/wallet/address` returns a JSON string, `/wallet/createutxosend` returns the number of created UTXOs as an integer, and `/wallet/refresh` and `/wallet/drop` return JSON `null` on success.
+</Info>
+
 ### POST /wallet/register
 
-Registers a watch-only wallet. Authentication headers (`xpub-van`, `xpub-col`, `master-fingerprint`) are required.
+Registers a watch-only wallet. Wallet identification headers (`xpub-van`, `xpub-col`, `master-fingerprint`) are required.
 
 **Response `200`:**
 
@@ -157,7 +176,7 @@ Registers a watch-only wallet. Authentication headers (`xpub-van`, `xpub-col`, `
 }
 ```
 
-### POST /wallet/issuenia
+### POST /wallet/issueassetnia
 
 Issues a new NIA (Non-Inflatable Asset) RGB token.
 
@@ -185,9 +204,9 @@ Issues a new NIA (Non-Inflatable Asset) RGB token.
 }
 ```
 
-### POST /blindreceive
+### POST /wallet/blindreceive
 
-Generates an RGB invoice to receive assets.
+Generates an RGB invoice to receive assets. The unprefixed `/blindreceive` route remains as a temporary compatibility alias and is marked for removal.
 
 **Request body:**
 
@@ -259,16 +278,34 @@ Finalizes the asset send with a signed PSBT.
 
 ## Error Handling
 
-All endpoints return HTTP `422` on validation errors:
+Missing wallet identification headers return HTTP `401` with a plain-text response body:
+
+```text
+Missing xpub-van/xpub-col/master-fingerprint header
+```
+
+Malformed JSON returns HTTP `422` using the project's JSON error envelope:
 
 ```json
 {
-  "detail": [
-    {
-      "loc": ["header", "xpub-van"],
-      "msg": "Field required",
-      "type": "missing"
-    }
-  ]
+  "error": {
+    "code": 1001,
+    "status": "bad_input",
+    "message": "invalid json format",
+    "details": { "body": "<parser error details>" }
+  }
+}
+```
+
+Wallet and RGB library failures currently return HTTP `500` using the same envelope:
+
+```json
+{
+  "error": {
+    "code": 500,
+    "status": "internal_error",
+    "message": "something went wrong",
+    "details": {}
+  }
 }
 ```

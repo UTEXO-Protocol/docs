@@ -1,10 +1,10 @@
 ---
 title: "General Overview"
 sidebarTitle: "General Overview"
-description: "An overview of the RGB Node — a standalone, watch-only REST API service for RGB asset issuance and transfers on Bitcoin L1."
+description: "An overview of the RGB Node — a standalone, watch-only REST API service for RGB asset issuance and transfers anchored to Bitcoin."
 ---
 
-RGB Node exposes RGB asset issuance, invoicing, and transfers through a REST API. It targets teams that need on-chain RGB support without embedding the full RGB protocol stack in their own backend. It covers the same asset layer as the [RGB Lightning Node](/cloud/rgb-lightning-node-api), but settles directly on Bitcoin L1 rather than over Lightning channels — a practical starting point when Lightning isn’t a near-term requirement, with a clear upgrade path once volume justifies it.
+RGB Node exposes RGB asset issuance, invoicing, and transfers through a REST API. It targets teams that need RGB support without embedding the full RGB protocol stack in their own backend. RGB uses client-side validation: transfers exchange consignments through configured transport endpoints and commit state-transition anchors to Bitcoin. The [RGB Lightning Node](/cloud/rgb-lightning-node-api) provides a separate channel-based operating model for RGB payments over Lightning.
 
 <Info>
   Source repository: [`UTEXO-Protocol/rgb-node-api`](https://github.com/UTEXO-Protocol/rgb-node-api) (first-party Rust implementation). A third-party Rust implementation is also available at [`RGB-OS/rgb-node-rust`](https://github.com/RGB-OS/rgb-node-rust).
@@ -25,10 +25,10 @@ RGB Node exposes RGB asset issuance, invoicing, and transfers through a REST API
 
 | Capability | Description |
 | :-- | :-- |
-| Asset issuance | Issue RGB20 (NIA) assets directly on Bitcoin L1 |
+| Asset issuance | Issue NIA assets allocated to Bitcoin UTXOs |
 | Invoicing | Create blinded invoices to receive RGB assets |
 | Transfers | Build unsigned PSBTs, accept signed PSBTs, finalize and broadcast |
-| Multi-wallet | Manage multiple RGB wallets concurrently, each scoped by its own xpubs |
+| Multi-wallet | Manage multiple watch-only RGB wallets concurrently using xpub and master-fingerprint headers |
 | UTXO management | List unspents, create UTXOs, rotate receive addresses |
 | Transfer history | List transactions and RGB transfers per asset |
 | Refresh worker | Background sync that tracks transfers until they settle or fail |
@@ -39,9 +39,9 @@ RGB Node operates on watch-only wallets. It holds no private keys and never sign
 
 - Wallets are registered using extended public keys (xpubs).
 - Transfer endpoints follow a **begin/end pattern**: the `*begin` endpoint returns an unsigned PSBT; the client signs it locally; the `*end` endpoint accepts the signed PSBT for finalization and broadcast.
-- All `/wallet/` calls are scoped per wallet using three request headers: `xpub-van`, `xpub-col`, and `master-fingerprint`.
+- All `/wallet/` calls identify the target wallet using three request headers: `xpub-van`, `xpub-col`, and `master-fingerprint`. These headers select a wallet; they do not authenticate or authorize the caller.
 
-The custody boundary stays on the client side. RGB Node can run as a semi-trusted API within your infrastructure without becoming a key-management liability. For production deployments, pair it with a dedicated signer — see [`RGB-OS/thunderlink-signer`](https://github.com/RGB-OS/thunderlink-signer) for a reference implementation.
+The signing boundary stays on the client side, but the service can still expose xpubs, balances, UTXOs, transfers, and wallet operations. Run RGB Node only inside trusted infrastructure and place it behind an authenticated gateway or private network.
 
 ## Underlying library
 
