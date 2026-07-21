@@ -9,7 +9,7 @@ Once an RLN node is running on Utexo Cloud, it exposes a REST JSON API that can 
 
 ### Base URL
 
-Each node has a unique endpoint URL visible on its dashboard page (`/nodes/{nodeId}`). Connections can be made via mTLS or API token. See \[Connect to RLN Node\](/product-suite/rgb-lightning-node for details.
+Each node has a unique endpoint URL visible on its dashboard page (`/nodes/{nodeId}`). Connections can be made via mTLS or API token. See [Connect to RLN Node](/cloud/rln-node/connect-rln-node) for details.
 
 ### Example Request
 
@@ -17,7 +17,7 @@ Each node has a unique endpoint URL visible on its dashboard page (`/nodes/{node
 curl -X POST \
   -H "Content-type: application/json" \
   -d '{"ticker": "USDT", "name": "Tether", "amounts": [666], "precision": 0}' \
-  https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/issueasset
+  https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/issueassetnia
 ```
 
 ## Available Endpoints
@@ -45,7 +45,7 @@ The node exposes the following REST endpoints, all using `POST` unless noted:
 | `/assetmetadata` | POST | Get metadata for an asset |
 | `/getassetmedia` | POST | Retrieve asset media |
 | `/postassetmedia` | POST | Upload asset media |
-| `/sendasset` | POST | Send an RGB asset |
+| `/sendrgb` | POST | Send RGB assets on-chain |
 | `/listtransfers` | POST | List RGB transfers |
 | `/refreshtransfers` | POST | Refresh pending transfers |
 | `/failtransfers` | POST | Mark transfers as failed |
@@ -114,4 +114,4 @@ The node exposes the following REST endpoints, all using `POST` unless noted:
 
 For complete parameter definitions and response schemas, see the OpenAPI specification and interactive Swagger UI:
 
-[https://rgb-tools.github.io/rgb-lightning-node](https://rgb-tools.github.io/rgb-lightning-node)
+[https://utexo-protocol.github.io/rgb-lightning-node](https://utexo-protocol.github.io/rgb-lightning-node)

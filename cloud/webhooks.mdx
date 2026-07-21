@@ -1,5 +1,6 @@
 ---
 title: "Webhooks"
+sidebarTitle: "Webhooks"
 description: "Receive real-time event notifications from your Utexo Cloud RLN nodes."
 ---
 
@@ -33,7 +34,7 @@ curl -s \
 When a node state changes or an operation completes, Utexo Cloud sends a `POST` request to your endpoint including:
 
 - A **JSON payload** with the event data and `nodeId`
-- **`A *X-Utexo-Signature` header** containing a cryptographic signature
+- An **`X-Utexo-Signature` header** containing a cryptographic signature
 
 ## Node Status Values
 
@@ -72,7 +73,7 @@ Ensure the `nodeId` in the payload matches the expected node to prevent spoofing
 ## Security Best Practices
 
 <Warning>
-  Always verify the \`X-Utexo-Signature header before processing any webhook payload.
+  Always verify the `X-Utexo-Signature` header before processing any webhook payload.
 </Warning>
 
 1. **Use HTTPS** — Your webhook endpoint must use HTTPS to protect data in transit.

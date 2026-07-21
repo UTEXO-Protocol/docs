@@ -8,9 +8,7 @@ description: "How Validating Lightning Signer (VLS) keeps private keys off your 
 Validating Lightning Signer (VLS) is an open-source Rust library for secure, self-custodial Lightning signers. Unlike hot wallets or blind signers, VLS keeps your private keys off the node and validates each signing request, ensuring only legitimate channel operations are approved.
 
 <Note>
-Support for a remote signer in the RGB Lightning Node is currently under active development and should be considered **experimental** — not yet available for production use.
-
-Progress is tracked at: [github.com/RGB-Tools/rgb-lightning-node/issues/43](https://github.com/RGB-Tools/rgb-lightning-node/issues/43)
+  RGB Lightning Node includes generic remote external-signer support introduced in [UTEXO-Protocol/rgb-lightning-node#95](https://github.com/UTEXO-Protocol/rgb-lightning-node/commit/e8aa52e838ad523962e81196c137d6a7b4d45980). The VLS-specific integration described on this page remains tracked in [RGB-Tools/rgb-lightning-node#43](https://github.com/RGB-Tools/rgb-lightning-node/issues/43) and should still be considered experimental until its compatibility and production-readiness are confirmed.
 </Note>
 
 ## System Architecture
@@ -28,14 +26,14 @@ Stores private keys in a secure environment and validates each request before ge
 ### Additional Components
 
 | Component | Description |
-|---|---|
+| --- | --- |
 | **Policy Engine** | Customizable rules ensuring no suspicious requests are signed |
 | **UTXO Oracle** (optional) | Provides chain data to detect remote breaches |
 | **State Storage** | Secure cloud storage with anti-rollback protection |
 
 ## Validation Flow
 
-```
+```text
 [Lightning Node] --> proposes transaction/state update
         |
         v

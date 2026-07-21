@@ -1,5 +1,6 @@
 ---
 title: "Self-Hosted RGB Lightning Node"
+sidebarTitle: "Self-Hosted RGB Lightning Node"
 description: "Step-by-step guide to running an RGB Lightning Node (RLN) on your own infrastructure — installation, configuration, authentication, and API usage."
 ---
 
@@ -12,7 +13,7 @@ The RGB Lightning Node (RLN) is an RGB-enabled Lightning Network daemon built on
 <Info>
   Source repository: [https://github.com/UTEXO-Protocol/rgb-lightning-node](https://github.com/UTEXO-Protocol/rgb-lightning-node)
 
-  Full OpenAPI / Swagger reference: [https://rgb-tools.github.io/rgb-lightning-node](https://rgb-tools.github.io/rgb-lightning-node)
+  Full OpenAPI / Swagger reference: [https://utexo-protocol.github.io/rgb-lightning-node](https://utexo-protocol.github.io/rgb-lightning-node)
 </Info>
 
 ## Prerequisites
@@ -22,7 +23,7 @@ Before starting, make sure you have the following available:
 | Dependency | Purpose |
 | --- | --- |
 | [**bitcoind**](https://github.com/bitcoin/bitcoin/tree/master/doc) | Bitcoin full node the RLN daemon connects to |
-| **[Electrum](https://github.com/romanz/electrs) or [Esplora](https://github.com/Blockstream/esplora) indexer** | Required for UTXO lookups |
+| [**Electrum**](https://github.com/romanz/electrs)\*\* or [Esplora](https://github.com/Blockstream/esplora) indexer\*\* | Required for UTXO lookups |
 | **RGB Proxy Server** | Relay for RGB state transitions (see [rgb-proxy-server](https://github.com/RGB-Tools/rgb-proxy-server)) |
 | **Rust toolchain** (stable) | Needed to build from source |
 | **Docker**_(optional)_ | For the containerised setup and regtest helper scripts |
@@ -34,7 +35,7 @@ Before starting, make sure you have the following available:
 Clone the repository with its submodules:
 
 ```sh
-git clone https://github.com/RGB-Tools/rgb-lightning-node \
+git clone https://github.com/UTEXO-Protocol/rgb-lightning-node \
   --recurse-submodules --shallow-submodules
 ```
 
@@ -61,7 +62,7 @@ Each RLN daemon is started with `rgb-lightning-node` and requires the following 
 | `<data-dir>` | Directory where node state is persisted |
 | `--daemon-listening-port` | Port for the REST API |
 | `--ldk-peer-listening-port` | Port for Lightning peer connections |
-| `--network` | One of `regtest`, `testnet`, `testnet4` |
+| `--network` | One of `regtest`, `signet`, `signetcustom`, `testnet`, `testnet4`, or `mainnet` |
 | `--disable-authentication` | Skip token auth (development only) |
 | `--root-public-key` | Public key used to verify Biscuit tokens (production) |
 
@@ -104,7 +105,7 @@ rgb-lightning-node dataldk2/ \
 bitcoind_rpc_username: user
 bitcoind_rpc_password: password
 bitcoind_rpc_host:     localhost
-bitcoind_rpc_port:     18433
+bitcoind_rpc_port:     18443
 indexer_url:           127.0.0.1:50001
 proxy_endpoint:        rpc://127.0.0.1:3000/json-rpc
 ```
@@ -153,7 +154,7 @@ When unlocking a node in this mode use:
 
 ```text
 bitcoind_rpc_host: bitcoind
-bitcoind_rpc_port: 18433
+bitcoind_rpc_port: 18443
 indexer_url:       electrs:50001
 proxy_endpoint:    rpc://proxy:3000/json-rpc
 ```
@@ -289,7 +290,7 @@ Once a daemon is running, interact with it via its REST API. Example — issue a
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"ticker": "USDT", "name": "Tether", "amounts": [666], "precision": 0}' \
-  http://localhost:3001/issueasset
+  http://localhost:3001/issueassetnia
 ```
 
 ### Key Endpoints
@@ -312,7 +313,7 @@ curl -X POST \
 | `/sendpayment` | POST | Pay a Lightning invoice |
 | `/rgbinvoice` | POST | Create an RGB invoice |
 | `/sendrgb` | POST | Send RGB assets on-chain |
-| `/issueasset` | POST | Issue a new NIA RGB asset |
+| `/issueassetnia` | POST | Issue a new NIA RGB asset |
 | `/issueassetcfa` | POST | Issue a CFA RGB asset |
 | `/listassets` | POST | List all RGB assets |
 | `/assetbalance` | POST | Get balance of a specific asset |
@@ -321,7 +322,7 @@ curl -X POST \
 | `/shutdown` | POST | Gracefully stop the daemon |
 
 <Info>
-  The complete list of all 50\+ endpoints with request/response schemas is available in the interactive Swagger UI at [https://rgb-tools.github.io/rgb-lightning-node](https://rgb-tools.github.io/rgb-lightning-node).
+  The complete list of endpoints with request/response schemas is available in the interactive Swagger UI at [https://utexo-protocol.github.io/rgb-lightning-node](https://utexo-protocol.github.io/rgb-lightning-node).
 </Info>
 
 ### Running a Local Swagger UI
@@ -375,7 +376,7 @@ cargo test
 ## References
 
 - [UTEXO RGB Lightning Node repository](https://github.com/UTEXO-Protocol/rgb-lightning-node)
-- [OpenAPI Swagger UI](https://rgb-tools.github.io/rgb-lightning-node)
+- [OpenAPI Swagger UI](https://utexo-protocol.github.io/rgb-lightning-node)
 - [RGB on the Lightning Network — docs.rgb.info](https://docs.rgb.info/lightning-network-compatibility)
 - [RGB Proxy Server](https://github.com/RGB-Tools/rgb-proxy-server)
 - [Biscuit token specification](https://www.biscuitsec.org/)

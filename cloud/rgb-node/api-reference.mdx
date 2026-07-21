@@ -1,0 +1,276 @@
+---
+title: "RGB Node API"
+sidebarTitle: "RGB Node API"
+description: "REST API reference for the RGB Node — a standalone, watch-only wallet service for RGB asset management on Bitcoin."
+---
+
+## Overview
+
+The RGB Node API is a standalone HTTP service for managing **watch-only** RGB wallets. The service holds no private keys and never signs transactions — it is designed to be a semi-public API.
+
+Clients register watch-only wallets using their xPubs, read wallet state, and use the `begin`/`end` flow to sign PSBTs client-side.
+
+<Info>
+  Swagger UI is available at `/_swagger` when the server is running locally.
+</Info>
+
+## Base URL
+
+By default, the service runs at:
+
+```text
+http://127.0.0.1:34000
+```
+
+The listen address and port are configured in your `config.toml` file.
+
+## Authentication
+
+All `/wallet/` endpoints authenticate via three required **request headers**. Wallets are registered at runtime and are never stored in the config file.
+
+| Header | Description |
+| --- | --- |
+| `xpub-van` | Vanilla xPub (for BTC UTXOs) |
+| `xpub-col` | Colored xPub (for RGB-colored UTXOs) |
+| `master-fingerprint` | BIP32 master fingerprint |
+
+```bash
+curl -X POST http://127.0.0.1:34000/wallet/listassets \
+  -H "xpub-van: <your-xpub-van>" \
+  -H "xpub-col: <your-xpub-col>" \
+  -H "master-fingerprint: <your-fingerprint>"
+```
+
+## Configuration
+
+The service is configured via a `.toml` file:
+
+```toml
+[api]
+listen_address = "127.0.0.1"
+port = 34000
+
+[wallet]
+data_dir = "./rgb-data"
+network = "regtest"
+btc_rpc_address = "127.0.0.1:18443"
+btc_rpc_user = "dev"
+btc_rpc_password = "dev"
+indexer_address = "tcp://127.0.0.1:50001"
+proxy_address = ["rpc://127.0.0.1:3000/json-rpc"]
+```
+
+## Running the Service
+
+```bash
+cargo run -- -c config.toml
+```
+
+For local development, a regtest stack (bitcoind \+ electrs \+ rgb-proxy) is available:
+
+```bash
+just up   # start the regtest stack
+just run  # start the service with local.uwallet.toml
+```
+
+## The Begin / End Signing Flow
+
+For operations that require a Bitcoin transaction, the API uses a two-step PSBT signing flow:
+
+<Steps>
+  <Step title="Call the *begin endpoint">
+    Submit the operation parameters. The server returns an **unsigned PSBT** string.
+  </Step>
+  <Step title="Sign the PSBT client-side">
+    The client signs the PSBT using their private keys. The server never sees or holds private keys.
+  </Step>
+  <Step title="Call the *end endpoint">
+    Submit the **signed PSBT** back to the server. The server finalizes and broadcasts the transaction.
+  </Step>
+</Steps>
+
+## API Endpoints
+
+### System
+
+No authentication required.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/healthcheck` | Service liveness check |
+| `GET` | `/version` | App version info |
+| `GET` | `/_swagger` | Interactive Swagger UI (spec at `/_swagger/swagger.yaml`) |
+
+### Wallet Management
+
+All endpoints below require the three wallet authentication headers.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/wallet/register` | Register a watch-only wallet using xPubs |
+| `POST` | `/wallet/refresh` | Force wallet sync with the indexer |
+| `POST` | `/wallet/drop` | Remove wallet from memory |
+
+### Balance & State
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/wallet/address` | Get a receive address |
+| `POST` | `/wallet/btcbalance` | Get BTC balance (vanilla and colored) |
+| `POST` | `/wallet/listassets` | List all RGB assets held by the wallet |
+| `POST` | `/wallet/assetbalance` | Get balance for a specific RGB asset |
+| `POST` | `/wallet/listunspents` | List unspent outputs with RGB allocations |
+| `POST` | `/wallet/listtransactions` | List BTC transactions |
+| `POST` | `/wallet/listtransfers` | List RGB transfers for a specific asset |
+
+### Asset Operations
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/wallet/issueassetnia` | Issue a new NIA (Non-Inflatable Asset) |
+| `POST` | `/wallet/blindreceive` | Generate an RGB invoice to receive assets |
+| `POST` | `/wallet/failtransfers` | Mark pending transfers as failed |
+
+### PSBT Signing Flow
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/wallet/createutxosbegin` | Create RGB UTXOs — returns unsigned PSBT |
+| `POST` | `/wallet/createutxosend` | Finalize UTXO creation with signed PSBT |
+| `POST` | `/wallet/sendbegin` | Initiate RGB asset send — returns unsigned PSBT |
+| `POST` | `/wallet/sendend` | Finalize asset send with signed PSBT |
+
+## Request & Response Schemas
+
+### POST /wallet/register
+
+Registers a watch-only wallet. Authentication headers (`xpub-van`, `xpub-col`, `master-fingerprint`) are required.
+
+**Response `200`:**
+
+```json
+{
+  "address": "bcrt1q...",
+  "btc_balance": {
+    "vanilla": { "settled": 0, "future": 0, "spendable": 0 },
+    "colored": { "settled": 0, "future": 0, "spendable": 0 }
+  }
+}
+```
+
+### POST /wallet/issueassetnia
+
+Issues a new NIA (Non-Inflatable Asset) RGB token.
+
+**Request body:**
+
+```json
+{
+  "ticker": "MYTKN",
+  "name": "My Token",
+  "amounts": [1000000],
+  "precision": 0
+}
+```
+
+**Response `200`:**
+
+```json
+{
+  "asset_id": "rgb1...",
+  "ticker": "MYTKN",
+  "name": "My Token",
+  "precision": 0,
+  "issued_supply": 1000000,
+  "balance": { "settled": 1000000, "future": 1000000, "spendable": 1000000 }
+}
+```
+
+### POST /wallet/blindreceive
+
+Generates an RGB invoice to receive assets.
+
+A legacy root-level alias `POST /blindreceive` currently also works but is deprecated and will be removed.
+
+**Request body:**
+
+```json
+{
+  "asset_id": "rgb1...",
+  "amount": 100,
+  "duration_seconds": 3600,
+  "min_confirmations": 1
+}
+```
+
+**Response `200`:**
+
+```json
+{
+  "invoice": "rgb:...",
+  "recipient_id": "...",
+  "expiration_timestamp": 1720000000,
+  "batch_transfer_idx": 1
+}
+```
+
+### POST /wallet/sendbegin
+
+Initiates an RGB asset send. Returns an unsigned PSBT for client-side signing.
+
+**Request body:**
+
+```json
+{
+  "recipient_map": {
+    "rgb1...": [
+      {
+        "recipient_id": "...",
+        "amount": 100,
+        "transport_endpoints": ["rpc://127.0.0.1:3000/json-rpc"]
+      }
+    ]
+  },
+  "donation": false,
+  "fee_rate": 1,
+  "min_confirmations": 1
+}
+```
+
+**Response `200`:** Returns an unsigned PSBT string.
+
+### POST /wallet/sendend
+
+Finalizes the asset send with a signed PSBT.
+
+**Request body:**
+
+```json
+{
+  "signed_psbt": "cHNidP8B..."
+}
+```
+
+**Response `200`:**
+
+```json
+{
+  "txid": "abc123...",
+  "batch_transfer_idx": 2
+}
+```
+
+## Error Handling
+
+Errors return an appropriate HTTP status (401 Unauthorized, 403 Forbidden, 500 Internal Error, 503 Service Unavailable) with a JSON body:
+
+```json
+{
+  "code": 1001,
+  "status": "BadInput",
+  "message": "...",
+  "details": {}
+}
+```
+
+`code` is an application-level error code. Codes ≥ 1000 indicate request problems, e.g. 1000 NotFound (no entity for the given params), 1001 BadInput, 1002 InvalidAddress. Codes matching HTTP statuses (401, 403, 500, 503) indicate auth or server-side failures.

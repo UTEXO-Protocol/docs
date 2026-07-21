@@ -54,40 +54,69 @@
             ]
           },
           {
-            "group": "RGB Lightning Node",
+            "group": "Swap",
             "pages": [
-              "product-suite/cloud",
-              "cloud/self-hosted-rgb-lightning-node",
-              "cloud/rgb-lightning-node-api",
-              "cloud/webhooks",
+              "product-suite/swap"
+            ]
+          },
+          {
+            "group": "Node",
+            "pages": [
+              "overview",
               {
-                "group": "Node Management",
+                "group": "RGB Lightning Node",
                 "pages": [
-                  "cloud/getting-started",
+                  "cloud/rgb-lightning-node-api",
                   {
-                    "group": "Create RLN Node",
+                    "group": "Security",
                     "pages": [
-                      "cloud/rln-node/create-rln-node",
-                      "cloud/rln-node/node-ui-actions"
+                      "security/rln-remote-signer"
                     ]
                   },
-                  "cloud/rln-node/upgrade-rln-node",
-                  "cloud/rln-node/destroy-rln-node",
-                  "cloud/rln-node/connect-rln-node",
-                  "cloud/rln-node/node-backup-restore"
+                  {
+                    "group": "Self-hosted",
+                    "pages": [
+                      "cloud/self-hosted-rgb-lightning-node"
+                    ]
+                  },
+                  {
+                    "group": "Utexo Cloud",
+                    "pages": [
+                      {
+                        "group": "Node Management",
+                        "pages": [
+                          "cloud/getting-started",
+                          {
+                            "group": "Create RLN Node",
+                            "pages": [
+                              "cloud/rln-node/create-rln-node",
+                              "cloud/rln-node/node-ui-actions"
+                            ]
+                          },
+                          "cloud/rln-node/upgrade-rln-node",
+                          "cloud/rln-node/destroy-rln-node",
+                          "cloud/rln-node/connect-rln-node",
+                          "cloud/rln-node/node-backup-restore"
+                        ]
+                      },
+                      {
+                        "group": "Access Token Authorization",
+                        "pages": [
+                          "access-token-authorization/create-api-token",
+                          "access-token-authorization/cloud-api"
+                        ]
+                      },
+                      "product-suite/RLN-overview",
+                      "cloud/webhooks"
+                    ]
+                  }
                 ]
               },
               {
-                "group": "Security",
+                "group": "RGB Node",
                 "pages": [
-                  "security/rln-remote-signer"
-                ]
-              },
-              {
-                "group": "Access Token Authorization",
-                "pages": [
-                  "access-token-authorization/create-api-token",
-                  "access-token-authorization/cloud-api"
+                  "cloud/rgb-node/RGB-overview",
+                  "cloud/rgb-node/rgb-node-api"
                 ]
               }
             ]
@@ -98,12 +127,6 @@
               "product-suite/mint",
               "mint/getting-started",
               "product-suite/mint-api-reference"
-            ]
-          },
-          {
-            "group": "Swap",
-            "pages": [
-              "product-suite/swap"
             ]
           }
         ]
