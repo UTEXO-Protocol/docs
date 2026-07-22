@@ -1,11 +1,13 @@
 ---
 title: "Mint API Reference"
-description: "REST API for minting assets between EVM networks (Arbitrum) and RGB. Use this reference to discover networks and tokens, estimate fees, initiate transfers, and track transfer status."
+description: "Network-agnostic REST API for discovering supported networks, estimating fees, initiating transfers, and tracking settlement across EVM, RGB, and RGB Lightning networks."
 ---
 
 ## Overview
 
-The **Utexo Mint API** exposes a REST interface for cross-chain asset transfers between EVM-compatible networks (currently Arbitrum) and the RGB protocol on Bitcoin.
+The **Utexo Mint API** is a network-agnostic REST interface for cross-network asset transfers. Clients must discover the networks currently connected to an environment with `GET /networks` instead of hardcoding network availability.
+
+USDT0 settles natively on Arbitrum, which acts as the hub; Ethereum, Tron, and Solana reach that hub through LayerZero. **Arbitrum is currently the only live network in this environment.**
 
 <Info>
   **Base URL (testnet / dev):** `https://transfer.dev.utexo.com/api/v0`
@@ -13,7 +15,7 @@ The **Utexo Mint API** exposes a REST interface for cross-chain asset transfers 
   All paths in this reference are relative to the base URL. A mainnet base URL will be provided separately. Contact the Utexo team for production endpoint access.
 </Info>
 
-The API is stateless and JSON-based. No authentication header is required for read operations. Write operations (`POST`) use an authentication signature embedded in the request body (see [Authentication](#authentication)).
+The API is stateless and JSON-based. No authentication header is required. `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction` authenticate callers with signature fields embedded in the request body (see [Authentication](#authentication)).
 
 ---
 
@@ -21,9 +23,13 @@ The API is stateless and JSON-based. No authentication header is required for re
 
 Understanding the transfer direction is essential before making any API calls. The API supports two directions:
 
-### EVM → RGB
+<Info>
+  **RGB and Lightning destinations:** The RGB-side destination is selected by `networkId`. Use `36` (mainnet) or `91` (testnet) for plain RGB, and `94` (mainnet) or `95` (testnet) for RGB Lightning. The destination accepts an RGB invoice (`rgb:…`) for plain RGB or a Lightning invoice string for RGB Lightning. Network ID `96` identifies Utexo and is not a Lightning network ID.
+</Info>
 
-Move assets from an EVM network (e.g., Arbitrum) to an RGB wallet.
+### EVM → RGB or RGB Lightning
+
+Move assets from an EVM network to a plain RGB or RGB Lightning destination.
 
 <Steps>
   <Step title="Discover networks and tokens">
@@ -38,7 +44,7 @@ Move assets from an EVM network (e.g., Arbitrum) to an RGB wallet.
     `POST /transfers/bridge-in-signature` — pre-register the transfer. Returns a `transferId`, fee estimation, and an empty signature (`0x`).
   </Step>
   <Step title="Call fundsIn() on the EVM contract">
-    The user calls `fundsIn()` directly on the EVM mint contract using the data returned in Step 3. This step happens **client-side** — the API does not broadcast this transaction.
+    The user calls `fundsIn()` directly on the EVM bridge contract using the data returned in Step 3. This step happens **client-side** — the API does not broadcast this transaction.
   </Step>
   <Step title="Confirm the transaction">
     `POST /transfers/verify-bridge-in` — notify the mint with the on-chain tx hash to confirm the transfer.
@@ -46,14 +52,14 @@ Move assets from an EVM network (e.g., Arbitrum) to an RGB wallet.
   <Step title="Poll transfer status">
     `GET /transfers/{tx}` — poll using the triggering tx hash until the transfer reaches a terminal status (`FINISHED`, `CANCELLED`, or `FAILED`).
   </Step>
-  <Step title="Retrieve RGB invoice (optional)">
-    `GET /transfers/invoice/{tx-id}/{network-id}` — fetch the RGB invoice string associated with the transfer.
+  <Step title="Retrieve destination invoice (optional)">
+    `GET /transfers/invoice/{tx-id}/{network-id}` — fetch the RGB or Lightning invoice selected by `network-id`.
   </Step>
 </Steps>
 
-### RGB → EVM
+### RGB or RGB Lightning → EVM
 
-Move assets from an RGB wallet to an EVM network.
+Move assets from a plain RGB or RGB Lightning wallet to an EVM network.
 
 <Steps>
   <Step title="Discover networks and tokens">
@@ -63,13 +69,13 @@ Move assets from an RGB wallet to an EVM network.
     Same as EVM → RGB Step 2.
   </Step>
   <Step title="Pre-register the transfer">
-    `POST /transfers/bridge-in-signature` — returns an **RGB invoice string** in the `signature` field. This invoice is what the user sends assets to.
+    `POST /transfers/bridge-in-signature` — returns the invoice for the selected RGB-side network in the `signature` field: an RGB invoice for plain RGB or a Lightning invoice for RGB Lightning.
   </Step>
   <Step title="Send RGB assets">
-    The user sends RGB assets to the invoice string returned in Step 3 using their RGB wallet.
+    The user pays the invoice string returned in Step 3 with the wallet appropriate for the selected RGB or RGB Lightning network.
   </Step>
   <Step title="Confirm the transfer">
-    `POST /transfers/verify-mint-in` — notify the mint that the RGB send has been completed.
+    `POST /transfers/verify-bridge-in` — notify the mint that the RGB or Lightning invoice payment has been completed.
   </Step>
   <Step title="Poll transfer status">
     `GET /transfers/{tx}` — poll for status as in the EVM → RGB flow.
@@ -80,14 +86,14 @@ Move assets from an RGB wallet to an EVM network.
 
 ## Authentication
 
-Read-only endpoints (all `GET` requests) require no authentication.
+Read-only endpoints (all `GET` requests) and `POST /transfers/bridge-in-signature` require no authentication header.
 
-The `POST /transfers/verify-mint-in` endpoint validates the caller's identity using a cryptographic signature embedded in the request body:
+The `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction` endpoints validate the caller's identity using a cryptographic signature embedded in the request body:
 
 | Field | Description |
 | --- | --- |
 | `authenticationSignature` | Hex-encoded signature proving ownership of the sender address |
-| `publicKey` | Hex-encoded public key or address of the sender |
+| `publicKey` | Sender address or public key encoded for `networkId` |
 
 A `401` response indicates an invalid authentication signature. A `403` response indicates the derived sender address does not match the pre-registered transfer.
 
@@ -103,13 +109,14 @@ A `401` response indicates an invalid authentication signature. A `403` response
 
 #### `GET /networks` — List Connected Networks
 
-Returns all connected networks. Optionally filter by token or name.
+Returns all connected networks. Optionally filter by token, source network, or name.
 
 **Query Parameters**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `token-id` | `integer` | No | Filter results to networks that support this token ID |
+| `token-id` | `integer` | No | Filter results to networks that support this token ID. Cannot be combined with `source-network-id`. |
+| `source-network-id` | `integer` | No | Return networks supported by the specified source network. Cannot be combined with `token-id`. |
 | `search` | `string` | No | Filter results by network name (partial match) |
 
 **Response `200`** — Array of `Network` objects
@@ -117,10 +124,11 @@ Returns all connected networks. Optionally filter by token or name.
 ```json
 [
   {
-    "id": 1,
-    "name": "arbitrum",
-    "type": "EVM",
-    "mintContract": "0x...",
+    "id": 84,
+    "name": "ARBITRUM-ONE",
+    "displayName": "Arbitrum One",
+    "type": "NT_EVM",
+    "bridgeContract": "0x...",
     "gasLimit": 200000,
     "iconLink": "https://...",
     "active": true,
@@ -187,6 +195,28 @@ Balance as a human-readable decimal string in token units (e.g., `"100.50"`).
 
 ---
 
+#### `GET /networks/{network-id}/fetch-user-tokens/{user-address}` — Fetch User Multitokens
+
+Requests the gateway to fetch the user's multitoken holdings for the specified network and address.
+
+**Path Parameters**
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `network-id` | `integer` | Yes | Network ID. The handler validates that the ID is registered. |
+| `user-address` | `string` | Yes | User address encoded for the selected network. |
+
+**Response `200`** — Empty body. The current handler writes no JSON response on success.
+
+**Error Responses**
+
+| Status | Meaning |
+| --- | --- |
+| `400` | Invalid network ID or user address |
+| `500` | The gateway could not fetch the user's multitokens |
+
+---
+
 ### Transfers
 
 #### `GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}` — Estimate Transfer Fees
@@ -197,7 +227,7 @@ Returns a fee and confirmation time estimate for a proposed transfer. Call this 
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `sender-network` | `string` | Yes | Sender network name (e.g., `arbitrum`, `rgb`) |
+| `sender-network` | `string` | Yes | Sender network name (e.g., `ARBITRUM-ONE`, `RGB`) |
 | `recipient-network` | `string` | Yes | Recipient network name |
 | `token-id` | `integer` | Yes | Token ID — the same token is bridged on both sides |
 | `amount` | `string` | Yes | Human-readable amount (e.g., `100.5`) |
@@ -244,24 +274,24 @@ Returns a fee and confirmation time estimate for a proposed transfer. Call this 
 
 Pre-registers a transfer and returns the data needed for the user to initiate the on-chain action.
 
-- **EVM → RGB**: Returns `transferId`, fee `estimation`, and an empty `signature` field (`0x`). The user then calls `fundsIn()` on the EVM bridge contract.
-- **RGB → EVM**: Returns an RGB invoice string in the `signature` field. The user sends RGB assets to this invoice.
+- **EVM → RGB or RGB Lightning**: Returns `transferId`, fee `estimation`, and an empty `signature` field (`0x`). The user then calls `fundsIn()` on the EVM bridge contract.
+- **RGB or RGB Lightning → EVM**: Returns the invoice string for the selected RGB-side network in the `signature` field. The user pays that RGB or Lightning invoice.
 
 **Request Body** — `BridgeInSignatureRequest`
 
 ```json
 {
   "sender": {
-    "networkId": 1,
-    "networkName": "arbitrum",
+    "networkId": 84,
+    "networkName": "ARBITRUM-ONE",
     "address": "0xYourEvmAddress"
   },
   "tokenId": 42,
   "amount": "100.5",
   "destination": {
-    "networkId": 2,
-    "networkName": "rgb",
-    "address": "your-rgb-address"
+    "networkId": 36,
+    "networkName": "RGB",
+    "address": "rgb:..."
   },
   "additionalAddresses": []
 }
@@ -300,9 +330,30 @@ Pre-registers a transfer and returns the data needed for the user to initiate th
 | `deadline` | EVM: UNIX timestamp expiry. RGB: always `"0"` |
 | `nonce` | Nonce for the EVM bridge contract call |
 | `transferId` | Internal transfer ID — store this for use in `verify-bridge-in` |
-| `signature` | EVM → RGB: `"0x"` (empty). RGB → EVM: RGB invoice string |
+| `signature` | EVM → RGB/RGB Lightning: `"0x"` (empty). RGB/RGB Lightning → EVM: RGB or Lightning invoice string selected by destination network ID |
 | `transferType` | Transfer routing type — see [Transfer Types](#transfer-types) |
 | `totalCommission` | Total commission in smallest token units |
+
+---
+
+#### `GET /transfers/cancel-signature/{transfer-id}/{network-id}/{signature}/{public-key}` — Request Cancellation Signature
+
+The route is registered, but cancellation is currently unavailable. The handler returns `501 Not Implemented` before parsing any path parameters or producing a cancellation signature.
+
+**Path Parameters**
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `transfer-id` | `integer` | Yes | Reserved transfer ID segment; not currently parsed |
+| `network-id` | `integer` | Yes | Reserved network ID segment; not currently parsed |
+| `signature` | `string` | Yes | Reserved signature segment; not currently parsed |
+| `public-key` | `string` | Yes | Reserved public key segment; not currently parsed |
+
+**Response `501`** — Standard error envelope with the message `cancelling is unavailable`.
+
+<Warning>
+  Do not build a cancellation flow against this endpoint until the handler is enabled.
+</Warning>
 
 ---
 
@@ -311,7 +362,7 @@ Pre-registers a transfer and returns the data needed for the user to initiate th
 Notifies the bridge that the user has completed the on-chain or off-chain send action. Must be called after:
 
 - The EVM `fundsIn()` transaction is broadcast (EVM → RGB), or
-- The RGB asset send to the invoice is complete (RGB → EVM)
+- The RGB or Lightning invoice payment is complete (RGB/RGB Lightning → EVM)
 
 **Request Body** — `VerifyBridgeInRequest`
 
@@ -329,7 +380,7 @@ Notifies the bridge that the user has completed the on-chain or off-chain send a
 | --- | --- | --- | --- |
 | `transferId` | `integer` | Yes | Transfer ID from `bridge-in-signature` response |
 | `networkId` | `integer` | Yes | Sender's network ID |
-| `txHash` | `string` | Yes (EVM) | Hex-encoded tx hash **without**`0x` prefix. May be empty for RGB. |
+| `txHash` | `string` | Conditional | Network-encoded transaction hash. May be empty when the RGB-side confirmation has no transaction hash to submit. |
 | `publicKey` | `string` | Yes | Sender public key or address |
 | `authenticationSignature` | `string` | Yes | Hex-encoded signature proving address ownership |
 
@@ -342,6 +393,49 @@ Notifies the bridge that the user has completed the on-chain or off-chain send a
 | `401` | Authentication signature is invalid |
 | `403` | Sender address derived from the signature does not match the pre-registered transfer |
 | `500` | Internal server error |
+
+---
+
+#### `POST /transfers/submit-transaction` — Submit Signed Transaction
+
+Submits signed transaction data for a pre-registered transfer and returns the resulting transaction hash.
+
+**Request Body**
+
+```json
+{
+  "transferId": 1024,
+  "networkId": 26,
+  "txData": "base64-encoded-transaction",
+  "publicKey": "sender-address-or-public-key",
+  "authenticationSignature": "hex-encoded-signature"
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `transferId` | `integer` | Yes | Transfer ID from `POST /transfers/bridge-in-signature` |
+| `networkId` | `integer` | Yes | Network on which the transaction is submitted |
+| `txData` | `string` | Conditional | Base64-encoded signed transaction data. Non-empty data is currently accepted only for Bitcoin and Concordium network types. |
+| `publicKey` | `string` | Yes | Sender address or public key encoded for `networkId` |
+| `authenticationSignature` | `string` | Yes | Hex-encoded signature proving sender ownership |
+
+**Response `200`**
+
+```json
+{
+  "txHash": "network-encoded-transaction-hash"
+}
+```
+
+**Error Responses**
+
+| Status | Meaning |
+| --- | --- |
+| `400` | Invalid network, sender address, signature encoding, transaction encoding, or unsupported non-empty `txData` network type |
+| `401` | Authentication signature is invalid |
+| `403` | Sender address does not match the pre-registered transfer |
+| `500` | Transaction submission failed |
 
 ---
 
@@ -366,12 +460,12 @@ Returns the current state of a transfer identified by its triggering transaction
     "commission": "0.6",
     "status": "FINISHED",
     "createdAt": "2026-06-18T09:00:00Z",
-    "sender": { "networkId": 1, "networkName": "arbitrum", "address": "0x..." },
-    "recipient": { "networkId": 2, "networkName": "rgb", "address": "..." },
+    "sender": { "networkId": 84, "networkName": "ARBITRUM-ONE", "address": "0x..." },
+    "recipient": { "networkId": 36, "networkName": "RGB", "address": "rgb:..." },
     "senderToken": { "id": 42, "shortName": "USDT", "longName": "Tether USD", "iconLink": "..." },
     "recipientToken": { ... },
-    "triggeringTx": { "networkName": "arbitrum", "hash": "abc123..." },
-    "outboundTx": { "networkName": "rgb", "hash": "def456..." }
+    "triggeringTx": { "networkName": "ARBITRUM-ONE", "hash": "abc123..." },
+    "outboundTx": { "networkName": "RGB", "hash": "def456..." }
   }
 ]
 ```
@@ -427,16 +521,16 @@ Returns a paginated list of transfers associated with a user's address. Identity
 
 ---
 
-#### `GET /transfers/invoice/{tx-id}/{network-id}` — Get RGB Invoice
+#### `GET /transfers/invoice/{tx-id}/{network-id}` — Get RGB or Lightning Invoice
 
-Returns the RGB invoice string associated with a completed or pending transfer. RGB-specific.
+Returns the invoice associated with a completed or pending transfer. The `network-id` selects plain RGB (`36` mainnet, `91` testnet) or RGB Lightning (`94` mainnet, `95` testnet).
 
 **Path Parameters**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `tx-id` | `integer` | Yes | Internal transfer ID (from `bridge-in-signature` response) |
-| `network-id` | `integer` | Yes | RGB network ID |
+| `network-id` | `integer` | Yes | RGB or RGB Lightning network ID |
 
 **Response `200`** — `InvoiceResponse`
 
@@ -445,6 +539,8 @@ Returns the RGB invoice string associated with a completed or pending transfer. 
   "invoice": "rgb:..."
 }
 ```
+
+For an RGB Lightning network ID, `invoice` contains the Lightning invoice string instead.
 
 ---
 
@@ -506,9 +602,10 @@ All endpoints return a consistent error envelope on failure.
 
 ```json
 {
-  "id": 1,
-  "name": "arbitrum",
-  "type": "EVM",
+  "id": 84,
+  "name": "ARBITRUM-ONE",
+  "displayName": "Arbitrum One",
+  "type": "NT_EVM",
   "bridgeContract": "0x...",
   "gasLimit": 200000,
   "iconLink": "https://...",
@@ -540,7 +637,7 @@ The following items require validation from the Utexo engineering or product tea
 
 1. **Authentication signing procedure** — The message format and signing algorithm for `authenticationSignature` are not defined in the Swagger spec. Developers cannot implement `verify-bridge-in` or `history` without this information.
 2. **`transferType` enum semantics** — The values `LP`, `WU`, `CCTP`, `NTV`, `MLT`, `BDXS`, `LPN` appear in the spec enum but are not described. If transfer type affects the caller's required behavior (e.g., approvals, contract calls), this must be documented.
-3. **`additionalAddresses` field** — Present in `MintInSignatureRequest` but its purpose and expected values are undocumented. Needs clarification.
+3. **`additionalAddresses` field** — Present in `BridgeInSignatureRequest` but its purpose and expected values are undocumented. Needs clarification.
 4. **Mainnet base URL** — The current spec host is empty; `transfer.dev.utexo.com` is the dev/testnet environment. The production base URL must be published before this reference goes external.
 5. **`SupportedTokensResponse` PascalCase fields** — Confirmed from the spec (`NOTE: fields are PascalCase`). This is an unusual JSON convention and should be explicitly called out in SDK wrappers or normalized in a future API version.
 
@@ -553,222 +650,8 @@ The following items require validation from the Utexo engineering or product tea
 | **RGB** | A client-side validated smart contract protocol built on Bitcoin. Assets are issued and transferred using Bitcoin UTXOs as state anchors. |
 | **RGB Invoice** | A blinded payment request string used to receive RGB assets. Contains blinded UTXO data to preserve receiver privacy. |
 | **EVM** | Ethereum Virtual Machine — the execution environment used by Arbitrum and other compatible chains. |
-| **Mint Contract** | The EVM smart contract that locks or releases assets on the EVM side of a cross-chain transfer. |
-| **`fundsIn()`** | The method on the EVM mint contract the sender calls to deposit assets for minting. |
-| **transferId** | The mint's internal identifier for a pre-registered transfer. Used in `verify-mint-in` and invoice retrieval. |
+| **Bridge Contract** | The EVM smart contract that locks or releases assets on the EVM side of a cross-chain transfer. |
+| **`fundsIn()`** | The method on the EVM bridge contract the sender calls to deposit assets for minting. |
+| **transferId** | The mint's internal identifier for a pre-registered transfer. Used in `verify-bridge-in` and invoice retrieval. |
 | **Triggering Tx** | The on-chain transaction that initiates the mint — the EVM deposit tx (EVM → RGB) or the RGB send (RGB → EVM). |
 | **UTXO** | Unspent Transaction Output — the fundamental unit of Bitcoin accounting. RGB asset state is anchored to UTXOs. |
-
----
-
-## Endpoint Reference
-
-All endpoints are relative to the base URL (`https://transfer.dev.utexo.com/api/v0`).
-
----
-
-### GET /networks
-
-**Summary:** List connected networks
-
-Returns all connected networks. If `token-id` is set, returns only networks supporting that token. If `search` is set, filters by network name.
-
-**Query Parameters**
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `token-id` | integer | Filter by token ID |
-| `search` | string | Filter by network name |
-
-**Response 200**
-
-Returns an array of `Network` objects.
-
-```json
-[
-  {
-    "id": 42161,
-    "name": "Arbitrum One",
-    "type": "EVM"
-  }
-]
-```
-
----
-
-### GET /networks/{id}/supported-tokens
-
-**Summary:** List supported tokens for a network
-
-Returns all tokens supported on the given network.
-
-**Path Parameters**
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `id` | integer | Network ID |
-
-**Query Parameters**
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `search` | string | Filter by token name |
-
-**Response 200**
-
-Returns a `SupportedTokensResponse` object. Note: response fields are PascalCase.
-
-```json
-{
-  "Tokens": [
-    {
-      "Id": 1,
-      "Name": "USDT",
-      "ContractAddress": "0x..."
-    }
-  ]
-}
-```
-
----
-
-### GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}
-
-**Summary:** Estimate transfer fees
-
-Returns a fee and confirmation time estimate before committing to a transfer.
-
-**Path Parameters**
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `sender-network` | integer | Source network ID |
-| `recipient-network` | integer | Destination network ID |
-| `token-id` | integer | Token ID to transfer |
-| `amount` | string | Transfer amount |
-
-**Response 200**
-
-Returns a `TransferEstimate` object with fee and timing information.
-
----
-
-### POST /transfers/bridge-in-signature
-
-**Summary:** Pre-register an EVM to RGB transfer
-
-Pre-registers the transfer on the mint. Returns a `transferId`, fee estimation, and an empty EVM signature (`0x`) that the caller must populate before calling `fundsIn()` on the EVM mint contract.
-
-**Request Body** (`application/json`)
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `authenticationSignature` | string | Yes | Authentication signature (see [Authentication](#authentication)) |
-| `senderAddress` | string | Yes | EVM sender address |
-| `recipientInvoice` | string | Yes | RGB invoice from the recipient's wallet |
-| `networkId` | integer | Yes | Source EVM network ID |
-| `tokenId` | integer | Yes | Token ID to transfer |
-| `amount` | string | Yes | Transfer amount |
-| `additionalAddresses` | array | No | Additional addresses (purpose TBD - contact Utexo team) |
-
-**Response 200**
-
-Returns a `MintInSignatureResponse` with the `transferId` and EVM call data.
-
-```json
-{
-  "transferId": "abc123",
-  "signature": "0x",
-  "feeEstimate": "0.001"
-}
-```
-
----
-
-### POST /transfers/verify-bridge-in
-
-**Summary:** Confirm an EVM to RGB transfer
-
-Notifies the mint with the on-chain EVM transaction hash after the user has called `fundsIn()`. The mint validates the transaction and initiates the RGB asset transfer.
-
-**Request Body** (`application/json`)
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `authenticationSignature` | string | Yes | Authentication signature |
-| `transferId` | string | Yes | Transfer ID from `POST /transfers/bridge-in-signature` |
-| `txHash` | string | Yes | EVM transaction hash of the `fundsIn()` call |
-
-**Response 200**
-
-Returns confirmation of receipt.
-
----
-
-### GET /transfers/{tx}
-
-**Summary:** Poll transfer status
-
-Returns the current status of a transfer by its triggering transaction hash.
-
-**Path Parameters**
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `tx` | string | Triggering transaction hash |
-
-**Response 200**
-
-Returns a `TransferStatus` object.
-
-```json
-{
-  "status": "pending",
-  "transferId": "abc123"
-}
-```
-
----
-
-### GET /transfers/invoice/{tx-id}/{network-id}
-
-**Summary:** Get RGB invoice for RGB to EVM transfer
-
-Generates an RGB invoice that the sender uses to initiate an RGB to EVM transfer. The invoice encodes the blinded UTXO and transfer parameters.
-
-**Path Parameters**
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `tx-id` | string | Transfer ID |
-| `network-id` | integer | Destination EVM network ID |
-
-**Response 200**
-
-Returns an `InvoiceResponse` containing the RGB invoice string.
-
-```json
-{
-  "invoice": "rgb:..."
-}
-```
-
----
-
-### POST /transfers/verify-bridge-in
-
-**Summary:** Confirm an RGB to EVM transfer
-
-Confirms an RGB to EVM transfer after the sender has broadcast the RGB transaction. Provide the RGB send transaction details so the mint can verify and release EVM-side assets.
-
-**Request Body** (`application/json`)
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `authenticationSignature` | string | Yes | Authentication signature |
-| `transferId` | string | Yes | Transfer ID |
-| `rgbTxData` | string | Yes | Signed RGB transaction data |
-
-**Response 200**
-
-Returns confirmation of receipt.
