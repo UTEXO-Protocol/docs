@@ -1,37 +1,37 @@
 ---
 title: "RGB Node API"
-sidebarTitle: "RGB Node API"
-description: "REST API reference for the RGB Node — a standalone, watch-only wallet service for RGB asset management on Bitcoin."
 ---
 
 ## Overview
 
-The RGB Node API is a standalone HTTP service for managing **watch-only** RGB wallets. The service holds no private keys and never signs transactions — it is designed to be a semi-public API.
-
-Clients register watch-only wallets using their xPubs, read wallet state, and use the `begin`/`end` flow to sign PSBTs client-side.
+The RGB Node API is a self-hosted HTTP service for managing watch-only RGB wallets. It holds no private keys and never signs transactions. Clients identify wallet contexts with xPubs, read wallet state, and sign PSBTs outside the service.
 
 <Info>
-  Swagger UI is available at `/_swagger` when the server is running locally.
+  Source repository: [`UTEXO-Protocol/rgb-node-api`](https://github.com/UTEXO-Protocol/rgb-node-api). Swagger UI is available at `/_swagger` when the service is running.
 </Info>
+
+<Warning>
+  The wallet headers identify a wallet; they are not an authentication mechanism. Place the service behind TLS and an authentication or private-network layer before using it in production.
+</Warning>
 
 ## Base URL
 
-By default, the service runs at:
+The listen address and port are set in the TOML configuration file passed with `-c`.
+
+If the `[api]` values are omitted, the service defaults to `127.0.0.1:3000`. The repository's bundled `local.uwallet.toml` development profile listens on `0.0.0.0:34000`, so local requests can use:
 
 ```text
 http://127.0.0.1:34000
 ```
 
-The listen address and port are configured in your `config.toml` file.
+## Wallet identification headers
 
-## Authentication
-
-All `/wallet/` endpoints authenticate via three required **request headers**. Wallets are registered at runtime and are never stored in the config file.
+All `/wallet/` endpoints require three request headers. The deprecated root-level `POST /blindreceive` alias requires the same headers.
 
 | Header | Description |
 | --- | --- |
-| `xpub-van` | Vanilla xPub (for BTC UTXOs) |
-| `xpub-col` | Colored xPub (for RGB-colored UTXOs) |
+| `xpub-van` | Vanilla xPub for BTC UTXOs |
+| `xpub-col` | Colored xPub for RGB-capable UTXOs |
 | `master-fingerprint` | BIP32 master fingerprint |
 
 ```bash
@@ -41,9 +41,11 @@ curl -X POST http://127.0.0.1:34000/wallet/listassets \
   -H "master-fingerprint: <your-fingerprint>"
 ```
 
+Wallet contexts are registered at runtime through `POST /wallet/register`; they are not declared in the configuration file.
+
 ## Configuration
 
-The service is configured via a `.toml` file:
+Create a TOML configuration file and pass its path with `-c`:
 
 ```toml
 [api]
@@ -60,91 +62,102 @@ indexer_address = "tcp://127.0.0.1:50001"
 proxy_address = ["rpc://127.0.0.1:3000/json-rpc"]
 ```
 
-## Running the Service
+The repository ships `local.uwallet.toml` for local development. The `just run` command passes that file to the service automatically.
+
+## Running the service
+
+Run the service with your configuration file:
 
 ```bash
 cargo run -- -c config.toml
 ```
 
-For local development, a regtest stack (bitcoind \+ electrs \+ rgb-proxy) is available:
+For local development, start the bundled regtest stack and then the service:
 
 ```bash
-just up   # start the regtest stack
-just run  # start the service with local.uwallet.toml
+just up
+just run
 ```
 
-## The Begin / End Signing Flow
+`just up` starts `bitcoind`, `electrs`, and `rgb-proxy`. `just run` starts RGB Node with `local.uwallet.toml`.
 
-For operations that require a Bitcoin transaction, the API uses a two-step PSBT signing flow:
+## Begin/end signing flow
+
+UTXO creation and RGB asset sends use a client-side PSBT flow:
 
 <Steps>
   <Step title="Call the *begin endpoint">
-    Submit the operation parameters. The server returns an **unsigned PSBT** string.
+    Submit the operation parameters. The service returns an unsigned PSBT string.
   </Step>
-  <Step title="Sign the PSBT client-side">
-    The client signs the PSBT using their private keys. The server never sees or holds private keys.
+  <Step title="Sign the PSBT outside RGB Node">
+    Sign with the wallet's private keys in the client or a dedicated signer. Private keys are never sent to RGB Node.
   </Step>
-  <Step title="Call the *end endpoint">
-    Submit the **signed PSBT** back to the server. The server finalizes and broadcasts the transaction.
+  <Step title="Call the matching *end endpoint">
+    Submit the signed PSBT. RGB Node finalizes and broadcasts the transaction.
   </Step>
 </Steps>
 
-## API Endpoints
+## API endpoints
 
 ### System
 
-No authentication required.
+These endpoints do not require wallet-identification headers.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/healthcheck` | Service liveness check |
-| `GET` | `/version` | App version info |
-| `GET` | `/_swagger` | Interactive Swagger UI (spec at `/_swagger/swagger.yaml`) |
+| `GET` | `/healthcheck` | Check service liveness |
+| `GET` | `/version` | Return application version information |
+| `GET` | `/_swagger` | Open Swagger UI |
+| `GET` | `/_swagger/swagger.yaml` | Retrieve the OpenAPI specification |
 
-### Wallet Management
-
-All endpoints below require the three wallet authentication headers.
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/wallet/register` | Register a watch-only wallet using xPubs |
-| `POST` | `/wallet/refresh` | Force wallet sync with the indexer |
-| `POST` | `/wallet/drop` | Remove wallet from memory |
-
-### Balance & State
+### Wallet management
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/wallet/address` | Get a receive address |
-| `POST` | `/wallet/btcbalance` | Get BTC balance (vanilla and colored) |
-| `POST` | `/wallet/listassets` | List all RGB assets held by the wallet |
-| `POST` | `/wallet/assetbalance` | Get balance for a specific RGB asset |
-| `POST` | `/wallet/listunspents` | List unspent outputs with RGB allocations |
-| `POST` | `/wallet/listtransactions` | List BTC transactions |
-| `POST` | `/wallet/listtransfers` | List RGB transfers for a specific asset |
+| `POST` | `/wallet/register` | Create or load a watch-only wallet context |
+| `POST` | `/wallet/refresh` | Synchronize wallet state |
+| `POST` | `/wallet/drop` | Remove a wallet context from memory |
 
-### Asset Operations
+### Balances and state
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/wallet/issueassetnia` | Issue a new NIA (Non-Inflatable Asset) |
-| `POST` | `/wallet/blindreceive` | Generate an RGB invoice to receive assets |
-| `POST` | `/wallet/failtransfers` | Mark pending transfers as failed |
+| `POST` | `/wallet/address` | Return a receive address |
+| `POST` | `/wallet/btcbalance` | Return vanilla and colored BTC balances |
+| `POST` | `/wallet/listassets` | List RGB assets held by the wallet |
+| `POST` | `/wallet/assetbalance` | Return the balance for one RGB asset |
+| `POST` | `/wallet/listunspents` | List UTXOs and RGB allocations |
+| `POST` | `/wallet/listtransactions` | List Bitcoin transactions |
+| `POST` | `/wallet/listtransfers` | List transfers for one RGB asset |
 
-### PSBT Signing Flow
+### Asset operations
+
+<Warning>
+  RGB Node supports NIA issuance only. For CFA or UDA issuance, use the RGB Lightning Node.
+</Warning>
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/wallet/createutxosbegin` | Create RGB UTXOs — returns unsigned PSBT |
-| `POST` | `/wallet/createutxosend` | Finalize UTXO creation with signed PSBT |
-| `POST` | `/wallet/sendbegin` | Initiate RGB asset send — returns unsigned PSBT |
-| `POST` | `/wallet/sendend` | Finalize asset send with signed PSBT |
+| `POST` | `/wallet/issueassetnia` | Issue an NIA (Non-Inflatable Asset) |
+| `POST` | `/wallet/blindreceive` | Generate a blinded RGB receive invoice |
+| `POST` | `/wallet/failtransfers` | Mark eligible transfers as failed |
 
-## Request & Response Schemas
+The root-level `POST /blindreceive` route is a deprecated alias for `POST /wallet/blindreceive` and should not be used in new integrations.
+
+### PSBT operations
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/wallet/createutxosbegin` | Build an unsigned PSBT for UTXO creation |
+| `POST` | `/wallet/createutxosend` | Finalize UTXO creation with a signed PSBT |
+| `POST` | `/wallet/sendbegin` | Build an unsigned RGB asset-send PSBT |
+| `POST` | `/wallet/sendend` | Finalize an asset send with a signed PSBT |
+
+## Request and response examples
 
 ### POST /wallet/register
 
-Registers a watch-only wallet. Authentication headers (`xpub-van`, `xpub-col`, `master-fingerprint`) are required.
+The request has no JSON body. Supply the three wallet-identification headers.
 
 **Response `200`:**
 
@@ -152,15 +165,21 @@ Registers a watch-only wallet. Authentication headers (`xpub-van`, `xpub-col`, `
 {
   "address": "bcrt1q...",
   "btc_balance": {
-    "vanilla": { "settled": 0, "future": 0, "spendable": 0 },
-    "colored": { "settled": 0, "future": 0, "spendable": 0 }
+    "vanilla": {
+      "settled": 0,
+      "future": 0,
+      "spendable": 0
+    },
+    "colored": {
+      "settled": 0,
+      "future": 0,
+      "spendable": 0
+    }
   }
 }
 ```
 
 ### POST /wallet/issueassetnia
-
-Issues a new NIA (Non-Inflatable Asset) RGB token.
 
 **Request body:**
 
@@ -180,17 +199,23 @@ Issues a new NIA (Non-Inflatable Asset) RGB token.
   "asset_id": "rgb1...",
   "ticker": "MYTKN",
   "name": "My Token",
+  "details": null,
   "precision": 0,
   "issued_supply": 1000000,
-  "balance": { "settled": 1000000, "future": 1000000, "spendable": 1000000 }
+  "timestamp": 1720000000,
+  "added_at": 1720000000,
+  "balance": {
+    "settled": 1000000,
+    "future": 1000000,
+    "spendable": 1000000
+  },
+  "media": null
 }
 ```
 
 ### POST /wallet/blindreceive
 
-Generates an RGB invoice to receive assets.
-
-A legacy root-level alias `POST /blindreceive` currently also works but is deprecated and will be removed.
+`asset_id`, `amount`, and `duration_seconds` are optional. `min_confirmations` defaults to `1`.
 
 **Request body:**
 
@@ -216,8 +241,6 @@ A legacy root-level alias `POST /blindreceive` currently also works but is depre
 
 ### POST /wallet/sendbegin
 
-Initiates an RGB asset send. Returns an unsigned PSBT for client-side signing.
-
 **Request body:**
 
 ```json
@@ -227,7 +250,9 @@ Initiates an RGB asset send. Returns an unsigned PSBT for client-side signing.
       {
         "recipient_id": "...",
         "amount": 100,
-        "transport_endpoints": ["rpc://127.0.0.1:3000/json-rpc"]
+        "transport_endpoints": [
+          "rpc://127.0.0.1:3000/json-rpc"
+        ]
       }
     ]
   },
@@ -237,11 +262,9 @@ Initiates an RGB asset send. Returns an unsigned PSBT for client-side signing.
 }
 ```
 
-**Response `200`:** Returns an unsigned PSBT string.
+**Response `200`:** An unsigned PSBT string.
 
 ### POST /wallet/sendend
-
-Finalizes the asset send with a signed PSBT.
 
 **Request body:**
 
@@ -260,17 +283,42 @@ Finalizes the asset send with a signed PSBT.
 }
 ```
 
-## Error Handling
+## Error handling
 
-Errors return an appropriate HTTP status (401 Unauthorized, 403 Forbidden, 500 Internal Error, 503 Service Unavailable) with a JSON body:
+The missing-header response is different from the API's structured error envelope:
+
+| Condition | HTTP status | Content type | Response shape |
+| --- | --- | --- | --- |
+| One or more wallet headers are missing | `401 Unauthorized` | Plain text | `Missing xpub-van/xpub-col/master-fingerprint header` |
+| JSON body cannot be deserialized | `422 Unprocessable Entity` | JSON | Structured `error` envelope with code `1001` |
+| RGB, indexer, Bitcoin RPC, storage, or wallet operation fails | `500 Internal Server Error` | JSON | Structured `error` envelope with code `500` |
+
+Structured errors use this envelope:
 
 ```json
 {
-  "code": 1001,
-  "status": "BadInput",
-  "message": "...",
-  "details": {}
+  "error": {
+    "code": 1001,
+    "status": "bad_input",
+    "message": "invalid json format",
+    "details": {
+      "body": "..."
+    }
+  }
 }
 ```
 
-`code` is an application-level error code. Codes ≥ 1000 indicate request problems, e.g. 1000 NotFound (no entity for the given params), 1001 BadInput, 1002 InvalidAddress. Codes matching HTTP statuses (401, 403, 500, 503) indicate auth or server-side failures.
+Most underlying RGB and dependency errors are currently collapsed to a generic internal error:
+
+```json
+{
+  "error": {
+    "code": 500,
+    "status": "internal_error",
+    "message": "something went wrong",
+    "details": {}
+  }
+}
+```
+
+The `401` missing-header response bypasses the JSON envelope. Clients should handle it separately.
