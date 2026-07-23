@@ -9,13 +9,15 @@ The **Utexo Mint API** is a network-agnostic REST interface for cross-network as
 
 USDT0 settles natively on Arbitrum, which acts as the hub; Ethereum, Tron, and Solana reach that hub through LayerZero. **Arbitrum is currently the only live network in this environment.**
 
+For now, the only tested and available route is Arbitrum (mainnet) to Bitcoin (Utexo signet). Bitcoin mainnet is not available yet.
+
 <Info>
   **Base URL (testnet / dev):** `https://transfer.dev.utexo.com/api/v0`
 
   All paths in this reference are relative to the base URL. A mainnet base URL will be provided separately. Contact the Utexo team for production endpoint access.
 </Info>
 
-The API is stateless and JSON-based. No authentication header is required. `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction` authenticate callers with signature fields embedded in the request body (see [Authentication](#authentication)).
+The API is stateless and JSON-based. GET requests need no authentication. The `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction` endpoints need a signature in the request body (see Authentication).
 
 ---
 
