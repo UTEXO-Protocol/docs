@@ -115,8 +115,8 @@
               {
                 "group": "RGB Node",
                 "pages": [
-                  "cloud/rgb-node/RGB-overview",
-                  "cloud/rgb-node/rgb-node-api"
+                  "cloud/rgb-node/overview",
+                  "cloud/rgb-node/api-reference"
                 ]
               }
             ]
