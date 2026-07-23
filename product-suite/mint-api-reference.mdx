@@ -361,7 +361,7 @@ The route is registered, but cancellation is currently unavailable. The handler 
 
 Notifies the bridge that the user has completed the on-chain or off-chain send action. Must be called after:
 
-- The EVM `fundsIn()` transaction is broadcast (EVM → RGB), or
+- The EVM `fundsIn()` transaction is broadcast (EVM → RGB/RGB Lightning), or
 - The RGB or Lightning invoice payment is complete (RGB/RGB Lightning → EVM)
 
 **Request Body** — `VerifyBridgeInRequest`
@@ -369,7 +369,7 @@ Notifies the bridge that the user has completed the on-chain or off-chain send a
 ```json
 {
   "transferId": 1024,
-  "networkId": 1,
+  "networkId": 84,
   "txHash": "abcdef1234...",
   "publicKey": "0xYourPublicKeyOrAddress",
   "authenticationSignature": "hex-encoded-signature"
@@ -447,7 +447,7 @@ Returns the current state of a transfer identified by its triggering transaction
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `tx` | `string` | Yes | Triggering tx hash, hex-encoded **without**`0x` prefix |
+| `tx` | `string` | Yes | Triggering tx hash, hex-encoded **without** `0x` prefix |
 
 **Response `200`** — Array of `Transfer` objects
 
@@ -497,7 +497,7 @@ Returns a paginated list of transfers associated with a user's address. Identity
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `signature-hex` | `string` | Yes | Hex-encoded signature proving address ownership |
-| `pub-key-hex` | `string` | Yes | Hex-encoded public key or address |
+| `pub-key-hex` | `string` | Yes | Public key or address encoded for the selected network |
 
 **Query Parameters**
 
@@ -592,8 +592,8 @@ All endpoints return a consistent error envelope on failure.
 
 ```json
 {
-  "networkId": 1,
-  "networkName": "arbitrum",
+  "networkId": 84,
+  "networkName": "ARBITRUM-ONE",
   "address": "0x..."
 }
 ```
@@ -653,5 +653,5 @@ The following items require validation from the Utexo engineering or product tea
 | **Bridge Contract** | The EVM smart contract that locks or releases assets on the EVM side of a cross-chain transfer. |
 | **`fundsIn()`** | The method on the EVM bridge contract the sender calls to deposit assets for minting. |
 | **transferId** | The mint's internal identifier for a pre-registered transfer. Used in `verify-bridge-in` and invoice retrieval. |
-| **Triggering Tx** | The on-chain transaction that initiates the mint — the EVM deposit tx (EVM → RGB) or the RGB send (RGB → EVM). |
+| **Triggering Tx** | The transaction or payment event that initiates the mint: the EVM deposit transaction for EVM → RGB/RGB Lightning, the RGB send for RGB → EVM, or the Lightning invoice payment for RGB Lightning → EVM. |
 | **UTXO** | Unspent Transaction Output — the fundamental unit of Bitcoin accounting. RGB asset state is anchored to UTXOs. |
