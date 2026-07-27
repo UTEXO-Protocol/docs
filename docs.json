@@ -130,6 +130,12 @@
             ]
           }
         ]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          "api-reference/overview"
+        ]
       }
     ]
   }
