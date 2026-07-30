@@ -23,7 +23,7 @@ description: "Initialize a mobile wallet and prepare an RGB transfer using @utex
 ## Step 1: Install the SDK
 
 ```bash
-npm install @utexo/rgb-sdk-rn
+npm install @utexo/rgb-sdk-rn react-native-fs
 ```
 
 For iOS, install the native dependencies after adding the package:
@@ -38,6 +38,7 @@ The package includes native bindings and is not interchangeable with the Node.js
 
 ```javascript
 import { generateKeys } from '@utexo/rgb-sdk-rn';
+
 
 const keys = await generateKeys('utexo');
 ```
@@ -55,8 +56,10 @@ import {
 } from '@utexo/rgb-sdk-rn';
 import RNFS from 'react-native-fs';
 
+
 const storageDirPath = `${RNFS.DocumentDirectoryPath}/utexo-wallet`;
 await RNFS.mkdir(storageDirPath);
+
 
 const password = await getPasswordFromSecureInput();
 const wallet = new UTEXOWallet(
@@ -69,6 +72,7 @@ const wallet = new UTEXOWallet(
   },
   new PasswordRLNSigner(password, keys.mnemonic)
 );
+
 
 await wallet.init();
 await wallet.unlock({});
@@ -108,9 +112,11 @@ await wallet.refreshWallet();
 const { nia } = await senderWallet.listAssets();
 const usdt = nia.find((asset) => asset.ticker === 'USDT');
 
+
 if (!usdt) {
   throw new Error('The sender wallet does not hold the requested NIA asset');
 }
+
 
 const usdtAssetId = usdt.assetId;
 const amount = 10 ** usdt.precision; // one displayed unit in base units
@@ -129,6 +135,7 @@ const receiveData = await wallet.blindReceive({
   minConfirmations: 1,
   durationSeconds: 3600,
 });
+
 
 console.log('RGB invoice:', receiveData.invoice);
 ```
@@ -149,6 +156,7 @@ const sendResult = await senderWallet.onchainSend({
   minConfirmations: 1,
 });
 
+
 console.log('Transfer transaction:', sendResult.txid);
 ```
 
@@ -160,10 +168,12 @@ The sender wallet must be a separately initialized `UTEXOWallet` with its own st
 await senderWallet.refreshWallet();
 await wallet.refreshWallet();
 
+
 const receiverAssets = await wallet.listAssets();
 const receivedAsset = receiverAssets.nia.find(
   (asset) => asset.assetId === usdtAssetId
 );
+
 
 console.log('Receiver asset balance:', receivedAsset?.balance);
 ```
@@ -180,9 +190,11 @@ const invoice = await wallet.createLightningInvoice({
   expirySeconds: 900,
 });
 
+
 const payment = await senderWallet.payLightningInvoice({
   lnInvoice: invoice.lnInvoice,
 });
+
 
 const status = await senderWallet.getLightningSendStatus(payment.txid);
 console.log('Lightning payment status:', status);

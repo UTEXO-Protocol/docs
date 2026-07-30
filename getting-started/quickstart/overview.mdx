@@ -4,11 +4,11 @@ sidebarTitle: "Overview"
 description: "Choose the Utexo SDK package and lifecycle for your application runtime."
 ---
 
-The Utexo SDK is available for Node.js, React Native, and browser applications. Choose the guide for your runtime before copying any initialization or payment code.
+The Utexo SDK has current React Native and Web packages, plus a legacy Node.js package whose source repository is archived. Choose the guide for your runtime before copying any initialization or payment code.
 
 <CardGroup cols={3}>
   <Card title="Node.js" icon="node-js" href="/getting-started/quickstart/node-js">
-    Server-side applications and backend services using `@utexo/rgb-sdk`.
+    Existing server-side applications using the legacy `@utexo/rgb-sdk` package.
   </Card>
 
   <Card title="React Native" icon="mobile" href="/getting-started/quickstart/react-native">
@@ -21,18 +21,18 @@ The Utexo SDK is available for Node.js, React Native, and browser applications. 
 </CardGroup>
 
 <Warning>
-  The three packages share models from `@utexo/rgb-sdk-core`, but they do not currently expose an identical runtime API. Constructors, lifecycle methods, and the on-chain send method differ by platform. Use the platform-specific guide and check the installed package version before integrating.
+  The [`@utexo/rgb-sdk` source repository](https://github.com/UTEXO-Protocol/rgb-sdk) was archived on July 28, 2026 and is read-only; its last committed package version is `1.0.0-beta.9`. The packages share models from `@utexo/rgb-sdk-core`, but they do not expose an identical runtime API. Use the platform-specific guide, check the installed package version, and verify support status before starting a new Node.js integration.
 </Warning>
 
 ## Platform API Differences
 
 | Package | Wallet startup | On-chain RGB send |
 | --- | --- | --- |
-| `@utexo/rgb-sdk` | Construct with a mnemonic and call `initialize()` | `send()` |
+| `@utexo/rgb-sdk` (legacy; source archived) | Construct with a mnemonic and call `initialize()` | `send()` |
 | `@utexo/rgb-sdk-rn` | Construct with node parameters and a signer, then call `init()` and `unlock()` | `onchainSend()` |
 | `@utexo/rgb-sdk-web` | Call `initRlnWasm()`, construct with one parameter object, then call `init()` and `unlock()` | `onchainSend()` |
 
-The Web and React Native packages implement the shared conformance contract. The Node.js package still uses its legacy wallet core, so do not substitute `onchainSend()` for `send()` in Node.js code unless the package is migrated and released with that API.
+The Web and React Native packages implement the shared conformance contract. The archived Node.js package uses its legacy wallet core, so do not substitute `onchainSend()` for `send()` in Node.js code.
 
 ## How RGB Transfers Work
 
@@ -57,9 +57,11 @@ All RGB state is validated client-side. The Bitcoin UTXO anchors the state trans
 const { nia } = await senderWallet.listAssets();
 const asset = nia.find((item) => item.ticker === 'USDT');
 
+
 if (!asset) {
   throw new Error('The sender wallet does not hold the requested NIA asset');
 }
+
 
 const assetId = asset.assetId;
 const oneDisplayUnit = 10 ** asset.precision;
@@ -69,13 +71,13 @@ A newly created receiver wallet will not discover an asset it has never received
 
 ## Lightning Payments
 
-The Web and React Native packages use `createLightningInvoice()`, `payLightningInvoice()`, and `getLightningSendStatus()`. Omit the `asset` field when creating a BTC-only invoice. The Node.js package currently retains its legacy status method; follow the Node.js guide for that package.
+The Web and React Native packages use `createLightningInvoice()`, `payLightningInvoice()`, and `getLightningSendStatus()`. Omit the `asset` field when creating a BTC-only invoice. The archived Node.js package retains its legacy status method; follow the Node.js guide for that package.
 
 Lightning payments also require usable peer and channel state. Wallet initialization alone does not create a channel or fund the node.
 
 ## Network Selection
 
-The hosted Web and React Native examples use the `utexo` network profile, which resolves to Utexo's signet infrastructure. Node.js currently uses its package-specific `testnet` profile. Do not reuse a constructor or endpoint configuration across packages without checking the platform implementation.
+The hosted Web and React Native examples use the `utexo` network profile, which resolves to Utexo's signet infrastructure. The archived Node.js package uses its package-specific `testnet` profile. Do not reuse a constructor or endpoint configuration across packages without checking the platform implementation.
 
 <Warning>
   Never use mainnet keys or real funds while following a Quickstart. Test and signet assets have no monetary value.

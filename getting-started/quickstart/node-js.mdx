@@ -8,9 +8,13 @@ description: "Initialize a server wallet and prepare an RGB transfer using @utex
   This guide covers Node.js server applications. For mobile, see the [React Native guide](/getting-started/quickstart/react-native). For browser applications, see the [Web guide](/getting-started/quickstart/web).
 </Info>
 
+<Warning>
+  The [`@utexo/rgb-sdk` source repository](https://github.com/UTEXO-Protocol/rgb-sdk) was archived on July 28, 2026 and is read-only. This guide documents the last committed package version, `1.0.0-beta.9`. Verify the package's support status before starting a new Node.js integration.
+</Warning>
+
 ## Prerequisites
 
-- Node.js 18 or later
+- Node.js 20, the version used by the package's publish and end-to-end workflows
 - Bitcoin test funds for transaction fees
 - A separately initialized sender wallet that already holds the RGB asset for an end-to-end transfer
 - Secure server-side storage for the mnemonic and wallet data
@@ -32,6 +36,7 @@ The package is designed for Node.js and uses filesystem and native cryptographic
 ```javascript
 const { generateKeys } = require('@utexo/rgb-sdk');
 
+
 const keys = await generateKeys('testnet');
 ```
 
@@ -39,21 +44,23 @@ Store the mnemonic securely. Do not log it in production or commit it to source 
 
 ## Step 3: Initialize the Wallet
 
-The current Node.js package retains its legacy constructor and lifecycle:
+The archived `1.0.0-beta.9` Node.js package retains its legacy constructor and lifecycle:
 
 ```javascript
 const { UTEXOWallet } = require('@utexo/rgb-sdk');
+
 
 const wallet = new UTEXOWallet(keys.mnemonic, {
   network: 'testnet',
   dataDir: './wallet-data',
 });
 
+
 await wallet.initialize();
 ```
 
 <Warning>
-  Do not copy the Web or React Native `init()` and `unlock()` lifecycle into this guide. The Node.js package has not yet migrated to that runtime surface.
+  Do not copy the Web or React Native `init()` and `unlock()` lifecycle into this guide. The archived Node.js source did not migrate to that runtime surface.
 </Warning>
 
 Use a persistent, access-controlled data directory. A mnemonic is necessary for key recovery, but it does not replace a backup of all wallet state required by RGB.
@@ -84,9 +91,11 @@ await wallet.refreshWallet();
 const { nia } = await senderWallet.listAssets();
 const usdt = nia.find((asset) => asset.ticker === 'USDT');
 
+
 if (!usdt) {
   throw new Error('The sender wallet does not hold the requested NIA asset');
 }
+
 
 const usdtAssetId = usdt.assetId;
 const amount = 10 ** usdt.precision; // one displayed unit in base units
@@ -106,6 +115,7 @@ const receiveData = await wallet.blindReceive({
   durationSeconds: 3600,
 });
 
+
 console.log('RGB invoice:', receiveData.invoice);
 ```
 
@@ -113,7 +123,7 @@ The `amount` is an integer in asset base units. One displayed unit equals `10 **
 
 ## Step 8: Send From the Funded Wallet
 
-The current Node.js package uses the legacy `send()` method.
+The archived Node.js package's `1.0.0-beta.9` API uses the legacy `send()` method.
 
 ```javascript
 const sendResult = await senderWallet.send({
@@ -124,6 +134,7 @@ const sendResult = await senderWallet.send({
   feeRate: 7,
   minConfirmations: 1,
 });
+
 
 console.log('Transfer transaction:', sendResult.txid);
 ```
@@ -136,10 +147,12 @@ The sender wallet must be a separately initialized `UTEXOWallet` with sufficient
 await senderWallet.refreshWallet();
 await wallet.refreshWallet();
 
+
 const receiverAssets = await wallet.listAssets();
 const receivedAsset = receiverAssets.nia.find(
   (asset) => asset.assetId === usdtAssetId
 );
+
 
 console.log('Receiver asset balance:', receivedAsset?.balance);
 ```
@@ -148,13 +161,13 @@ A transfer can remain pending while its consignment is delivered and its Bitcoin
 
 ## Lightning Payments
 
-The Node.js package currently depends on an older `@utexo/rgb-sdk-core` contract than the Web and React Native packages. Its Lightning request and status types therefore differ from the current cross-platform conformance interface.
+The archived `1.0.0-beta.9` Node.js package pins `@utexo/rgb-sdk-core` `1.0.0-beta.3`; the current Web and React Native packages pin `1.0.0-beta.5`. Its Lightning request and status types therefore differ from the current cross-platform conformance interface.
 
 <Warning>
   Do not copy the Web or React Native `getLightningSendStatus()` example into a Node.js integration without first checking the installed package's type declarations. Lightning also requires configured peer and channel state; wallet initialization alone does not make a payment route available.
 </Warning>
 
-This Quickstart does not include a Lightning code sample until the Node.js package migrates to the shared conformance contract or a version-pinned Node.js flow is maintained in the repository.
+This Quickstart does not include a Lightning code sample because the archived Node.js package does not implement the current conformance contract. Check the installed package's type declarations before building a version-pinned integration.
 
 ## Troubleshooting
 
