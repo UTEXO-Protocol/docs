@@ -75,35 +75,14 @@ The following steps describe a complete cross-chain transfer:
 | Network | Type | Direction |
 | --- | --- | --- |
 | Bitcoin (RGB layer) | Schnorr / Segwit | Inbound & Outbound |
-| Lightning | Schnorr / Segwit | Inbound & Outbound |
 | Arbitrum | EVM (secp256k1) | Inbound & Outbound |
-| Berachain | EVM (secp256k1) | Inbound & Outbound |
-| Celo | EVM (secp256k1) | Inbound & Outbound |
-| Conflux eSpace | EVM (secp256k1) | Inbound & Outbound |
-| Ethereum | EVM (secp256k1) | Inbound & Outbound |
-| Flare | EVM (secp256k1) | Inbound & Outbound |
-| Hedera | EVM (secp256k1) | Inbound & Outbound |
-| HyperCore | EVM (secp256k1) | Inbound & Outbound |
-| HyperEVM | EVM (secp256k1) | Inbound & Outbound |
-| Ink | EVM (secp256k1) | Inbound & Outbound |
-| Mantle | EVM (secp256k1) | Inbound & Outbound |
-| MegaETH | EVM (secp256k1) | Inbound & Outbound |
-| Monad | EVM (secp256k1) | Inbound & Outbound |
-| Morph | EVM (secp256k1) | Inbound & Outbound |
-| Optimism | EVM (secp256k1) | Inbound & Outbound |
 | Plasma | EVM (secp256k1) | Inbound & Outbound |
 | Polygon PoS | EVM (secp256k1) | Inbound & Outbound |
-| Rootstock | EVM (secp256k1) | Inbound & Outbound |
-| Sei | EVM (secp256k1) | Inbound & Outbound |
-| Solana | Sealevel (ed25519) | Inbound & Outbound |
-| Stable | EVM (secp256k1) | Inbound & Outbound |
-| Tempo | EVM (secp256k1) | Inbound & Outbound |
-| TON | TVM (ed25519) | Inbound & Outbound |
+| Ethereum | EVM (secp256k1) | Inbound & Outbound |
 | Tron | EVM (secp256k1) | Inbound & Outbound |
-| Unichain | EVM (secp256k1) | Inbound & Outbound |
-| XLayer | EVM (secp256k1) | Inbound & Outbound |
+| Lightning | Schnorr / Segwit | **Coming soon** |
 
-USDT from **Ethereum**, **Tron**, and **Solana** is supported at the user level via the USDT0 / LayerZero protocol, which handles conversion to USDT0 on Arbitrum transparently before the funds reach the Utexo Mint contract.
+Additional USDT0-supported networks can be enabled based on business need. See [USDT0's contract deployments](https://docs.usdt0.to/technical-documentation/deployments) for its current network coverage.
 
 ## Supported Assets
 
@@ -136,6 +115,6 @@ The Utexo Mint is designed so that assets cannot be stolen even if individual op
 
 ## Guide
 
-<Card title="Getting Started" icon="arrow-left-to-bracket" href="/product-suite/bridge-getting-started">
+<Card title="Getting Started" icon="arrow-left-to-bracket" href="/mint/getting-started">
   Mint USDT between Ethereum and the Bitcoin RGB layer.
 </Card>
