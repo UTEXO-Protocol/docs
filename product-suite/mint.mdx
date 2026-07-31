@@ -1,14 +1,14 @@
 ---
 title: "Mint"
 sidebarTitle: "Mint"
-description: "Cross-chain stablecoin transfers between EVM, Tron, Solana and the Bitcoin RGB layer."
+description: "Cross-chain stablecoin transfers between supported EVM networks, Tron and the Bitcoin RGB layer."
 ---
 
 <Frame>
   ![Screenshot 2026 06 25 At 12 32 00 1](/images/Screenshot-2026-06-25-at-12.32.00-1.png)
 </Frame>
 
-The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as USDT on Bitcoin. Minted USDT is represented as USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges or custodial intermediaries.
+The Utexo Mint is a cross-chain minting service that moves USDT between supported source networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from supported EVM networks or Tron is transparently converted to USDT0 on Arbitrum before being locked and minted as USDT on Bitcoin. Minted USDT is represented as USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges or custodial intermediaries.
 
 ## How It Works
 
@@ -67,8 +67,9 @@ The following steps describe a complete cross-chain transfer:
 2. User submits a `FundsIn` transaction on the Arbitrum smart contract, locking USDT0.
 3. The Arbitrum Connector detects the event and notifies the orchestrator.
 4. The orchestrator instructs the Bitcoin Connector to prepare a `FundsOut` PSBT.
-5. The Federated Signer Nodes validate the RGB consignment and SPV proof inside their enclaves; a threshold of nodes sign the PSBT using Taproot Schnorr.
-6. The signed transaction is broadcast to Bitcoin. Once confirmed, USDT on Bitcoin appears in the user's RGB wallet.
+5. The Bitcoin Connector creates and validates the RGB consignment and PSBT.
+6. The Federated Signer Nodes validate the signing payload; a threshold of nodes signs the PSBT using Taproot Schnorr.
+7. The signed transaction is broadcast to Bitcoin. Once confirmed, USDT on Bitcoin appears in the user's compatible RGB wallet.
 
 ## Supported Networks
 
@@ -88,8 +89,8 @@ Additional USDT0-supported networks can be enabled based on business need. See [
 
 | Asset | Source Network | Representation on Bitcoin |
 | --- | --- | --- |
-| USDT | Bitcoin (RGB layer), Lightning | USDT on Bitcoin |
-| USDT0 | Arbitrum (native Hub), other EVM, Tron, Solana (via bridge) | USDT on Bitcoin |
+| USDT | Bitcoin (RGB layer); Lightning (coming soon) | USDT on Bitcoin |
+| USDT0 | Arbitrum (native hub), Ethereum, Plasma, Polygon PoS, Tron | USDT on Bitcoin |
 
 ## Fees
 
