@@ -1,0 +1,41 @@
+---
+title: "Integration Overview"
+description: "Integrate Utexo Swap through the REST API, supported SDKs, and the recommended request sequence."
+sidebarTitle: "Overview"
+---
+
+## Overview
+
+Partners use the REST API to request quotes, create intents, submit approvals, and monitor execution. Utexo limits protected API access to approved integration partners.
+
+### Recommended request sequence
+
+1. Call `GET /healthcheck` to verify API availability.
+2. Discover supported networks with `GET /networks`.
+3. Discover supported assets with `GET /tokens`.
+4. Request pricing with `POST /quote`.
+5. Create an intent with `POST /intents`.
+6. Generate the approval required by `approvalMechanism`.
+7. Submit the signed approval with `POST /intents/{id}/approvals`.
+8. Monitor the intent and resulting swap until it reaches a terminal status.
+
+## Resources
+
+The source documentation identifies the following integration resources:
+
+- Swagger and Swagger UI for endpoint discovery and direct request testing.
+- TypeScript, Go, and Rust SDKs.
+- `@hot-pot/hotpot-sdk-ts` for the current TypeScript Permit2 helpers.
+
+<Warning>
+  The Swagger URL and SDK distribution links are not included in the source documentation. Obtain the current URLs and supported package versions from the Utexo team.
+</Warning>
+
+## Limitations and validation gaps
+
+- The production API host is not published in the source.
+- The source does not define API rate limits or recommended polling frequency.
+- Pagination limits, defaults, sort order, and final-page behavior are not documented for `GET /tokens` or `GET /swaps`.
+- Complete response schemas are not provided for `GET /tokens`, `POST /quote`, `POST /intents`, `POST /intents/{id}/approvals`, `GET /swaps`, or `POST /affiliates`.
+- The source names TypeScript, Go, and Rust SDKs but does not provide distribution links or a compatibility matrix.
+- The Bitcoin signing page refers to a Go SDK example, but the source page does not expose the example code.

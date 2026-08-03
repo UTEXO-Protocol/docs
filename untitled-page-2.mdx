@@ -1,0 +1,23 @@
+---
+title: "Authorization"
+description: "Authenticate protected Utexo Swap API requests with the API key assigned to your integration."
+sidebarTitle: "Authorization"
+---
+
+## API key authentication
+
+Send the assigned API key in the `X-API-Key` request header for every protected request:
+
+```http
+X-API-Key: API_KEY_PLACEHOLDER
+```
+
+Utexo rejects requests with a missing or invalid API key.
+
+<Warning>
+  The source documentation does not publish a production host. Its examples use `BASE_URL_PLACEHOLDER`, and the API base URL includes the `/v1` version prefix. Obtain the environment-specific base URL and API key from the Utexo team before integration.
+</Warning>
+
+## Request requirements
+
+Include `X-API-Key` on every protected endpoint. Utexo rejects requests with a missing or invalid key. Do not expose the API key in client-side applications or public repositories.

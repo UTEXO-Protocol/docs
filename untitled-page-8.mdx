@@ -1,0 +1,97 @@
+---
+title: "Swaps"
+description: "Retrieve swap history, inspect swap records, and interpret lifecycle states."
+sidebarTitle: "Swaps"
+---
+
+## Overview
+
+The Swaps API exposes historical records and detailed execution metadata for a specific intent.
+
+### `GET /swaps`
+
+Returns a paginated list of historical swaps.
+
+**Authentication:** `X-API-Key`
+
+| Query parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | integer | No | Maximum number of results to return. |
+| `offset` | integer | No | Number of results to skip. |
+| `status` | array | No | Filters by status. Repeat the parameter for multiple values. |
+| `network` | integer | No | Filters by network ID. |
+| `from` | long | No | Start of the range as a Unix timestamp in seconds. |
+| `to` | long | No | End of the range as a Unix timestamp in seconds. |
+| `token` | string | No | Filters by token contract address. |
+| `wallet` | array | No | Filters by wallet address. Repeat the parameter for multiple values. |
+| `retail-id` | string | No | Filters by retail ID. |
+
+```bash
+curl -X GET \
+  'BASE_URL_PLACEHOLDER/swaps?limit=10&offset=0&status=Initiated' \
+  -H 'accept: application/json' \
+  -H 'X-API-Key: API_KEY_PLACEHOLDER'
+```
+
+<Note>
+  The source does not define pagination limits, defaults, sort order, last-page behavior, or the complete list response schema.
+</Note>
+
+### `GET /swaps/{id}`
+
+Returns the swap associated with an intent ID.
+
+**Authentication:** `X-API-Key`
+
+| Path parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | Intent ID in UUID format. |
+
+| Response field | Type | Description |
+| --- | --- | --- |
+| `intentId` | string | Intent ID in UUID format. |
+| `sourceChain` | integer | Source network ID. |
+| `sourceToken` | object | Source token and amount data. |
+| `sourceToken.address` | string | Source token address or identifier. |
+| `sourceToken.amountLots` | string | Source amount in token lots. |
+| `sourceToken.decimals` | integer | Source token decimal precision. |
+| `destChain` | integer | Destination network ID. |
+| `destToken` | object | Destination token and amount-range data. |
+| `destToken.address` | string | Destination token address or identifier. |
+| `destToken.decimals` | integer | Destination token decimal precision. |
+| `destToken.maxAmountLots` | string | Maximum destination amount in token lots. |
+| `destToken.minAmountLots` | string | Minimum destination amount in token lots. |
+| `fees` | array | Affiliate fee records. |
+| `fees[].feeAmountDecimals` | integer | Fee amount decimal precision. |
+| `fees[].feeAmountLots` | string | Fee amount in token lots. |
+| `fees[].feeBps` | string | Fee in basis points. |
+| `fees[].networkId` | integer | Fee network ID. |
+| `fees[].status` | string | Fee status. |
+| `fees[].subAffiliateId` | string | Associated sub-affiliate ID. |
+| `fees[].token` | string | Fee token. |
+| `metadata` | object | Transaction references and lifecycle timestamps. |
+| `metadata.createdAt` | string | Swap creation timestamp. |
+| `metadata.fulfillTx` | string | Fulfillment transaction reference. |
+| `metadata.fulfilledAt` | string | Fulfillment timestamp. |
+| `metadata.proxyAddress` | string | Proxy address. |
+| `metadata.refundRequestedAt` | string | Refund-request timestamp. |
+| `metadata.refundedAt` | string | Refund timestamp. |
+| `metadata.swapTx` | string | Swap transaction reference. |
+| `metadata.swappedAt` | string | Swap transaction timestamp. |
+| `metadata.userDepositTx` | string | User-deposit transaction reference. |
+| `metadata.userDepositedAt` | string | User-deposit timestamp. |
+| `status` | enum | Current swap status. |
+
+## Status lifecycle
+
+| Status | Meaning |
+| --- | --- |
+| `Initiated` | Utexo created the intent. |
+| `ApprovalAdded` | Utexo received the required user approval. |
+| `Accepted` | A resolver accepted the swap. |
+| `Declined` | A resolver declined the swap. |
+| `UserDeposited` | The user deposited the source funds. |
+| `Fulfilled` | The resolver fulfilled the swap. |
+| `Expired` | The swap reached its expiration deadline. |
+| `RefundRequested` | The protocol recorded a refund request. |
+| `Refunded` | The protocol completed the refund path. |

@@ -1,0 +1,35 @@
+---
+title: "Approve for Permit2"
+description: "Grant the Permit2 contract sufficient ERC-20 allowance before submitting a signed intent approval."
+sidebarTitle: "Approve for Permit2"
+---
+
+## Overview
+
+Before submitting an off-chain Permit2 signature, grant the Permit2 contract sufficient allowance on the source ERC-20 token. The on-chain allowance transaction is separate from the signed approval submitted to the Utexo API.
+
+```ts
+import { ethers } from "ethers";
+
+const ERC20_ABI = [
+  "function approve(address spender, uint256 value) external returns (bool)",
+];
+
+async function approvePermit2(
+  tokenAddress: string,
+  permit2Address: string,
+  signer: ethers.Signer,
+): Promise<ethers.TransactionReceipt> {
+  const token = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+  const transaction = await token.approve(permit2Address, ethers.MaxUint256);
+  const receipt = await transaction.wait();
+
+  if (!receipt) {
+    throw new Error("The Permit2 approval transaction did not produce a receipt");
+  }
+
+  return receipt;
+}
+```
+
+Check the existing allowance before submitting a new approval transaction and wait for confirmation before signing the Permit2 payload.

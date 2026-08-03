@@ -1,0 +1,38 @@
+---
+title: "Wrap Native Tokens"
+description: "Wrap native blockchain assets into token contracts before Utexo Swap execution."
+sidebarTitle: "Wrap Native Tokens"
+---
+
+## Overview
+
+Utexo Swap interacts with token contracts rather than native blockchain assets. Wrap the native asset before execution—for example, wrap ETH into WETH on Ethereum—and use the wrapped-token contract address as `sourceToken`.
+
+```ts
+import { ethers } from "ethers";
+
+const WETH_ABI = ["function deposit() external payable"];
+
+async function wrapNative(
+  wrappedTokenAddress: string,
+  amount: bigint,
+  signer: ethers.Signer,
+): Promise<ethers.TransactionReceipt> {
+  const wrappedToken = new ethers.Contract(
+    wrappedTokenAddress,
+    WETH_ABI,
+    signer,
+  );
+
+  const transaction = await wrappedToken.deposit({ value: amount });
+  const receipt = await transaction.wait();
+
+  if (!receipt) {
+    throw new Error("The wrapping transaction did not produce a receipt");
+  }
+
+  return receipt;
+}
+```
+
+Confirm the wrapped-token contract address for the selected network. The wrapping transaction requires enough native currency for both the wrapped amount and network fees.

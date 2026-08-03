@@ -1,65 +1,57 @@
 ---
-title: "Swap"
-description: "Cross-chain BTC to RGB asset exchange on Bitcoin, powered by the HotPot protocol with intent-based execution and liquidity provider support."
-sidebarTitle: "Swap"
+title: "Swap Overview"
+description: "How Utexo coordinates resolver-based cross-chain swaps through RFQ pricing, signed intents, and non-custodial settlement."
+sidebarTitle: "Overview"
 ---
 
-The Utexo Swap DEX enables cross-chain exchange between native Bitcoin (BTC) and RGB-native assets including USDT on Bitcoin directly on the Bitcoin network. Swaps are executed via a decentralised intent-based system powered by the [HotPot protocol](https://docs.hotpot.tech/), an open liquidity layer that connects fragmented liquidity across multiple blockchains and coordinates quote requests, intent creation, and resolver execution across the swap lifecycle.
+## Overview
 
-## How It Works
+Utexo Swap provides execution infrastructure for wallets, applications, exchanges, and other integration partners. It coordinates cross-chain swaps through resolver-based request-for-quote (RFQ) pricing, signed intents, and chain-specific settlement mechanisms.
 
-Every swap involves two participants: the **user**, who initiates the swap, and the **resolver** (liquidity provider), who executes it.
-
-The swap process follows the HotPot user flow:
-
-| Step | Action |
-| --- | --- |
-| 1. Quote | The user specifies the asset pair and amount. The HotPot Quote API returns a time-limited execution estimate including fees. Quotes expire and must be executed before the expiry timestamp. |
-| 2. Intent | The user creates a signed intent — a structured, off-chain commitment that cryptographically approves the swap parameters and authorises resolvers to execute under the quoted conditions. |
-| 3. Execution | HotPot notifies the winning resolver to begin execution by depositing the required assets into a swap-specific escrow contract on the source chain and transferring the corresponding RGB asset to the user. |
-| 4. Settlement | The RGB asset is delivered to the user's Utexo Wallet. If the resolver does not complete execution within the validity window, the escrow is released back to the user automatically. |
-
-## Swap Mechanism
-
-The Utexo Swap uses the HotPot **intent-based execution model** — a trustless, cross-chain swap architecture where the user's signed intent governs the entire execution flow:
-
-- The user signs an intent off-chain, cryptographically committing to the quoted swap parameters and authorising resolvers to execute it according to the quoted conditions.
-- HotPot notifies the winning resolver to begin execution by depositing the maker's assets into a dedicated on-chain escrow on the source chain.
-- The resolver transfers the corresponding RGB asset to the user's Utexo Wallet.
-- Escrow funds are only released to the resolver once fulfillment is verified on-chain.
-- If the resolver fails to execute within the validity window, the escrow is returned to the user with no loss of funds.
-
-This model ensures neither party can take funds without fulfilling their obligation. RGB asset delivery is validated client-side by the user's Utexo Wallet before the transaction is finalised. Utexo does not hold user funds at any point.
-
-## Supported Assets
-
-The Utexo Swap supports asset pairs defined by HotPot's supported networks and tokens. The full list of supported networks and tokens is available in the [HotPot Networks and Tokens documentation](https://docs.hotpot.tech/) and can be queried directly via the [HotPot API](https://affiliate-docs.hotpot.tech/affiliate/docs/#/networks).
-
-Currently supported pairs include:
-
-| Asset Pair | Direction | Settlement |
-| --- | --- | --- |
-| BTC / USDT on Bitcoin | Inbound & Outbound | On-chain escrow \+ RGB client-side validation |
-
-For the complete and up-to-date list of supported tokens and networks, refer to the [HotPot Swagger API reference](https://affiliate-docs.hotpot.tech/affiliate/docs/#/networks/list_networks).
-
-## Security
-
-The Utexo Swap is secured by the HotPot protocol's on-chain settlement logic:
-
-- **Intent atomicity** — The swap either completes in full or reverts. There is no partial execution risk. HotPot does not hold or custody user funds.
-- **Resolver constraints** — Resolvers can only move user-approved assets into the swap-specific escrow, execute the swap according to the signed intent, and withdraw escrowed funds **only after** fulfillment is verified. They cannot withdraw funds before fulfillment conditions are met or access funds from any other swap.
-- **Escrow protection** — A dedicated escrow is created for each swap on supported networks. User funds are locked inside this escrow and can only be released once the swap is fulfilled.
-- **Client-side validation** — RGB asset delivery is validated locally by the user's Utexo Wallet before the transaction is confirmed, consistent with the broader Utexo privacy model.
-
-## SDK Integration
+Resolvers compete to price and fulfill each swap. Utexo coordinates quote discovery, intent validation, execution, and settlement without taking custody of user funds or acting as the swap counterparty.
 
 <Info>
-  The Utexo SDK does not currently expose a dedicated swap method. To initiate a swap programmatically from a `UTEXOWallet` instance, use the HotPot REST API directly with the wallet's RGB address and a Lightning invoice generated via `wallet.createInvoice()`. The flow is:
-
-  1. **Get a quote** — call the [HotPot Quote API](https://affiliate-docs.hotpot.tech/affiliate/docs/#/quotes) with the desired asset pair and amount.
-  2. **Create an intent** — sign the intent parameters off-chain and submit via the HotPot Intent API.
-  3. **Receive payment** — generate a `UTEXOWallet` invoice for the RGB asset amount and pass it as the destination in the intent.
-
-  Full Utexo SDK swap helpers are planned for a future SDK release.
+  Utexo Swap currently supports Ethereum and other EVM networks, Tron, Solana, and Bitcoin. Use `GET /networks` and `GET /tokens` to discover the networks and assets available to your integration instead of hardcoding availability.
 </Info>
+
+### Core properties
+
+- **RFQ execution:** Distributed resolvers provide pricing and liquidity.
+- **Intent-based authorization:** A signed intent defines the asset pair, amount, source network, destination network, recipient, and execution constraints.
+- **Atomic settlement:** Each swap completes under the signed conditions or enters the applicable refund or revert path.
+- **Non-custodial design:** Utexo does not custody user funds.
+- **Unified integration:** A single REST API supports all available networks and their chain-specific approval mechanisms.
+
+## Architecture and settlement
+
+Utexo uses cryptographic time constraints and network-native escrow mechanisms to coordinate cross-chain settlement.
+
+| Network | Settlement mechanism |
+| --- | --- |
+| Bitcoin | Taproot hash time-locked contract (HTLC) escrow |
+| Ethereum and other EVM networks | Smart contract HTLC |
+| Solana | Program escrow |
+| Tron | Contract escrow |
+
+Each swap uses an isolated settlement mechanism. Ethereum, other EVM networks, and Tron use a dedicated escrow instance for each swap. Swap-level isolation prevents funds associated with one swap from being exposed to another.
+
+Resolvers provide liquidity and perform the on-chain operations required to fulfill signed intents. Protocol rules restrict a resolver to the assets, amount, destination, and time constraints authorized by the user.
+
+## Documentation map
+
+- **Integration** explains access, authentication, and the end-to-end user flow.
+- **Security Model** defines escrow isolation, resolver permissions, and refund behavior.
+- **API Reference** documents discovery, quotes, intents, swaps, and affiliates.
+- **On-chain Helpers** covers native-token wrapping and Permit2 token allowance.
+
+## Glossary
+
+| Term | Definition |
+| --- | --- |
+| **Intent** | A signed, machine-verifiable request to execute a swap under defined conditions. |
+| **Resolver** | A liquidity provider that prices and fulfills swap intents. |
+| **RFQ** | Request for quote; the process through which resolvers return competing prices. |
+| **Permit2** | An approval mechanism that combines an on-chain token allowance with an off-chain typed-data signature. |
+| **PSBT** | Partially Signed Bitcoin Transaction. Utexo uses it to authorize Bitcoin HTLC deposits. |
+| **HTLC** | Hash time-locked contract; an escrow mechanism controlled by a hash condition and timeout. |
+| **Lots** | Integer token amounts expressed in the smallest-unit representation used by the API. |

@@ -1,0 +1,46 @@
+---
+title: "Affiliates"
+description: "Create and retrieve affiliate payout configurations for the authenticated integration."
+sidebarTitle: "Affiliates"
+---
+
+## Affiliates
+
+Affiliate records configure fee payout destinations associated with the authenticated API key.
+
+### `POST /affiliates`
+
+Creates an affiliate payout configuration.
+
+**Authentication:** `X-API-Key`
+
+| Body field | Type | Description |
+| --- | --- | --- |
+| `affiliateName` | string | Affiliate name. |
+| `payoutAddress` | string | Address for affiliate fee payouts. |
+| `payoutNetworkId` | integer | Network used for affiliate fee payouts. |
+| `payoutTokenAddress` | string | Token used for affiliate fee payouts. |
+
+```json
+{
+  "affiliateName": "integration-partner",
+  "payoutAddress": "0x0000000000000000000000000000000000000000",
+  "payoutNetworkId": 1,
+  "payoutTokenAddress": "0xdac17f958d2ee523a2206206994597c13d831ec7"
+}
+```
+
+### `GET /affiliates`
+
+Returns affiliate payout configurations associated with the authenticated API key.
+
+**Authentication:** `X-API-Key`
+
+| Response field | Type | Description |
+| --- | --- | --- |
+| `affiliates` | array | Affiliate configurations. |
+| `affiliates[].affiliateName` | string | Affiliate name. |
+| `affiliates[].apiKeyName` | string | API key name associated with the configuration. |
+| `affiliates[].payoutAddress` | string | Payout address. |
+| `affiliates[].payoutNetworkId` | integer | Payout network ID. |
+| `affiliates[].payoutTokenAddress` | string | Payout token address. |

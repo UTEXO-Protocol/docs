@@ -1,0 +1,46 @@
+---
+title: "Quotes"
+description: "Request resolver-based cross-chain pricing and execution constraints from Utexo Swap."
+sidebarTitle: "Quotes"
+---
+
+## Overview
+
+A quote is a time-limited RFQ offer used to create an intent. Do not create an intent after the quote expires.
+
+### `POST /quote`
+
+Requests an optimal cross-chain quote for a token pair and amount. A quote remains valid until its `expiry` value.
+
+**Authentication:** `X-API-Key`
+
+| Body field | Type | Description |
+| --- | --- | --- |
+| `amount` | decimal | Source amount in decimal-adjusted token units. |
+| `depositType` | string | Deposit type, such as `escrowed`. |
+| `destChain` | integer | Destination network ID. |
+| `destToken` | string | Destination token address or identifier. |
+| `fees` | array | Affiliate fee settings. |
+| `fees[].affiliateName` | string | Affiliate name. |
+| `fees[].feeBps` | string | Affiliate fee in basis points, such as `10`. |
+| `retailUserId` | string | Optional retail user identifier for analytics or user-level tracking. |
+| `slippageBps` | string | Maximum slippage in basis points, such as `50`. |
+| `sourceChain` | integer | Source network ID. |
+| `sourceToken` | string | Source token address or identifier. |
+| `swapType` | string | Swap type, such as `standard`. |
+
+```json
+{
+  "amount": 0.5,
+  "depositType": "escrowed",
+  "destChain": 0,
+  "destToken": "string",
+  "fees": [],
+  "slippageBps": "50",
+  "sourceChain": 0,
+  "sourceToken": "string",
+  "swapType": "standard"
+}
+```
+
+The response contains pricing, execution constraints, affiliate fee data, token amount ranges, the quote ID, and metadata required for intent creation. The source does not define field-level required status or a complete response schema.

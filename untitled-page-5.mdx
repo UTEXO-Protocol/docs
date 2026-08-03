@@ -1,0 +1,80 @@
+---
+title: "Networks and Tokens"
+description: "Discover Utexo Swap availability, supported networks, and supported tokens."
+sidebarTitle: "Networks and Tokens"
+---
+
+## Overview
+
+Use these endpoints before requesting a quote. Network and token availability can differ by environment.
+
+### `GET /healthcheck`
+
+Checks whether the Utexo API can accept requests.
+
+**Authentication:** `X-API-Key`
+
+The endpoint accepts no path, query, or body parameters and does not support pagination.
+
+```bash
+curl -X GET \
+  'BASE_URL_PLACEHOLDER/healthcheck' \
+  -H 'accept: application/json' \
+  -H 'X-API-Key: API_KEY_PLACEHOLDER'
+```
+
+A successful request returns `200 OK` with an empty body. A `503 Service Unavailable` response can return:
+
+```json
+{
+  "code": 0,
+  "message": "string"
+}
+```
+
+### `GET /networks`
+
+Returns the blockchain networks available through Utexo.
+
+**Authentication:** `X-API-Key`
+
+| Query parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `token` | string | No | Filters networks by token contract address. |
+
+```bash
+curl -X GET \
+  'BASE_URL_PLACEHOLDER/networks?token=0xdac17f958d2ee523a2206206994597c13d831ec7' \
+  -H 'accept: application/json' \
+  -H 'X-API-Key: API_KEY_PLACEHOLDER'
+```
+
+| Response field | Type | Description |
+| --- | --- | --- |
+| `networks` | array | Supported blockchain networks. |
+| `networks[].id` | integer | Network identifier. |
+| `networks[].name` | string | Network name. |
+| `networks[].type` | enum | `EVM`, `TRON`, `BITCOIN`, or `SOLANA`. |
+| `networks[].iconUrl` | string | Network icon URL. |
+| `networks[].features` | object | Network feature settings. |
+| `networks[].features.supportsCustomTokens` | boolean | Whether the network supports custom tokens. |
+| `networks[].features.supportsOptimizedSwap` | boolean | Whether the network supports optimized swaps. |
+
+### `GET /tokens`
+
+Returns a paginated list of tokens available for swaps.
+
+**Authentication:** `X-API-Key`
+
+| Query parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | integer | No | Maximum number of results to return. |
+| `offset` | integer | No | Number of results to skip. |
+| `q` | string | No | Searches by token symbol or contract address. |
+| `network-id` | integer | No | Filters tokens by network ID. |
+
+For example, request the second page of 20 results with `limit=20&offset=20`.
+
+<Note>
+  The source does not define pagination limits, default values, sort order, last-page behavior, or the token response schema.
+</Note>
