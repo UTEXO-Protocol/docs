@@ -1,22 +1,22 @@
 ---
 title: "Web Quickstart"
 sidebarTitle: "Web"
-description: "Send your first USDT on Bitcoin transfer from a browser application using @utexo/rgb-sdk-web."
+description: "Initialize a browser wallet and prepare an RGB transfer using @utexo/rgb-sdk-web."
 ---
 
 <Info>
-  This guide covers browser-based Web usage. For server-side Node.js see the [Node.js guide](/getting-started/quickstart/node-js), and for mobile apps see the [React Native guide](/getting-started/quickstart/react-native). For concepts shared across all guides, see the [Quickstart Overview](/getting-started/quickstart/overview).
+  This guide covers browser applications. For Node.js, see the [Node.js guide](/getting-started/quickstart/node-js). For iOS and Android, see the [React Native guide](/getting-started/quickstart/react-native).
 </Info>
 
 ## Prerequisites
 
-- **A modern browser** with WebAssembly support (Chrome 87\+, Firefox 78\+, Safari 14\+)
-- **A JavaScript bundler** (Vite, Webpack, or similar)
-- **A testnet BTC balance** for transaction fees (see [Quickstart Overview](/getting-started/quickstart/overview#common-prerequisites) for faucet links)
-- **Basic familiarity with ES modules and async/await**
+- A modern browser with WebAssembly support
+- A bundler that supports WebAssembly, such as Vite
+- Bitcoin test funds for transaction fees
+- A separately initialized sender wallet that already holds the RGB asset for an end-to-end transfer
 
 <Warning>
-  This guide uses **testnet**. Never use mainnet keys or real funds while following this tutorial. Testnet assets have no monetary value.
+  This guide uses the `utexo` network profile for Utexo's hosted signet infrastructure. Never use mainnet keys or real funds while following this guide.
 </Warning>
 
 ## Step 1: Install the SDK
@@ -25,209 +25,176 @@ description: "Send your first USDT on Bitcoin transfer from a browser applicatio
 npm install @utexo/rgb-sdk-web
 ```
 
-The `@utexo/rgb-sdk-web` package targets **browser environments** and is not compatible with Node.js or React Native. It uses WebAssembly for cryptographic operations and browser storage APIs for wallet persistence. For server-side use `@utexo/rgb-sdk`; for iOS and Android use `@utexo/rgb-sdk-rn`.
+The package targets browser environments and stores wallet state in browser storage. It is not interchangeable with `@utexo/rgb-sdk` or `@utexo/rgb-sdk-rn`.
 
-<Info>
-  All three Utexo SDK packages (`@utexo/rgb-sdk`, `@utexo/rgb-sdk-rn`, `@utexo/rgb-sdk-web`) share the same `UTEXOWallet` class and method API via `@utexo/rgb-sdk-core`. The steps below are identical in structure to the Node.js guide — only the import and storage model differ.
-</Info>
+## Step 2: Initialize the Wallet
 
-## Step 2: Generate Wallet Keys
-
-Generate a BIP-39 mnemonic. In a browser context, store the mnemonic using the Web Crypto API or a dedicated secrets library — never store it unencrypted in `localStorage` or session storage.
+Initialize the RLN WebAssembly module once, generate keys, then create and unlock the wallet.
 
 ```javascript
-import { generateKeys } from '@utexo/rgb-sdk-web';
+import {
+  generateKeys,
+  initRlnWasm,
+  UTEXOWallet,
+} from '@utexo/rgb-sdk-web';
 
-const keys = await generateKeys('testnet');
-console.log('Mnemonic:', keys.mnemonic); // Encrypt and store securely
-console.log('Pubkey:', keys.xpub);
-```
+await initRlnWasm();
 
-**Back up your mnemonic immediately.** If a user loses their mnemonic, their wallet and any assets it holds cannot be recovered.
+const keys = await generateKeys('utexo');
+const password = await getPasswordFromSecureInput();
 
-## Step 3: Initialise the Wallet
-
-Create and initialise a `UTEXOWallet` instance. In the browser, wallet state is persisted to IndexedDB by default — you do not need to specify a `dataDir`.
-
-```javascript
-import { UTEXOWallet } from '@utexo/rgb-sdk-web';
-
-const wallet = new UTEXOWallet(keys.mnemonic, {
-  network: 'testnet'
+const wallet = new UTEXOWallet({
+  mnemonic: keys.mnemonic,
+  password,
+  network: 'utexo',
 });
-await wallet.initialize();
-console.log('Wallet initialised successfully');
+
+await wallet.init();
+await wallet.unlock();
 ```
 
-`initialize()` performs the initial sync with the Bitcoin indexer and RGB transport layer. This may take a few seconds on first run. Call it once per session after restoring or creating the wallet.
+`getPasswordFromSecureInput()` represents an application-owned password prompt. Do not hard-code the password, log the mnemonic, or store either value unencrypted in `localStorage`.
 
-## Step 4: Get a Deposit Address
+<Warning>
+  The current Web constructor accepts one parameter object. The older `new UTEXOWallet(mnemonic, options)` form and `initialize()` lifecycle shown in previous versions of this page do not match the current implementation.
+</Warning>
+
+## Step 3: Fund the Wallet
+
+Get a Bitcoin address and send signet BTC to it for transaction fees.
 
 ```javascript
 const address = await wallet.getAddress();
 console.log('Deposit address:', address);
 ```
 
-Display this address in your UI or render it as a QR code. Send testnet BTC to this address using one of the faucets listed in the [Quickstart Overview](/getting-started/quickstart/overview#common-prerequisites). Wait for at least 1 confirmation before continuing.
+Wait for the required confirmation before creating RGB UTXOs.
 
-## Step 5: Create UTXOs
-
-RGB asset state must be anchored to Bitcoin UTXOs. Before a user can receive any RGB asset, the wallet needs dedicated UTXOs prepared.
+## Step 4: Create RGB UTXOs
 
 ```javascript
 await wallet.createUtxos({ num: 5, size: 1000 });
 await wallet.refreshWallet();
-console.log('UTXOs created and wallet synced');
 ```
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `num` | `number` | Number of UTXOs to create. `5` is recommended for a new wallet. |
-| `size` | `number` | Size of each UTXO in **satoshis**. `1000` satoshis per UTXO is the minimum recommended value. |
+Both `num` and `size` are integers. `size` is denominated in satoshis.
 
-## Step 6: Get the USDT on Bitcoin Asset ID
+## Step 5: Resolve the Asset From the Sender
+
+`listAssets()` returns an object grouped by asset schema. NIA assets are in the `nia` array and use the `assetId` field.
 
 ```javascript
-const assets = await wallet.listAssets();
-const usdtAssetId = assets.find(a => a.ticker === 'USDT')?.id;
-console.log('USDT Asset ID:', usdtAssetId);
+const { nia } = await senderWallet.listAssets();
+const usdt = nia.find((asset) => asset.ticker === 'USDT');
+
+if (!usdt) {
+  throw new Error('The sender wallet does not hold the requested NIA asset');
+}
+
+const usdtAssetId = usdt.assetId;
+const amount = 10 ** usdt.precision; // one displayed unit in base units
 ```
 
-If no assets appear, your wallet may not yet have been assigned any RGB assets. You can also obtain the canonical testnet USDT asset ID from the [SDK Reference](/sdk/utexo-sdk) or by asking in the [Utexo Discord](https://discord.gg/utexo).
+A new receiver wallet will not list an asset it has never received. Resolve the asset ID and precision from the funded sender or an authoritative asset registry. Do not use the removed `assets.find(...).id` pattern.
 
-## Step 7: Generate an RGB Invoice (Receiver Side)
+## Step 6: Create a Receive Invoice
+
+Run this on the receiver wallet initialized in Step 2:
 
 ```javascript
 const receiveData = await wallet.blindReceive({
   assetId: usdtAssetId,
-  amount: 100,
-  minConfirmations: 1,
-  durationSeconds: 3600
-});
-console.log('RGB Invoice:', receiveData.invoice);
-// Present receiveData.invoice as a QR code or copyable string in your UI
-```
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `assetId` | `string` | The RGB asset contract ID. See Step 6. |
-| `amount` | `number` | Amount to receive in **asset base units**. For USDT on Bitcoin, 1 unit = 1 USDT. |
-| `minConfirmations` | `number` | Minimum Bitcoin confirmations required before accepting the transfer. |
-| `durationSeconds` | `number` | Invoice validity window in seconds. Invoice is rejected by the receiver after expiry. |
-
-## Step 8: Send an RGB Asset (Sender Side)
-
-```javascript
-const sendResult = await wallet.send({
-  invoice: receiveData.invoice,
-  assetId: usdtAssetId,
-  amount: 100
-});
-console.log('Transfer TXID:', sendResult.txid);
-
-// Sync both wallets after the transfer
-await wallet.refreshWallet(); // Sender
-// The receiver should also call refreshWallet() in their browser session
-```
-
-The `amount` and `assetId` in the `send()` call must exactly match those in the invoice. Mismatches will cause the transfer to be rejected by the receiver's client-side validator.
-
-## Step 9: Verify the Transfer
-
-```javascript
-const receiverAssets = await receiverWallet.listAssets();
-console.log('Receiver assets:', JSON.stringify(receiverAssets, null, 2));
-```
-
-Expected result: the receiver's asset list shows a balance of `100` for the USDT asset. RGB transfers require Bitcoin confirmation to finalise. If the transfer is still pending, call `refreshWallet()` again after the next Bitcoin block. On testnet, a new block typically arrives every 1–10 minutes.
-
-## Step 10: Lightning
-
-Lightning payments are managed using `createLightningInvoice` and `payLightningInvoice`. Channel management requires a funded node connected to a peer.
-
-<Info>
-  Opening a channel requires a funded node connected to a peer. Refer to the [RGB Lightning Node](/product-suite/rgb-lightning-node) section for channel management details.
-</Info>
-
-```javascript
-// Receiver: create a Lightning invoice (BTC-only)
-const inv = await receiverWallet.createLightningInvoice({
-  amountSats: 3000,
-  expirySeconds: 900,
-  asset: { assetId: '', amount: 0 }, // set assetId + amount for RGB-asset payments
-});
-
-// Sender: pay the invoice
-const result = await senderWallet.payLightningInvoice({
-  lnInvoice: inv.lnInvoice,
-});
-
-// Poll until settled
-const payment = await senderWallet.getLightningSendRequest(result.txid);
-console.log('Payment status:', payment.status); // 'Settled' when complete
-```
-
-For USDT-over-Lightning payments, set `asset.assetId` to the USDT asset ID and `asset.amount` to the RGB amount on the invoice.
-
-## Step 11: On-Chain Receive and Send
-
-The same `UTEXOWallet` instance handles on-chain Bitcoin addresses and RGB on-chain transfers.
-
-```javascript
-// Get a Bitcoin deposit address for on-chain funding
-const address = await wallet.getAddress();
-console.log('Deposit address:', address);
-
-// Receiver: generate a blinded RGB invoice for on-chain receipt
-const receiveData = await receiverWallet.blindReceive({
+  amount,
   minConfirmations: 1,
   durationSeconds: 3600,
 });
 
-// Sender: broadcast an on-chain RGB transfer
-await senderWallet.send({
+console.log('RGB invoice:', receiveData.invoice);
+```
+
+The `amount` is an integer in asset base units. One displayed unit is `10 ** precision` base units.
+
+## Step 7: Send From the Funded Wallet
+
+The current Web API uses `onchainSend()`, not `send()`.
+
+```javascript
+const sendResult = await senderWallet.onchainSend({
   invoice: receiveData.invoice,
   assetId: usdtAssetId,
-  amount: 100,
+  amount,
   donation: false,
   feeRate: 7,
   minConfirmations: 1,
 });
 
-// Both parties sync state
-await senderWallet.refreshWallet();
-await receiverWallet.refreshWallet();
+console.log('Transfer transaction:', sendResult.txid);
 ```
 
-<Info>
-  `getAddress()` returns a standard Bitcoin address for on-chain BTC deposits. `blindReceive()` returns an RGB blinded invoice for asset transfers. Both are available on every `UTEXOWallet` instance without additional setup.
-</Info>
+The sender wallet must be a separately initialized `UTEXOWallet` with sufficient signet BTC and a spendable balance of the asset.
+
+## Step 8: Refresh and Verify
+
+```javascript
+await senderWallet.refreshWallet();
+await wallet.refreshWallet();
+
+const receiverAssets = await wallet.listAssets();
+const receivedAsset = receiverAssets.nia.find(
+  (asset) => asset.assetId === usdtAssetId
+);
+
+console.log('Receiver asset balance:', receivedAsset?.balance);
+```
+
+A transfer can remain pending while its consignment is delivered and its Bitcoin anchor reaches the required confirmation state. Refresh both wallets before treating a missing settled balance as a failure.
+
+## Lightning Payments
+
+Lightning requires usable peer and channel state in addition to an initialized wallet. For a BTC-only invoice, omit the `asset` field.
+
+```javascript
+const invoice = await wallet.createLightningInvoice({
+  amountSats: 3000,
+  expirySeconds: 900,
+});
+
+const payment = await senderWallet.payLightningInvoice({
+  lnInvoice: invoice.lnInvoice,
+});
+
+const status = await senderWallet.getLightningSendStatus(payment.txid);
+console.log('Lightning payment status:', status);
+```
+
+For an RGB-asset Lightning invoice, pass `asset: { assetId, amount }` when creating the invoice. Do not pass an empty asset object for a BTC-only invoice.
 
 ## Web-Specific Notes
 
-**Bundler configuration.** The `@utexo/rgb-sdk-web` package includes a WebAssembly binary. Ensure your bundler is configured to handle `.wasm` files. For Vite, no additional configuration is required. For Webpack, enable `experiments.asyncWebAssembly` in your config.
-
-**Storage.** Wallet state is persisted to IndexedDB using the wallet's public key as the storage key. Clearing site data in the browser will destroy wallet state — ensure users have backed up their mnemonic before allowing them to clear browser data.
-
-**Cross-origin restrictions.** The RGB transport layer (`rpcs://`) uses WebSockets. Ensure your deployment environment does not block outbound WebSocket connections to `rgb-proxy-testnet3.utexo.com`.
-
-**Mnemonic storage.** Use the Web Crypto API (`crypto.subtle`) to encrypt the mnemonic before storing it. Never store the raw mnemonic in `localStorage`, `sessionStorage`, or cookies.
+- Call `initRlnWasm()` before constructing a wallet.
+- Persist wallet state and secrets according to the SDK's backup guidance. Clearing site data can remove local wallet state.
+- Use HTTPS in production so browser storage and secure-context APIs are available.
+- Endpoint defaults are resolved by the `utexo` network profile. Override them only when operating compatible infrastructure.
 
 ## Troubleshooting
 
-| Issue | Likely cause | Fix |
+| Issue | Likely cause | Check |
 | --- | --- | --- |
-| `initialize()` hangs or times out | WebSocket blocked or WASM not loaded | Check network tab for blocked requests; verify bundler WASM config |
-| `createUtxos()` fails | Insufficient BTC balance | Fund the wallet with more testnet BTC |
-| Invoice rejected | Invoice has expired | Generate a new invoice and retry |
-| `send()` fails with validation error | `amount` or `assetId` mismatch | Confirm send parameters exactly match the invoice |
-| Balance not updated after send | Wallet not synced | Call `refreshWallet()` in both browser sessions |
-| Wallet state lost after page refresh | IndexedDB cleared or private browsing | Ensure users are not in private/incognito mode; prompt for mnemonic backup |
+| WebAssembly fails to load | Bundler or MIME configuration | Verify the generated `.wasm` asset is served and allowed by CSP |
+| `init()` or `unlock()` fails | Endpoint, password, or stored-state problem | Check the browser console and network requests without exposing secrets |
+| `createUtxos()` fails | Insufficient confirmed BTC | Fund the wallet and wait for confirmation |
+| Asset cannot be found | Wrong response shape or unfunded sender | Read `listAssets().nia` and use `assetId` |
+| `onchainSend()` fails | Invoice, amount, balance, or transport problem | Confirm the invoice is unexpired and the amount is in base units |
 
-If you encounter an issue not listed here, join the [Utexo Discord](https://discord.gg/utexo) for community support.
+## Implementation References
+
+- [Web wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk-web/blob/dev/src/utexo/utexo-wallet.ts)
+- [Web network defaults](https://github.com/UTEXO-Protocol/rgb-sdk-web/blob/dev/src/binding/RlnDefaults.ts)
+- [Shared wallet models](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/types/wallet-model.ts)
+- [Shared on-chain transfer interface](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/interfaces/wallet/IOnchainTransfers.ts)
 
 ## Next Steps
 
-- [SDK Reference](/product-suite/sdk) — Full method reference for `UTEXOWallet`, including backup and restore
-- [Architecture](/getting-started/architecture) — Understand how Bitcoin, Lightning, and RGB fit together
-- [Glossary](/getting-started/glossary) — Definitions for RGB, PSBT, blinded invoice, UTXO, and other key terms
+- [SDK Reference](/product-suite/sdk)
+- [Architecture](/getting-started/architecture)
+- [Glossary](/getting-started/glossary)

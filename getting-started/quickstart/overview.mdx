@@ -1,128 +1,103 @@
 ---
 title: "Quickstart Overview"
 sidebarTitle: "Overview"
-description: "Choose your platform and send your first USDT on Bitcoin transfer in minutes."
+description: "Choose the Utexo SDK package and lifecycle for your application runtime."
 ---
 
-The Utexo SDK is available across three platform targets, each sharing the same `@utexo/rgb-sdk-core` foundation. Choose the guide that matches your environment to get started.
+The Utexo SDK has current React Native and Web packages, plus a legacy Node.js package whose source repository is archived. Choose the guide for your runtime before copying any initialization or payment code.
 
 <CardGroup cols={3}>
   <Card title="Node.js" icon="node-js" href="/getting-started/quickstart/node-js">
-    Server-side applications and backend services. Uses `@utexo/rgb-sdk`.
+    Existing server-side applications using the legacy `@utexo/rgb-sdk` package.
   </Card>
 
   <Card title="React Native" icon="mobile" href="/getting-started/quickstart/react-native">
-    iOS and Android mobile applications. Uses `@utexo/rgb-sdk-rn`.
+    iOS and Android applications using `@utexo/rgb-sdk-rn`.
   </Card>
 
   <Card title="Web" icon="browser" href="/getting-started/quickstart/web">
-    Browser-based applications. Uses `@utexo/rgb-sdk-web`.
+    Browser applications using `@utexo/rgb-sdk-web`.
   </Card>
 </CardGroup>
 
+<Warning>
+  The [`@utexo/rgb-sdk` source repository](https://github.com/UTEXO-Protocol/rgb-sdk) was archived on July 28, 2026 and is read-only; its last committed package version is `1.0.0-beta.9`. The packages share models from `@utexo/rgb-sdk-core`, but they do not expose an identical runtime API. Use the platform-specific guide, check the installed package version, and verify support status before starting a new Node.js integration.
+</Warning>
+
+## Platform API Differences
+
+| Package | Wallet startup | On-chain RGB send |
+| --- | --- | --- |
+| `@utexo/rgb-sdk` (legacy; source archived) | Construct with a mnemonic and call `initialize()` | `send()` |
+| `@utexo/rgb-sdk-rn` | Construct with node parameters and a signer, then call `init()` and `unlock()` | `onchainSend()` |
+| `@utexo/rgb-sdk-web` | Call `initRlnWasm()`, construct with one parameter object, then call `init()` and `unlock()` | `onchainSend()` |
+
+The Web and React Native packages implement the shared conformance contract. The archived Node.js package uses its legacy wallet core, so do not substitute `onchainSend()` for `send()` in Node.js code.
+
 ## How RGB Transfers Work
 
-Before writing any code, it helps to understand the transfer flow. This applies to all platform guides.
+1. The receiver generates a blinded or witness RGB invoice.
+2. The sender submits the invoice with the platform's on-chain send method.
+3. Both wallets refresh their state while the transfer moves through the RGB and Bitcoin confirmation flow.
+4. The receiver verifies the asset balance after settlement.
 
-1. The **receiver** generates a blinded invoice tied to one of their UTXOs.
-2. The **sender** calls `.send()` with that invoice — the RGB state transition is constructed and broadcast.
-3. Both wallets call `.refreshWallet()` to sync the latest on-chain state.
-4. The receiver's balance updates to reflect the new asset allocation.
-
-All asset state is validated client-side. Neither party needs to trust a third party — the Bitcoin UTXO provides the settlement anchor.
+All RGB state is validated client-side. The Bitcoin UTXO anchors the state transition; the transport service delivers consignments but does not replace client-side validation.
 
 <Info>
-  New to RGB or UTXOs? See the [Glossary](/getting-started/glossary) for definitions, and [Architecture](/getting-started/architecture) for how Bitcoin, Lightning, and RGB fit together.
+  New to RGB or UTXOs? See the [Glossary](/getting-started/glossary) and [Architecture](/getting-started/architecture).
 </Info>
 
-## Lightning & On-Chain Payments
+## Asset IDs and Amounts
 
-Beyond RGB asset transfers, the SDK exposes Lightning and on-chain Bitcoin payment methods that work the same way across all three platform packages.
+`listAssets()` returns assets grouped by schema. NIA assets are in `listAssets().nia`, and the identifier field is `assetId`.
 
-### Lightning Payments
-
-Create and pay Lightning invoices using `createLightningInvoice` and `payLightningInvoice`:
+`amount` values are integer base units. One displayed unit equals `10 ** precision` base units; it is not always equal to `1`.
 
 ```typescript
-// Receiver: create a Lightning invoice
-const inv = await wallet.createLightningInvoice({
-  amountSats: 3000,
-  expirySeconds: 900,
-  asset: { assetId: '', amount: 0 }, // omit asset for BTC-only
-});
+const { nia } = await senderWallet.listAssets();
+const asset = nia.find((item) => item.ticker === 'USDT');
 
-// Sender: pay the invoice
-const result = await senderWallet.payLightningInvoice({ lnInvoice: inv.lnInvoice });
 
-// Poll until settled
-await senderWallet.getLightningSendRequest(result.txid); // resolves when status === 'Settled'
+if (!asset) {
+  throw new Error('The sender wallet does not hold the requested NIA asset');
+}
+
+
+const assetId = asset.assetId;
+const oneDisplayUnit = 10 ** asset.precision;
 ```
 
-For RGB-asset Lightning payments, set `asset.assetId` and `asset.amount` on the invoice.
+A newly created receiver wallet will not discover an asset it has never received. Obtain the asset ID and precision from the funded sender wallet or another authoritative asset registry. The documentation does not publish a hard-coded test asset ID because no canonical ID is committed in the SDK repositories.
 
-### On-Chain Receive & Send
+## Lightning Payments
 
-Get a deposit address and send on-chain assets using `getAddress` and `send`:
+The Web and React Native packages use `createLightningInvoice()`, `payLightningInvoice()`, and `getLightningSendStatus()`. Omit the `asset` field when creating a BTC-only invoice. The archived Node.js package retains its legacy status method; follow the Node.js guide for that package.
 
-```typescript
-// Receiver: get a Bitcoin address
-const address = await wallet.getAddress();
+Lightning payments also require usable peer and channel state. Wallet initialization alone does not create a channel or fund the node.
 
-// Receiver: generate a blinded RGB invoice for on-chain receipt
-const receiveData = await wallet.blindReceive({
-  minConfirmations: 1,
-  durationSeconds: 3600,
-});
+## Network Selection
 
-// Sender: broadcast an on-chain RGB transfer
-await senderWallet.send({
-  invoice: receiveData.invoice,
-  assetId: usdtAssetId,
-  amount: 100,
-  donation: false,
-  feeRate: 7,
-  minConfirmations: 1,
-});
-await senderWallet.refreshWallet();
-```
+The hosted Web and React Native examples use the `utexo` network profile, which resolves to Utexo's signet infrastructure. The archived Node.js package uses its package-specific `testnet` profile. Do not reuse a constructor or endpoint configuration across packages without checking the platform implementation.
 
-See the platform-specific Quickstart guides for initialisation details before calling these methods.
+<Warning>
+  Never use mainnet keys or real funds while following a Quickstart. Test and signet assets have no monetary value.
+</Warning>
 
-## Network Endpoints
+## Implementation References
 
-All SDK platforms connect to the same underlying network infrastructure. No endpoint configuration is needed to follow any of the Quickstart guides — the defaults below are used automatically on testnet.
+These files are the reviewed sources for the API distinctions above:
 
-| Service | Testnet Endpoint |
-| --- | --- |
-| RGB Transport | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` |
-| Bitcoin Indexer | `ssl://electrum.iriswallet.com:50013` |
-
-For the full list of network identifiers and mainnet endpoints, see the [Utexo SDK Reference](/sdk/utexo-sdk#networks).
+- [Shared SDK conformance contract](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/conformance/index.ts)
+- [Shared wallet models](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/types/wallet-model.ts)
+- [Node.js wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk/blob/dev/src/utexo/utexo-wallet.ts)
+- [React Native wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/utexo-wallet.ts)
+- [Web wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk-web/blob/dev/src/utexo/utexo-wallet.ts)
 
 ## Common Prerequisites
 
-All platform guides share these requirements:
+- A separate sender and receiver wallet for an end-to-end transfer
+- Bitcoin test funds for transaction fees
+- A funded sender that already holds the RGB asset being transferred
+- Secure mnemonic and password storage appropriate for the runtime
 
-- **A testnet BTC balance** for transaction fees. Get testnet BTC from the Utexo Telegram faucet bot \[@Utexo\_RLN\_bot\]([https://t.me/Utexo\_RLN\_bot](https://t.me/Utexo_RLN_bot)) — send `/getbtc` followed by your Bitcoin address.
-
-<Warning>
-  All guides use **testnet**. Never use mainnet keys or real funds while following a Quickstart. Testnet assets have no monetary value.
-</Warning>
-
-## What You Will Have After Any Guide
-
-- A working `UTEXOWallet` instance connected to testnet
-- A funded wallet with UTXOs ready to receive RGB assets
-- A completed and verified USDT on Bitcoin transfer
-
-**Estimated time:** 15 minutes per guide, not counting testnet faucet confirmation time (usually 1–5 minutes, but can vary).
-
-## SDK Package Summary
-
-| Package | Target | Install |
-| --- | --- | --- |
-| `@utexo/rgb-sdk` | Node.js (server) | `npm install @utexo/rgb-sdk` |
-| `@utexo/rgb-sdk-rn` | React Native (iOS & Android) | `npm install @utexo/rgb-sdk-rn` |
-| `@utexo/rgb-sdk-web` | Browser (Web) | `npm install @utexo/rgb-sdk-web` |
-
-All three packages expose the same `UTEXOWallet` class and method API. The differences are in installation, initialisation config, and storage model — each guide covers these specifics for its platform.
+The platform guides cover package-specific initialization and method names. End-to-end settlement time depends on funding, channel state, transport availability, and Bitcoin confirmations.

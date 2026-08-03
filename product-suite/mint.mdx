@@ -1,14 +1,14 @@
 ---
 title: "Mint"
 sidebarTitle: "Mint"
-description: "Cross-chain stablecoin transfers between EVM, Tron, Solana and the Bitcoin RGB layer."
+description: "Cross-chain stablecoin transfers between supported EVM networks, Tron and the Bitcoin RGB layer."
 ---
 
 <Frame>
   ![Screenshot 2026 06 25 At 12 32 00 1](/images/Screenshot-2026-06-25-at-12.32.00-1.png)
 </Frame>
 
-The Utexo Mint is a cross-chain minting service that moves USDT between EVM-based networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from Ethereum, Tron or Solana is transparently converted to USDT0 on Arbitrum before being locked and minted as USDT on Bitcoin. Minted USDT is represented as USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges or custodial intermediaries.
+The Utexo Mint is a cross-chain minting service that moves USDT between supported source networks and the Bitcoin RGB layer. It is built around Arbitrum as the single EVM settlement hub, integrating with the USDT0 / LayerZero protocol so that USDT arriving from supported EVM networks or Tron is transparently converted to USDT0 on Arbitrum before being locked and minted as USDT on Bitcoin. Minted USDT is represented as USDT on Bitcoin — a real on-chain asset that can be transferred or exchanged against BTC with on-chain settlement guarantees, without relying on centralised exchanges or custodial intermediaries.
 
 ## How It Works
 
@@ -67,50 +67,30 @@ The following steps describe a complete cross-chain transfer:
 2. User submits a `FundsIn` transaction on the Arbitrum smart contract, locking USDT0.
 3. The Arbitrum Connector detects the event and notifies the orchestrator.
 4. The orchestrator instructs the Bitcoin Connector to prepare a `FundsOut` PSBT.
-5. The Federated Signer Nodes validate the RGB consignment and SPV proof inside their enclaves; a threshold of nodes sign the PSBT using Taproot Schnorr.
-6. The signed transaction is broadcast to Bitcoin. Once confirmed, USDT on Bitcoin appears in the user's RGB wallet.
+5. The Bitcoin Connector creates and validates the RGB consignment and PSBT.
+6. The Federated Signer Nodes validate the signing payload; a threshold of nodes signs the PSBT using Taproot Schnorr.
+7. The signed transaction is broadcast to Bitcoin. Once confirmed, USDT on Bitcoin appears in the user's compatible RGB wallet.
 
 ## Supported Networks
 
 | Network | Type | Direction |
 | --- | --- | --- |
 | Bitcoin (RGB layer) | Schnorr / Segwit | Inbound & Outbound |
-| Lightning | Schnorr / Segwit | Inbound & Outbound |
 | Arbitrum | EVM (secp256k1) | Inbound & Outbound |
-| Berachain | EVM (secp256k1) | Inbound & Outbound |
-| Celo | EVM (secp256k1) | Inbound & Outbound |
-| Conflux eSpace | EVM (secp256k1) | Inbound & Outbound |
-| Ethereum | EVM (secp256k1) | Inbound & Outbound |
-| Flare | EVM (secp256k1) | Inbound & Outbound |
-| Hedera | EVM (secp256k1) | Inbound & Outbound |
-| HyperCore | EVM (secp256k1) | Inbound & Outbound |
-| HyperEVM | EVM (secp256k1) | Inbound & Outbound |
-| Ink | EVM (secp256k1) | Inbound & Outbound |
-| Mantle | EVM (secp256k1) | Inbound & Outbound |
-| MegaETH | EVM (secp256k1) | Inbound & Outbound |
-| Monad | EVM (secp256k1) | Inbound & Outbound |
-| Morph | EVM (secp256k1) | Inbound & Outbound |
-| Optimism | EVM (secp256k1) | Inbound & Outbound |
 | Plasma | EVM (secp256k1) | Inbound & Outbound |
 | Polygon PoS | EVM (secp256k1) | Inbound & Outbound |
-| Rootstock | EVM (secp256k1) | Inbound & Outbound |
-| Sei | EVM (secp256k1) | Inbound & Outbound |
-| Solana | Sealevel (ed25519) | Inbound & Outbound |
-| Stable | EVM (secp256k1) | Inbound & Outbound |
-| Tempo | EVM (secp256k1) | Inbound & Outbound |
-| TON | TVM (ed25519) | Inbound & Outbound |
+| Ethereum | EVM (secp256k1) | Inbound & Outbound |
 | Tron | EVM (secp256k1) | Inbound & Outbound |
-| Unichain | EVM (secp256k1) | Inbound & Outbound |
-| XLayer | EVM (secp256k1) | Inbound & Outbound |
+| Lightning | Schnorr / Segwit | **Coming soon** |
 
-USDT from **Ethereum**, **Tron**, and **Solana** is supported at the user level via the USDT0 / LayerZero protocol, which handles conversion to USDT0 on Arbitrum transparently before the funds reach the Utexo Mint contract.
+Additional USDT0-supported networks can be enabled based on business need. See [USDT0's contract deployments](https://docs.usdt0.to/technical-documentation/deployments) for its current network coverage.
 
 ## Supported Assets
 
 | Asset | Source Network | Representation on Bitcoin |
 | --- | --- | --- |
-| USDT | Bitcoin (RGB layer), Lightning | USDT on Bitcoin |
-| USDT0 | Arbitrum (native Hub), other EVM, Tron, Solana (via bridge) | USDT on Bitcoin |
+| USDT | Bitcoin (RGB layer); Lightning (coming soon) | USDT on Bitcoin |
+| USDT0 | Arbitrum (native hub), Ethereum, Plasma, Polygon PoS, Tron | USDT on Bitcoin |
 
 ## Fees
 
@@ -136,6 +116,6 @@ The Utexo Mint is designed so that assets cannot be stolen even if individual op
 
 ## Guide
 
-<Card title="Getting Started" icon="arrow-left-to-bracket" href="/product-suite/bridge-getting-started">
+<Card title="Getting Started" icon="arrow-left-to-bracket" href="/mint/getting-started">
   Mint USDT between Ethereum and the Bitcoin RGB layer.
 </Card>
