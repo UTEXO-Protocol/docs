@@ -57,30 +57,30 @@
             "group": "Swap",
             "pages": [
               "product-suite/swap",
-              "untitled-page-4",
+              "product-suite/swap/security-model",
               {
                 "group": "Integration",
                 "pages": [
-                  "untitled-page",
-                  "untitled-page-2",
-                  "untitled-page-3"
+                  "product-suite/swap/integration/overview",
+                  "product-suite/swap/integration/authorization",
+                  "product-suite/swap/integration/user-flow"
                 ]
               },
               {
                 "group": "API Reference",
                 "pages": [
-                  "untitled-page-5",
-                  "untitled-page-6",
-                  "untitled-page-7",
-                  "untitled-page-8",
-                  "untitled-page-9"
+                  "product-suite/swap/api/networks-and-tokens",
+                  "product-suite/swap/api/quotes",
+                  "product-suite/swap/api/intents-and-approvals",
+                  "product-suite/swap/api/swaps",
+                  "product-suite/swap/api/affiliates"
                 ]
               },
               {
                 "group": "On-chain Helpers",
                 "pages": [
-                  "untitled-page-10",
-                  "untitled-page-11"
+                  "product-suite/swap/on-chain-helpers/wrap-native-tokens",
+                  "product-suite/swap/on-chain-helpers/approve-for-permit2"
                 ]
               }
             ]

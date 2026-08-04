@@ -101,7 +101,7 @@ EVM networks use Permit2. Before submitting the off-chain Permit2 signature, ens
 3. Create and sign the EIP-712 Permit2 payload locally.
 4. Submit the signature as the `permit2` value to `POST /intents/{id}/approvals`.
 
-The TypeScript integration uses `preparePermit2Approval` from `@hot-pot/hotpot-sdk-ts`; preserve that package name when implementing against the current SDK.
+The TypeScript integration uses `preparePermit2Approval` from `@hot-pot/hotpot-sdk-ts`.
 
 ```ts
 import { privateKeyToAccount } from "viem/accounts";
@@ -246,5 +246,79 @@ Bitcoin uses a PSBT to authorize a Taproot HTLC deposit.
 5. Preserve unrelated transaction data and existing partial signatures.
 6. Serialize the updated PSBT in Base64 format.
 7. Submit it as the `psbt` value to `POST /intents/{id}/approvals`.
+
+The following example signs the input indexes returned by `POST /intents`.
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/BoostyLabs/hotpot-sdk-go/crypto/bitcoin"
+)
+
+type HtlcApprovalData struct {
+	Psbt   string `json:"psbt"`
+	Inputs []int  `json:"inputs"`
+}
+
+type IntentResponse struct {
+	ApprovalMechanism string           `json:"approvalMechanism"`
+	IntentID          string           `json:"intentId"`
+	Htlc              HtlcApprovalData `json:"htlc"`
+}
+
+func signBitcoinApproval(
+	intent IntentResponse,
+	privateKeyHex string,
+) (string, error) {
+	if intent.ApprovalMechanism != "htlc" {
+		return "", fmt.Errorf("the intent does not require HTLC approval")
+	}
+
+	signer, err := bitcoin.NewSigner(privateKeyHex)
+	if err != nil {
+		return "", fmt.Errorf("failed to create signer: %w", err)
+	}
+
+	signedPsbtBase64, err := bitcoin.SignDepositTx(
+		signer,
+		intent.Htlc.Psbt,
+		intent.Htlc.Inputs,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign deposit transaction: %w", err)
+	}
+
+	return signedPsbtBase64, nil
+}
+
+func main() {
+	privateKeyHex := os.Getenv("PRIVATE_KEY")
+
+	if privateKeyHex == "" {
+		log.Fatal("PRIVATE_KEY environment variable is not set")
+	}
+
+	intent := IntentResponse{
+		ApprovalMechanism: "htlc",
+		IntentID:          "00000000-0000-0000-0000-000000000000",
+		Htlc: HtlcApprovalData{
+			Psbt:   "PSBT_BASE64_PLACEHOLDER",
+			Inputs: []int{0, 1, 2},
+		},
+	}
+
+	signedPsbtBase64, err := signBitcoinApproval(intent, privateKeyHex)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Signed PSBT:", signedPsbtBase64)
+}
+```
 
 For Taproot inputs, the signer must use the referenced UTXO data to calculate the required signature hash and produce the applicable Schnorr witness signature.

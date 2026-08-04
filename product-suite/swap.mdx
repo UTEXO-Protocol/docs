@@ -29,7 +29,7 @@ Utexo uses cryptographic time constraints and network-native escrow mechanisms t
 | Network | Settlement mechanism |
 | --- | --- |
 | Bitcoin | Taproot hash time-locked contract (HTLC) escrow |
-| Ethereum and other EVM networks | Smart contract HTLC |
+| Ethereum and other EVM networks | Dedicated escrow smart contract per swap |
 | Solana | Program escrow |
 | Tron | Contract escrow |
 
@@ -39,10 +39,10 @@ Resolvers provide liquidity and perform the on-chain operations required to fulf
 
 ## Documentation map
 
-- **Integration** explains access, authentication, and the end-to-end user flow.
-- **Security Model** defines escrow isolation, resolver permissions, and refund behavior.
-- **API Reference** documents discovery, quotes, intents, swaps, and affiliates.
-- **On-chain Helpers** covers native-token wrapping and Permit2 token allowance.
+- [**Integration**](/product-suite/swap/integration/overview) explains access, authentication, and the end-to-end user flow.
+- [**Security Model**](/product-suite/swap/security-model) defines escrow isolation, resolver permissions, and refund behavior.
+- [**API Reference**](/product-suite/swap/api/networks-and-tokens) documents discovery, quotes, intents, swaps, and affiliates.
+- [**On-chain Helpers**](/product-suite/swap/on-chain-helpers/wrap-native-tokens) covers native-token wrapping and Permit2 token allowance.
 
 ## Glossary
 
