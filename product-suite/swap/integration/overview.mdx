@@ -1,0 +1,32 @@
+---
+title: "Integration Overview"
+description: "Integrate Utexo Swap through the REST API, supported SDKs, and the recommended request sequence."
+sidebarTitle: "Overview"
+---
+
+## Overview
+
+Partners use the REST API to request quotes, create intents, submit approvals, and monitor execution. Utexo limits protected API access to approved integration partners.
+
+### Recommended request sequence
+
+1. Call `GET /healthcheck` to verify API availability.
+2. Discover supported networks with `GET /networks`.
+3. Discover supported assets with `GET /tokens`.
+4. Request pricing with `POST /quote`.
+5. Create an intent with `POST /intents`.
+6. Generate the approval required by `approvalMechanism`.
+7. Submit the signed approval with `POST /intents/{id}/approvals`.
+8. Monitor the intent and resulting swap until it reaches a terminal status.
+
+## Resources
+
+The following integration resources are available:
+
+- Swagger and Swagger UI for endpoint discovery and direct request testing.
+- TypeScript, Go, and Rust SDKs.
+- `@hot-pot/hotpot-sdk-ts` for the current TypeScript Permit2 helpers.
+
+<Note>
+  Obtain the current Swagger or Swagger UI URL and the supported SDK distribution links and versions from the Utexo team.
+</Note>

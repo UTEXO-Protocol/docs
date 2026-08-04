@@ -1,0 +1,39 @@
+---
+title: "User Flow"
+description: "Follow the quote, intent, approval, execution, and settlement flow used by Utexo Swap."
+sidebarTitle: "User Flow"
+---
+
+## Swap workflow
+
+The execution flow includes three participants:
+
+| Participant | Responsibility |
+| --- | --- |
+| **Partner** | Integrates a wallet, application, exchange, or service with the Utexo API. |
+| **User** | Owns the source assets, approves the swap conditions, and signs the required chain-specific authorization. |
+| **Resolver** | Provides liquidity and fulfills the swap under the signed intent conditions. |
+
+<Steps>
+  <Step title="Request a quote">
+    The user selects the source asset, destination asset, and amount. The partner calls `POST /quote`. Competing resolvers return a time-limited RFQ offer with pricing, fees, and execution constraints.
+  </Step>
+  <Step title="Create an intent">
+    After the user accepts a quote, the partner calls `POST /intents` with the quote ID and the user's source, destination, and refund addresses. Utexo returns an intent ID and the approval mechanism required by the source network.
+  </Step>
+  <Step title="Collect chain-specific approval">
+    The user signs the approval data locally:
+
+    - EVM and Tron use Permit2.
+    - Bitcoin uses a Partially Signed Bitcoin Transaction (PSBT) for an HTLC deposit.
+    - Solana uses a cosigned versioned transaction.
+
+    The partner submits the signed approval with `POST /intents/{id}/approvals`.
+  </Step>
+  <Step title="Execute the swap">
+    Utexo notifies the selected resolver. The resolver executes the source-chain settlement action and transfers the destination assets to the user under the signed conditions.
+  </Step>
+  <Step title="Verify settlement">
+    The wallet verifies the destination settlement. The partner can monitor progress with `GET /intents/{id}/status`, `GET /swaps`, or `GET /swaps/{id}`.
+  </Step>
+</Steps>

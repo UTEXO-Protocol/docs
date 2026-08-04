@@ -1,0 +1,324 @@
+---
+title: "Intents and Approvals"
+description: "Create swap intents, submit chain-specific approvals, and monitor intent status."
+sidebarTitle: "Intents and Approvals"
+---
+
+## Overview
+
+An intent is a signed, machine-verifiable request to execute a swap under the constraints of an accepted quote.
+
+### `POST /intents`
+
+Creates an intent from a valid quote and user addresses. Utexo creates the intent off-chain and returns chain-specific approval data.
+
+**Authentication:** `X-API-Key`
+
+| Body field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `quoteId` | string | Yes | Quote ID returned by `POST /quote`. |
+| `refundAddress` | string | Yes | Address that receives refunded funds after an unsuccessful or expired swap. |
+| `destinationAddress` | string | Yes | Address that receives the destination asset. |
+| `sourceAddress` | string | Yes | Address from which the source asset is transferred. |
+| `sourcePublicKey` | string | No | Source public key. Bitcoin and Solana source networks can require it. |
+
+```json
+{
+  "destinationAddress": "0x2222222222222222222222222222222222222222",
+  "quoteId": "bea66e69-64c3-4b88-96ac-29f1ce7d454d",
+  "refundAddress": "0x1111111111111111111111111111111111111111",
+  "sourceAddress": "0x1111111111111111111111111111111111111111"
+}
+```
+
+The response identifies the required `approvalMechanism`. Exactly one of `permit2`, `htlc`, or `cosign` contains approval data in a successful response.
+
+### `POST /intents/{id}/approvals`
+
+Attaches signed approval data to an existing intent and authorizes execution. Exactly one approval payload must be provided.
+
+**Authentication:** `X-API-Key`
+
+| Parameter or body field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | Intent ID in UUID format. |
+| `permit2` | string | Conditional | Permit2 signature when `approvalMechanism` is `permit2`. |
+| `psbt` | string | Conditional | Signed PSBT when `approvalMechanism` is `htlc`. |
+| `cosign` | object | Conditional | Signed Solana transaction data when `approvalMechanism` is `cosign`. |
+| `cosign.transaction` | string | Conditional | Signed versioned transaction. |
+| `cosign.userAddress` | string | Conditional | Address that signed the Solana transaction. |
+
+Permit2 example:
+
+```json
+{
+  "permit2": "SIGNATURE_PLACEHOLDER"
+}
+```
+
+See [Chain-specific intent approval](#chain-specific-intent-approval) for signing requirements.
+
+### `GET /intents/{id}/status`
+
+Returns the combined progress of an intent and its related swap.
+
+**Authentication:** `X-API-Key`
+
+| Path parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | Intent ID in UUID format. |
+
+```json
+{
+  "status": "Initiated"
+}
+```
+
+## Status lifecycle
+
+| Status | Meaning |
+| --- | --- |
+| `Initiated` | Utexo created the intent. |
+| `ApprovalAdded` | Utexo received the required user approval. |
+| `Accepted` | A resolver accepted the swap. |
+| `Declined` | A resolver declined the swap. |
+| `UserDeposited` | The user deposited the source funds. |
+| `Fulfilled` | The resolver fulfilled the swap. |
+| `Expired` | The swap reached its expiration deadline. |
+| `RefundRequested` | The protocol recorded a refund request. |
+| `Refunded` | The protocol completed the refund path. |
+
+## Chain-specific intent approval
+
+Always use the approval mechanism returned by `POST /intents`. Do not convert approval data between network types.
+
+### EVM networks
+
+EVM networks use Permit2. Before submitting the off-chain Permit2 signature, ensure that the ERC-20 token allowance for the Permit2 contract is sufficient.
+
+1. Confirm that `approvalMechanism` is `permit2`.
+2. Read the payload from the `permit2` response object.
+3. Create and sign the EIP-712 Permit2 payload locally.
+4. Submit the signature as the `permit2` value to `POST /intents/{id}/approvals`.
+
+The TypeScript integration uses `preparePermit2Approval` from `@hot-pot/hotpot-sdk-ts`.
+
+```ts
+import { privateKeyToAccount } from "viem/accounts";
+import {
+  preparePermit2Approval,
+  type Permit2ApprovalToSign,
+} from "@hot-pot/hotpot-sdk-ts";
+
+type Quote = Parameters<typeof preparePermit2Approval>[1];
+
+type Permit2Intent = {
+  approvalMechanism: "permit2";
+  deadlineSecs: number;
+  intentId: string;
+  permit2: Permit2ApprovalToSign;
+};
+
+async function signAndSubmitPermit2Approval(
+  quote: Quote,
+  intent: Permit2Intent,
+  account: ReturnType<typeof privateKeyToAccount>,
+  baseUrl: string,
+  apiKey: string,
+): Promise<void> {
+  const payload = preparePermit2Approval(
+    intent.permit2,
+    quote,
+    account.address,
+    intent.deadlineSecs,
+  );
+
+  const signature = await account.signTypedData(payload);
+  const response = await fetch(`${baseUrl}/intents/${intent.intentId}/approvals`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-API-Key": apiKey,
+    },
+    body: JSON.stringify({ permit2: signature }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Approval submission failed: ${response.status}`);
+  }
+}
+```
+
+### Tron
+
+Tron also uses Permit2, but the user signs a TIP-712 payload with TronWeb.
+
+1. Confirm that `approvalMechanism` is `permit2`.
+2. Read the payload from the `permit2` response object.
+3. Derive the user source address from the signing key.
+4. Create and sign the TIP-712 Permit2 payload.
+5. Submit the signature as `permit2`.
+
+```ts
+import { TronWeb } from "tronweb";
+import { preparePermit2Approval } from "@hot-pot/hotpot-sdk-ts";
+
+const tronWeb = new TronWeb({
+  fullHost: "https://api.trongrid.io",
+  privateKey,
+});
+
+const userSourceAddress = tronWeb.address.fromPrivateKey(privateKey);
+if (!userSourceAddress) {
+  throw new Error("The private key does not produce a valid Tron address");
+}
+
+const payload = preparePermit2Approval(
+  intent.permit2,
+  quote,
+  userSourceAddress,
+  intent.deadlineSecs,
+);
+
+const signature = tronWeb.trx.signTypedData(
+  payload.domain,
+  payload.types,
+  payload.message,
+  privateKey,
+);
+```
+
+Submit the resulting signature to `POST /intents/{id}/approvals` in the same `{ "permit2": "..." }` shape used for EVM approvals.
+
+### Solana
+
+Solana uses a cosigned versioned transaction. Utexo returns a hex-encoded transaction in `cosign.transaction`.
+
+The signing process must preserve signature ordering:
+
+- Resolver signature: position `0`
+- User signature: position `1`
+- Optional backend signature: position `2`
+
+```ts
+import { Keypair, VersionedTransaction } from "@solana/web3.js";
+import bs58 from "bs58";
+
+const keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
+const bytes = Uint8Array.from(Buffer.from(intent.cosign.transaction, "hex"));
+const transaction = VersionedTransaction.deserialize(bytes);
+
+const resolverSignature = transaction.signatures[0];
+const backendSignature = transaction.signatures[2];
+
+if (!resolverSignature) {
+  throw new Error("The resolver signature is missing");
+}
+
+transaction.sign([keypair]);
+transaction.signatures[0] = resolverSignature;
+
+if (backendSignature) {
+  transaction.signatures[2] = backendSignature;
+}
+
+const signedTransaction = Buffer.from(transaction.serialize()).toString("hex");
+
+const approval = {
+  cosign: {
+    transaction: signedTransaction,
+    userAddress: keypair.publicKey.toBase58(),
+  },
+};
+```
+
+Submit `approval` to `POST /intents/{id}/approvals`.
+
+### Bitcoin
+
+Bitcoin uses a PSBT to authorize a Taproot HTLC deposit.
+
+1. Confirm that `approvalMechanism` is `htlc`.
+2. Read the Base64-encoded PSBT from `htlc.psbt`.
+3. Read the required input indexes from `htlc.inputs`.
+4. Sign only those inputs.
+5. Preserve unrelated transaction data and existing partial signatures.
+6. Serialize the updated PSBT in Base64 format.
+7. Submit it as the `psbt` value to `POST /intents/{id}/approvals`.
+
+The following example signs the input indexes returned by `POST /intents`.
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/BoostyLabs/hotpot-sdk-go/crypto/bitcoin"
+)
+
+type HtlcApprovalData struct {
+	Psbt   string `json:"psbt"`
+	Inputs []int  `json:"inputs"`
+}
+
+type IntentResponse struct {
+	ApprovalMechanism string           `json:"approvalMechanism"`
+	IntentID          string           `json:"intentId"`
+	Htlc              HtlcApprovalData `json:"htlc"`
+}
+
+func signBitcoinApproval(
+	intent IntentResponse,
+	privateKeyHex string,
+) (string, error) {
+	if intent.ApprovalMechanism != "htlc" {
+		return "", fmt.Errorf("the intent does not require HTLC approval")
+	}
+
+	signer, err := bitcoin.NewSigner(privateKeyHex)
+	if err != nil {
+		return "", fmt.Errorf("failed to create signer: %w", err)
+	}
+
+	signedPsbtBase64, err := bitcoin.SignDepositTx(
+		signer,
+		intent.Htlc.Psbt,
+		intent.Htlc.Inputs,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign deposit transaction: %w", err)
+	}
+
+	return signedPsbtBase64, nil
+}
+
+func main() {
+	privateKeyHex := os.Getenv("PRIVATE_KEY")
+
+	if privateKeyHex == "" {
+		log.Fatal("PRIVATE_KEY environment variable is not set")
+	}
+
+	intent := IntentResponse{
+		ApprovalMechanism: "htlc",
+		IntentID:          "00000000-0000-0000-0000-000000000000",
+		Htlc: HtlcApprovalData{
+			Psbt:   "PSBT_BASE64_PLACEHOLDER",
+			Inputs: []int{0, 1, 2},
+		},
+	}
+
+	signedPsbtBase64, err := signBitcoinApproval(intent, privateKeyHex)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Signed PSBT:", signedPsbtBase64)
+}
+```
+
+For Taproot inputs, the signer must use the referenced UTXO data to calculate the required signature hash and produce the applicable Schnorr witness signature.
