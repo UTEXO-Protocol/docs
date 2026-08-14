@@ -57,6 +57,16 @@
             "group": "Swap",
             "pages": [
               "product-suite/swap",
+              {
+                "group": "API Reference",
+                "pages": [
+                  "product-suite/swap/api/affiliates",
+                  "product-suite/swap/api/networks-and-tokens",
+                  "product-suite/swap/api/quotes",
+                  "product-suite/swap/api/intents-and-approvals",
+                  "product-suite/swap/api/swaps"
+                ]
+              },
               "product-suite/swap/security-model",
               {
                 "group": "Integration",
@@ -64,16 +74,6 @@
                   "product-suite/swap/integration/overview",
                   "product-suite/swap/integration/authorization",
                   "product-suite/swap/integration/user-flow"
-                ]
-              },
-              {
-                "group": "API Reference",
-                "pages": [
-                  "product-suite/swap/api/networks-and-tokens",
-                  "product-suite/swap/api/quotes",
-                  "product-suite/swap/api/intents-and-approvals",
-                  "product-suite/swap/api/swaps",
-                  "product-suite/swap/api/affiliates"
                 ]
               },
               {
