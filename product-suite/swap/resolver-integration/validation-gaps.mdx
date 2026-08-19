@@ -1,0 +1,40 @@
+---
+title: "Validation Gaps"
+description: "Open items and undocumented behaviors in the resolver integration source that must be resolved before this section is implementation-complete."
+sidebarTitle: "Validation Gaps"
+---
+
+<Warning>
+  This page is an internal-review checklist. It is **not implementation-complete** and must be reconciled with the current Utexo implementation, OpenAPI, and resolver SDK before publishing to external resolvers.
+</Warning>
+
+## Missing environments and paths
+
+- **Environment and base URLs** for the Protocol API are absent from the source.
+- **Resolver callback paths** and any callback authentication outside signed webhooks are absent.
+
+## Undocumented schemas
+
+- **Canonical quote response schema** is absent, even though the source prose describes destination minimum/maximum, expiry in milliseconds, affiliate fee data, and intermediate-token routing.
+- **`POST /v1/intents/batch/withdraw`** request and response schemas are absent.
+- **Optimized Swap transaction-reporting endpoint** is not documented; only the ordered reporting for standard swaps is specified.
+- **Solana co-signed callback response** schema is absent.
+
+## Partial chain coverage
+
+- The **EVM cross-chain source** stops before detailed fulfill and withdraw parameter coverage.
+- The **Bitcoin PSBT source** says a deposit has exactly two or three outputs but does not define the optional third output or change handling.
+
+## Field-level issues
+
+- The Bitcoin fast-refund signing callback uses the field name **`tapscipt`**. This is preserved verbatim from the source but appears to be a typo of `tapscript`. Confirm the spelling against the implementation before wiring.
+- **Webhook timestamp acceptance and replay window** is not documented. Confirm the acceptable freshness window with Utexo before enforcing it.
+
+## Documentation hygiene
+
+- **Swagger and resolver SDK links** are missing or placeholders in the source.
+- Example addresses in the **legacy quote page** mix network formats and should not be reused as normative examples on any resolver page.
+
+## Freshness
+
+Several source pages are partial and were last modified approximately four months before this port. Validate every claim on the Resolver Integration pages against current code and the OpenAPI specification before publishing.

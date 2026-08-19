@@ -1,0 +1,99 @@
+---
+title: "Solana Settlement"
+description: "Settle Utexo swaps on Solana using unified vault PDAs, packed DEX instructions, and co-signed deposit, fulfill, and withdraw transactions."
+sidebarTitle: "Solana"
+---
+
+Solana settlement uses program-derived addresses (PDAs) and horizontally packed instructions. No Executor or Fulfillment contract is deployed; resolvers interact directly with the Utexo program.
+
+## Onboarding
+
+A protocol administrator registers each resolver in the `ProtocolState` PDA with:
+
+- Executor/admin authority `Pubkey`
+- Authorized deposit and withdraw addresses
+
+## Accounts
+
+### Unified vault PDA
+
+```text
+seeds = ["vault", token_mint]
+```
+
+Pools escrowed tokens of the same mint in one vault. Deposits increase its balance; withdrawals, refunds, and fulfillments decrease it.
+
+### `EscrowCheck` PDA
+
+```text
+seeds = ["escrow", order_hash]
+```
+
+Stores order, intent, resolver, deposit authority, user, mint, amount, secret hash, nonce, and deadline.
+
+### `FulfilledIntent` PDA
+
+```text
+seeds = ["fulfilled", intent_id]
+```
+
+Provides replay protection for fulfillment. The PDA is closable after a seven-day grace period to reclaim rent through the single or batch close instructions.
+
+## Cross-chain swap
+
+### Deposit
+
+- **Signers:** user \+ `resolver_deposit_address`.
+- Uses the accounts and parameters supplied in the co-signed deposit transaction.
+
+### Fulfill
+
+- **Signers:** `caller_authority` \+ `backend_signer`.
+- Fulfillment amount must be in `[min_amount, min(max_amount, resolver_max_amount)]`.
+
+### Withdraw
+
+- **Signer:** `resolver_withdraw_address`.
+- Requires the full order and revealed secret. Closes the `EscrowCheck` PDA on success.
+
+## Horizontal packing with DEX
+
+Solana settlements pack protocol instructions around resolver-supplied DEX instructions inside a single atomic transaction. Ordering is strict.
+
+### Deposit with DEX
+
+```text
+deposit_dex_start
+  -> resolver DEX instructions
+deposit_dex_finish
+```
+
+<Warning>
+  Intermediary DEX instructions must not reference the user's public key.
+</Warning>
+
+### Fulfill with DEX
+
+```text
+fulfill_start
+  -> resolver instructions
+fulfill_finish        // or fulfill_finish_native for native SOL
+```
+
+Use `fulfill_finish_native` when paying out native SOL.
+
+## Single-chain atomic swap
+
+- **Signers:** user \+ `resolver_deposit_address` \+ `backend_signer`.
+
+### DEX path
+
+```text
+swap_start
+  -> resolver instructions
+swap_finish           // or swap_finish_native for native SOL
+```
+
+## Fast refund
+
+Fast refund is co-signed by `backend_signer` and `resolver_deposit_address`. The resolver signer must match the `resolver_deposit_authority` stored in the `EscrowCheck` PDA.

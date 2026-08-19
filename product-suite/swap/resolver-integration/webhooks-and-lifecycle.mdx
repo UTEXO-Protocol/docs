@@ -1,0 +1,114 @@
+---
+title: "Webhooks and Lifecycle"
+description: "Verify Utexo signed webhooks and act on the intent lifecycle events that drive resolver settlement."
+sidebarTitle: "Webhooks and Lifecycle"
+---
+
+Utexo notifies resolvers of lifecycle transitions through signed webhook events. Webhook events are separate from the transaction-reporting calls resolvers make through the [Protocol API](/product-suite/swap/resolver-integration/protocol-api).
+
+## Envelope
+
+Every event uses the same envelope:
+
+```json
+{
+  "type": "IntentAssigned",
+  "data": { }
+}
+```
+
+## Signature verification
+
+Each request carries two headers:
+
+| Header | Value |
+| --- | --- |
+| `X-Signature` | Hex-encoded Ed25519 signature. |
+| `X-Timestamp` | Unix timestamp string. |
+
+Verify the signature over the concatenation `timestamp_bytes + raw_body_bytes` using the public key returned by [`GET /v1/resolvers/webhooks/public-key`](/product-suite/swap/resolver-integration/protocol-api).
+
+<Warning>
+  - Verify against the **raw request bytes** before JSON parsing. Re-serialization changes the signed payload.
+  - Reject any request with an invalid signature.
+  - Enforce a timestamp freshness and replay window. The acceptable window is not documented in the source; confirm the exact policy with Utexo.
+  - Use the event type and intent identifier (`id` or `intent_id`, depending on the event) as the idempotency key, and persist processed lifecycle transitions.
+</Warning>
+
+## Events
+
+### `IntentAssigned`
+
+The intent has been assigned to your resolver.
+
+**Data fields:** `id`, `secret_hash`, `user_source_address`, `user_destination_address`, `user_approval` (approval mechanism and chain-specific data), `deadline`, `quote_id`, `deposit_type`, `signature_details`.
+
+**Action:** validate the deadline and assignment, then begin constructing and broadcasting the source-chain deposit.
+
+### `DepositConfirmed`
+
+The source-chain deposit is confirmed and Utexo is releasing the fulfillment request.
+
+**Data fields:** `intent_id`, `deposit_tx`, `fulfillment_deadline`, `fulfillment_signature`, `cosign_transaction`, `fulfillment_request` containing `intent_id`, `user_destination_address`, `to_token`, `min_amount`, `max_amount`, `deadline`.
+
+**Action:** execute fulfillment on the destination chain before `fulfillment_deadline`, then report through `POST /v1/intents/{id}/fulfill`.
+
+### `WithdrawReady`
+
+Fulfillment has been verified and the secret is available.
+
+**Data fields:** `intent_id`, `secret`.
+
+**Action:** withdraw the escrowed source-chain funds using the revealed secret, then report the withdrawal transaction hash.
+
+### `SwapConfirmed`
+
+Terminal event for optimized single-chain swaps.
+
+**Data fields:** `intent_id`, `swap_tx`.
+
+**Action:** none. The swap is complete.
+
+### `RefundConfirmed`
+
+Terminal event for refunded intents.
+
+**Data fields:** `intent_id`, `refund_tx`.
+
+**Action:** stop any in-flight fulfillment for this intent.
+
+## Flow overview
+
+### Standard escrowed swap
+
+```text
+IntentAssigned
+  -> deposit tx (resolver broadcasts)
+  -> POST /v1/intents/{id}/deposit
+DepositConfirmed
+  -> fulfill tx (resolver broadcasts)
+  -> POST /v1/intents/{id}/fulfill
+WithdrawReady (secret revealed)
+  -> withdraw tx (resolver broadcasts)
+  -> withdrawal reporting
+```
+
+### Optimized single-chain swap
+
+```text
+IntentAssigned
+  -> swap tx (resolver broadcasts)
+  -> swap reporting
+SwapConfirmed (terminal)
+```
+
+### Refund
+
+```text
+RefundConfirmed (terminal)
+  -> stop fulfillment attempts
+```
+
+<Note>
+  Webhook events signal state transitions. Transaction reporting through the Protocol API is what advances the intent through those transitions. Treat them as two separate channels.
+</Note>

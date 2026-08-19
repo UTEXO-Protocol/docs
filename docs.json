@@ -69,6 +69,19 @@
               },
               "product-suite/swap/security-model",
               {
+                "group": "Resolver Integration",
+                "pages": [
+                  "product-suite/swap/resolver-integration/overview",
+                  "product-suite/swap/resolver-integration/protocol-api",
+                  "product-suite/swap/resolver-integration/resolver-api",
+                  "product-suite/swap/resolver-integration/webhooks-and-lifecycle",
+                  "product-suite/swap/resolver-integration/evm-tron-settlement",
+                  "product-suite/swap/resolver-integration/solana-settlement",
+                  "product-suite/swap/resolver-integration/bitcoin-settlement",
+                  "product-suite/swap/resolver-integration/validation-gaps"
+                ]
+              },
+              {
                 "group": "Integration",
                 "pages": [
                   "product-suite/swap/integration/overview",

@@ -1,0 +1,146 @@
+---
+title: "Resolver API"
+description: "Callbacks and endpoints resolvers must expose so Utexo can request quotes, PSBTs, and co-signed settlement transactions."
+sidebarTitle: "Resolver API"
+---
+
+The Resolver API is the direction Utexo calls **on the resolver**. Each resolver defines and configures its own callback URLs; the source documentation does not prescribe paths.
+
+<Warning>
+  The source does not specify an authentication mechanism for resolver callbacks other than webhook signatures. Do not assume `X-API-Key` protects this direction. Agree the transport authentication with Utexo before exposing endpoints.
+</Warning>
+
+## Quote callback
+
+Utexo calls the resolver to request a quote for a user swap.
+
+### Request fields
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `source_chain` | integer | yes | Source network ID. |
+| `source_token` | string | yes | Source token identifier. |
+| `dest_chain` | integer | yes | Destination network ID. |
+| `dest_token` | string | yes | Destination token identifier. |
+| `amount` | string | yes | Amount in decimal-adjusted format. |
+| `slippage_bps` | string | yes | Slippage tolerance in basis points, range `0..10000`. |
+| `swap_type` | string | yes | `standard` or `optimized`. |
+| `affiliate_id` | string | yes | Affiliate identifier. |
+| `retail_user_id` | string | no | Optional retail user identifier. |
+| `affiliate_fees` | object | no | Keyed by sub-affiliate ID; each entry contains `fee_bps`, `network_id`, `token`. |
+| `deposit_type` | string | yes | `escrowed` or `direct`. |
+
+### Response
+
+<Note>
+  The source describes expected destination minimum and maximum, expiry in milliseconds, and affiliate and intermediate routing data, but does not publish a canonical quote response schema. Confirm the exact shape with Utexo.
+</Note>
+
+### Error responses
+
+Use `400` for invalid or unsupported requests and `500` for unexpected resolver failures. Envelope:
+
+```json
+{ "error_code": 1, "msg": "swap amount is below the minimum threshold" }
+```
+
+| Code | Constant |
+| --- | --- |
+| `0` | `INTERNAL_SERVER_ERROR` |
+| `1` | `SWAP_AMOUNT_TOO_SMALL` |
+| `2` | `SWAP_AMOUNT_TOO_LARGE` |
+| `3` | `UNSUPPORTED_SOURCE_NETWORK` |
+| `4` | `UNSUPPORTED_DEST_NETWORK` |
+| `5` | `UNSUPPORTED_SOURCE_TOKEN` |
+| `6` | `UNSUPPORTED_DEST_TOKEN` |
+| `7` | `INVALID_SLIPPAGE_TOLERANCE_BPS` |
+
+## Bitcoin deposit PSBT callback
+
+Utexo requests a PSBT for the user's Bitcoin deposit.
+
+### Request
+
+| Field | Description |
+| --- | --- |
+| `intent_id` | Intent identifier. |
+| `quote_id` | Quote identifier. |
+| `protocol_pub_key` | Protocol public key for the HTLC. |
+| `user_address` | User's Bitcoin address. |
+| `user_pub_key` | User's public key. |
+| `secret_hash` | Double SHA-256 secret hash. |
+| `deadline` | Refund timelock deadline. |
+| `deposit_type` | `escrowed`. |
+
+### Response
+
+| Field | Description |
+| --- | --- |
+| `psbt` | Base64-encoded PSBT. |
+| `x_only_public_key` | Taproot x-only key. |
+| `refund_control_block` | Control block for the timelock refund leaf. |
+| `fast_refund_control_block` | Control block for the fast refund leaf. |
+
+<Note>
+  `x_only_public_key`, `refund_control_block`, and `fast_refund_control_block` are only meaningful for `deposit_type=escrowed`.
+</Note>
+
+## Solana co-signed transaction callback
+
+Utexo asks the resolver to co-sign a Solana transaction.
+
+### Request
+
+`request_type` is one of:
+
+- `DepositSwap`
+- `Fulfill`
+- `WithdrawToUser`
+
+Source fields:
+
+- `intent_id`
+- `quote_id`
+- `user_address`
+- `nonce`
+- `resolver_deposit`
+- `token_in`
+- `token_out`
+- `secret_hash`
+- `amount_in`
+- `deadline`
+- `resolver_id`
+- `intermediate_token_out` and its bounds (optional)
+- `min_amount_out`
+- `max_amount_out`
+- `swap_type`
+- `recent_blockhash` (optional)
+- `deposit_type` = `escrowed`
+
+### Response
+
+<Warning>
+  The source does not document the Solana co-signed callback response schema. Confirm the response shape with Utexo before implementing.
+</Warning>
+
+## Fast-refund signing callback
+
+Utexo requests a resolver signature for a fast refund.
+
+### Request
+
+| Field | Description |
+| --- | --- |
+| `intent_id` | Intent identifier. |
+| `chain` | Source chain identifier. |
+| `btc_data` | Object containing `psbt`, `tapscipt`, and `input` for Bitcoin. |
+
+### Response
+
+```json
+{ "signature": "<hex>" }
+```
+
+<Warning>
+  The source spells the Bitcoin script field `tapscipt`. This appears to be a typo of `tapscript` and must be validated against the current implementation before you wire it up.
+</Warning>

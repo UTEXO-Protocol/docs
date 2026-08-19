@@ -1,0 +1,169 @@
+---
+title: "Protocol API"
+description: "Endpoints resolvers call on Utexo to discover networks, retrieve intents, and report deposit, fulfillment, and withdrawal transactions."
+sidebarTitle: "Protocol API"
+---
+
+The Protocol API is the direction resolvers call **on Utexo**. Callbacks Utexo makes on the resolver are documented in the [Resolver API](/product-suite/swap/resolver-integration/resolver-api).
+
+## Authentication
+
+Every request must include your resolver API key:
+
+```http
+X-API-Key: <your_api_key>
+```
+
+Requests with missing or invalid keys are rejected.
+
+## Error envelope
+
+Protocol errors use this envelope:
+
+```json
+{
+  "code": 1,
+  "message": "Internal server error",
+  "entity": "Intent"
+}
+```
+
+## Discovery
+
+### `GET /v1/networks`
+
+Lists supported networks. Response items include:
+
+| Field | Description |
+| --- | --- |
+| `id` | Numeric network identifier. |
+| `name` | Human-readable network name. |
+| `type` | Network family. |
+| `supports_optimized_swap` | Whether the network supports optimized single-chain swaps. |
+| `icon_url` | Icon asset URL. |
+| `supports_custom_tokens` | If `true`, the token list is not exhaustive and custom tokens may be swapped. |
+
+### `GET /v1/tokens`
+
+Lists supported tokens. Query parameters:
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `limit` | integer | Page size. |
+| `offset` | integer | Page offset. |
+| `q` | string | Symbol or contract address filter. |
+| `network_id` | integer | Restrict to a network. |
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "network_id": "<integer>",
+      "name": "<token name>",
+      "contract_address": "<token address>",
+      "symbol": "<symbol>",
+      "icon_url": "<URL>",
+      "wrapped_token_address": null
+    }
+  ],
+  "pagination": {
+    "limit": "<integer>",
+    "offset": "<integer>",
+    "pages": "<integer>",
+    "total": "<integer>"
+  }
+}
+```
+
+### `GET /v1/resolvers/webhooks/public-key`
+
+Returns the Ed25519 public key used to verify webhook signatures.
+
+```json
+{ "public_key": "<hex-encoded Ed25519 public key>" }
+```
+
+## Intents and swaps
+
+### `GET /v1/intents/{id}`
+
+Retrieves an intent. Statuses:
+
+| Status | Meaning |
+| --- | --- |
+| `Initiated` | Intent created; awaiting user approval. |
+| `ApprovalAdded` | User approval received. |
+| `Accepted` | Intent accepted by the resolver and being executed. |
+| `Declined` | Intent declined; will not execute. |
+
+Notable fields (non-exhaustive): chain and token identifiers, source and destination addresses, `resolver_id`, `deadline`, `nonce`, amount lots and decimals, `quote_id`, `slippage_tolerance_bps`, intermediate-token bounds, `affiliate_id`, `swap_type` (`standard` or `optimized`), `resolver_deposit_address`, `deposit_type` (`escrowed` or `direct`), and lifecycle timestamps.
+
+### `GET /v1/swaps/{intent_id}/swap`
+
+Retrieves the on-chain execution record for an intent. Notable fields: `status`, `proxy_address`, deposit/fulfill/withdraw/swap transaction hashes, intermediate-token data, and lifecycle timestamps.
+
+## Reporting transactions
+
+Resolvers must report each on-chain step. For standard swaps, report in order: **Deposit → Fulfill → Withdraw**.
+
+### `POST /v1/intents/{id}/deposit`
+
+```json
+{ "tx_hash": "<transaction hash>" }
+```
+
+### `POST /v1/intents/{id}/fulfill`
+
+```json
+{
+  "tx_hash": "<transaction hash>",
+  "signature": "<signature>"
+}
+```
+
+`signature` is optional for EVM, Solana, and Tron. It is required for Bitcoin.
+
+### `POST /v1/intents/batch/withdraw`
+
+Batched withdrawal reporting.
+
+<Warning>
+  The source does not document the request or response schema for this endpoint. Confirm the payload with Utexo before implementing.
+</Warning>
+
+<Note>
+  Optimized swaps report only the `Swap` step, but the source does not document the optimized swap reporting endpoint. See [Validation Gaps](/product-suite/swap/resolver-integration/validation-gaps).
+</Note>
+
+## Secret retrieval
+
+### `GET /v1/intents/{id}/reveal-secret`
+
+```json
+{ "secret": "<32-byte secret>" }
+```
+
+### `POST /v1/intents/batch/reveal-secrets`
+
+Request:
+
+```json
+{ "intent_ids": ["<uuid>"] }
+```
+
+Response:
+
+```json
+{ "secrets": { "<uuid>": "<secret>" } }
+```
+
+## Health
+
+### `GET /v1/system/live`
+
+- `200` — healthy
+- `500` — unhealthy
+
+No response body is documented.
