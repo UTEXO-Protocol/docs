@@ -57,6 +57,7 @@
             "group": "Swap",
             "pages": [
               "product-suite/swap",
+              "product-suite/swap/security-model",
               {
                 "group": "API Reference",
                 "pages": [
@@ -67,7 +68,6 @@
                   "product-suite/swap/api/swaps"
                 ]
               },
-              "product-suite/swap/security-model",
               {
                 "group": "Resolver Integration",
                 "pages": [
