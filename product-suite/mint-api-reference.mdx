@@ -44,22 +44,21 @@ Move assets from an EVM network to a plain RGB or RGB Lightning destination.
     `GET /networks/{network-id}/supported-tokens` — list tokens on that network and take the `id` of the one you want to bridge. USDT is the only token bridged today.
   </Step>
   <Step title="Estimate fees">
-    `GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}` — get fee and confirmation time estimate before committing.
+    `GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}` — preview the transfer before committing: fees and the amount the recipient will receive.
   </Step>
   <Step title="Pre-register the transfer">
-    `POST /transfers/bridge-in-signature` — pre-register the transfer. Returns a `transferId`, fee estimation, and an empty signature (`0x`).
+    `POST /transfers/bridge-in-signature` — registers the transfer and returns the data needed to call `fundsIn()` on the EVM bridge contract: `transferId`, `token`, `amount`, `gasCommission`, `deadline`, `nonce` and the fee `estimation`. In this direction the `signature` field carries no signature and is returned as `0x`. If the route goes through the entrypoint contract, the response also includes an `entrypoint` object — call that contract with its `depositParams` instead.
   </Step>
-  <Step title="Call fundsIn() on the EVM contract">
-    The user calls `fundsIn()` directly on the EVM bridge contract using the data returned in Step 3. This step happens **client-side** — the API does not broadcast this transaction.
+  <Step title="Send the on-chain transaction">
+    The user calls the contract identified in Step 3 — `fundsIn()` on the EVM bridge contract, or the entrypoint contract with its `depositParams`. This step happens **client-side** — the API does not broadcast this transaction.
   </Step>
   <Step title="Confirm the transaction">
     `POST /transfers/verify-bridge-in` — notify the mint with the on-chain tx hash to confirm the transfer.
   </Step>
   <Step title="Poll transfer status">
     `GET /transfers/{tx}` — poll using the triggering tx hash until the transfer reaches a terminal status (`FINISHED` or `FAILED`).
-  </Step>
-  <Step title="Retrieve destination invoice (optional)">
-    `GET /transfers/invoice/{tx-id}/{network-id}` — fetch the RGB or Lightning invoice selected by `network-id`.
+
+    `GET /transfers/history/{signature-hex}/{pub-key-hex}` also returns status for all of a user's transfers, if you already hold their signature.
   </Step>
 </Steps>
 
@@ -75,7 +74,7 @@ Move assets from a plain RGB or RGB Lightning wallet to an EVM network.
     Same as EVM → RGB Step 2.
   </Step>
   <Step title="Pre-register the transfer">
-    `POST /transfers/bridge-in-signature` — returns the invoice for the selected RGB-side network in the `signature` field: an RGB invoice for plain RGB or a Lightning invoice for RGB Lightning.
+    `POST /transfers/bridge-in-signature` — returns the invoice for the selected RGB-side network in the `signature` field: an RGB invoice for plain RGB or a Lightning invoice for RGB Lightning. Keep the returned `transferId` — you need it in Step 5.
   </Step>
   <Step title="Send RGB assets">
     The user pays the invoice string returned in Step 3 with the wallet appropriate for the selected RGB or RGB Lightning network.
@@ -85,6 +84,9 @@ Move assets from a plain RGB or RGB Lightning wallet to an EVM network.
   </Step>
   <Step title="Poll transfer status">
     `GET /transfers/{tx}` — poll for status as in the EVM → RGB flow.
+  </Step>
+  <Step title="Retrieve the invoice again (optional)">
+    `GET /transfers/invoice/{tx-id}/{network-id}` — returns the invoice the bridge issued in Step 3, in case the user lost it before paying.
   </Step>
 </Steps>
 
@@ -360,27 +362,6 @@ Pre-registers a transfer and returns the data needed for the user to initiate th
 
 ---
 
-#### `GET /transfers/cancel-signature/{transfer-id}/{network-id}/{signature}/{public-key}` — Request Cancellation Signature
-
-The route is registered, but cancellation is currently unavailable. The handler returns `501 Not Implemented` before parsing any path parameters or producing a cancellation signature.
-
-**Path Parameters**
-
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `transfer-id` | `integer` | Yes | Reserved transfer ID segment; not currently parsed |
-| `network-id` | `integer` | Yes | Reserved network ID segment; not currently parsed |
-| `signature` | `string` | Yes | Reserved signature segment; not currently parsed |
-| `public-key` | `string` | Yes | Reserved public key segment; not currently parsed |
-
-**Response `501`** — Standard error envelope with the message `cancelling is unavailable`.
-
-<Warning>
-  Do not build a cancellation flow against this endpoint until the handler is enabled.
-</Warning>
-
----
-
 #### `POST /transfers/verify-bridge-in` — Confirm Bridge-In Transaction
 
 Notifies the bridge that the user has completed the on-chain or off-chain send action. Must be called after:
@@ -647,16 +628,6 @@ All endpoints return a consistent error envelope on failure.
 
 ---
 
-## Open Questions & Unresolved Issues
-
-The following items require validation from the Utexo engineering or product team before this reference is considered complete:
-
-1. **Authentication signing procedure** — The message format and signing algorithm for `authenticationSignature` are not defined in the Swagger spec. Developers cannot implement `verify-bridge-in` or `history` without this information.
-2. **`additionalAddresses` field** — Present in `BridgeInSignatureRequest` but its purpose and expected values are undocumented. Needs clarification.
-3. **Mainnet base URL** — The current spec host is empty; `transfer.dev.utexo.com` is the dev/testnet environment. The production base URL must be published before this reference goes external.
-
----
-
 ## Glossary
 
 | Term | Definition |
@@ -667,5 +638,6 @@ The following items require validation from the Utexo engineering or product tea
 | **Bridge Contract** | The EVM smart contract that locks or releases assets on the EVM side of a cross-chain transfer. |
 | **`fundsIn()`** | The method on the EVM bridge contract the sender calls to deposit assets for minting. |
 | **transferId** | The mint's internal identifier for a pre-registered transfer. Used in `verify-bridge-in` and invoice retrieval. |
-| **Triggering Tx** | The transaction or payment event that initiates the mint: the EVM deposit transaction for EVM → RGB/RGB Lightning, the RGB send for RGB → EVM, or the Lightning invoice payment for RGB Lightning → EVM. |
+| **Triggering Tx** | The EVM deposit transaction that initiates an EVM → RGB or EVM → RGB Lightning mint. |
+| **Entrypoint contract** | A per-network contract that forwards a deposit to the Arbitrum hub through LayerZero. When a route uses it, `bridge-in-signature` returns an `entrypoint` object and the user calls that contract instead of `fundsIn()`. |
 | **UTXO** | Unspent Transaction Output — the fundamental unit of Bitcoin accounting. RGB asset state is anchored to UTXOs. |
