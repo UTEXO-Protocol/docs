@@ -7,17 +7,15 @@ description: "Network-agnostic REST API for discovering supported networks, esti
 
 The **Utexo Mint API** is a network-agnostic REST interface for cross-network asset transfers. Clients must discover the networks currently connected to an environment with `GET /networks` instead of hardcoding network availability.
 
-USDT0 settles natively on Arbitrum, which acts as the hub; Ethereum, Tron, and Solana reach that hub through LayerZero. **Arbitrum is currently the only live network in this environment.**
-
-For now, the only tested and available route is Arbitrum (mainnet) to Bitcoin (Utexo signet). Bitcoin mainnet is not available yet.
+USDT0 settles natively on Arbitrum, which acts as the hub; other EVM networks reach that hub through LayerZero. Bitcoin mainnet is not available yet.
 
 <Info>
-  **Base URL (testnet / dev):** `https://transfer.gateway.dev.utexo.com/api/v0/docs/`
+  **Base URL (testnet / dev):** `https://transfer.gateway.dev.utexo.com/api/v0`
 
   All paths in this reference are relative to the base URL. A mainnet base URL will be provided separately. Contact the Utexo team for production endpoint access.
 </Info>
 
-The API is stateless and JSON-based. GET requests need no authentication. The `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction` endpoints need a signature in the request body (see Authentication).
+The API is stateless and JSON-based. Most `GET` endpoints are public; `GET /transfers/history/{signature-hex}/{pub-key-hex}` is the exception and carries the signature and public key in the path. The `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction` endpoints need a signature in the request body (see [Authentication](#authentication)).
 
 ---
 
@@ -88,20 +86,22 @@ Move assets from a plain RGB or RGB Lightning wallet to an EVM network.
 
 ## Authentication
 
-Read-only endpoints (all `GET` requests) and `POST /transfers/bridge-in-signature` require no authentication header.
+Most `GET` endpoints and `POST /transfers/bridge-in-signature` require no authentication.
 
-The `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction` endpoints validate the caller's identity using a cryptographic signature embedded in the request body:
+Three endpoints authenticate the caller the same way, differing only in where the signature travels — in the path for `GET /transfers/history/{signature-hex}/{pub-key-hex}`, in the request body for `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction`:
 
 | Field | Description |
 | --- | --- |
-| `authenticationSignature` | Hex-encoded signature proving ownership of the sender address |
+| `authenticationSignature` | Hex-encoded signature over the fixed message `Bridge Authentication Proof` |
 | `publicKey` | Sender address or public key encoded for `networkId` |
 
-A `401` response indicates an invalid authentication signature. A `403` response indicates the derived sender address does not match the pre-registered transfer.
+**Signing procedure.** The signed message is the constant string `Bridge Authentication Proof`. Verification depends on the network type:
 
-<Warning>
-  The authentication scheme (signing algorithm, message format) is not formally specified in the current API spec. **Validation required** — contact the Utexo team for the canonical signing procedure before implementing.
-</Warning>
+- **EVM and Tron** — the public key is recovered from the signature, converted to an address, and compared against `publicKey`.
+- **Concordium** — the value is 96 bytes: a 64-byte signature followed by the 32-byte public key.
+- **RGB and RGB Lightning** — authentication is handled inside those networks; no signature check happens at this layer.
+
+A `401` response indicates an invalid authentication signature. A `403` response indicates the derived sender address does not match the pre-registered transfer.
 
 ---
 
