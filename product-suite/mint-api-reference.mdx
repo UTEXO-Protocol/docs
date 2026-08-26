@@ -52,7 +52,7 @@ Move assets from an EVM network to a plain RGB or RGB Lightning destination.
     `POST /transfers/verify-bridge-in` — notify the mint with the on-chain tx hash to confirm the transfer.
   </Step>
   <Step title="Poll transfer status">
-    `GET /transfers/{tx}` — poll using the triggering tx hash until the transfer reaches a terminal status (`FINISHED`, `CANCELLED`, or `FAILED`).
+    `GET /transfers/{tx}` — poll using the triggering tx hash until the transfer reaches a terminal status (`FINISHED` or `FAILED`).
   </Step>
   <Step title="Retrieve destination invoice (optional)">
     `GET /transfers/invoice/{tx-id}/{network-id}` — fetch the RGB or Lightning invoice selected by `network-id`.
@@ -126,7 +126,7 @@ Returns all connected networks. Optionally filter by token, source network, or n
 ```json
 [
   {
-    "id": 84,
+    "id": 42161,
     "name": "ARBITRUM-ONE",
     "displayName": "Arbitrum One",
     "type": "NT_EVM",
@@ -162,18 +162,14 @@ Returns a paginated list of tokens supported on a given network. If `token-id` i
 
 **Response `200`** — `SupportedTokensResponse`
 
-<Warning>
-  The `SupportedTokensResponse` fields are **PascalCase** in the JSON response (e.g., `Tokens`, `Limit`, `PageCount`). This is a Go struct serialization artifact with no `json` tags. Deserialize accordingly.
-</Warning>
-
 ```json
 {
-  "Tokens": [...],
-  "Limit": 20,
-  "Offset": 0,
-  "PageCount": 3,
-  "CurrentPage": 1,
-  "TotalCount": 45
+  "tokens": [...],
+  "limit": 20,
+  "offset": 0,
+  "pageCount": 3,
+  "currentPage": 1,
+  "totalCount": 45
 }
 ```
 
@@ -197,25 +193,37 @@ Balance as a human-readable decimal string in token units (e.g., `"100.50"`).
 
 ---
 
-#### `GET /networks/{network-id}/fetch-user-tokens/{user-address}` — Fetch User Multitokens
+#### `POST /networks/ccd-memo` — Build Concordium CBOR Memo
 
-Requests the gateway to fetch the user's multitoken holdings for the specified network and address.
+Builds the hex-encoded Concordium CBOR memo required for a `fundsIn` transaction.
 
-**Path Parameters**
+**Request Body**
 
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `network-id` | `integer` | Yes | Network ID. The handler validates that the ID is registered. |
-| `user-address` | `string` | Yes | User address encoded for the selected network. |
+```json
+{
+  "transferId": 42,
+  "sender": {
+    "networkId": 42161,
+    "address": "0x1250c5a9382a6beaedfffa477c378f2e728fb17f"
+  },
+  "amount": "1000000",
+  "commission": "1000",
+  "destination": {
+    "networkId": 93,
+    "address": "4N5UhfcdczAyD3pKgWsGmUbRAim4iNcr3cMBeNG2XRrLmq83Qf"
+  }
+}
+```
 
-**Response `200`** — Empty body. The current handler writes no JSON response on success.
+`amount` and `commission` are unsigned integers in minor units, encoded as strings.
 
-**Error Responses**
+**Response `200`**
 
-| Status | Meaning |
-| --- | --- |
-| `400` | Invalid network ID or user address |
-| `500` | The gateway could not fetch the user's multitokens |
+```json
+{
+  "memo": "d9d9f7a1634f70441234"
+}
+```
 
 ---
 
@@ -251,10 +259,12 @@ Returns a fee and confirmation time estimate for a proposed transfer. Call this 
   "estimatedConfirmationTime": "5 minutes",
   "resultAmount": "99.40",
   "nativeFee": "0.0002",
+  "networkFee": "0.0001",
   "nativeStableFee": "0.0001",
-  "totalNativeCommission": "0.0003",
+  "totalNativeCommission": "0.0004",
   "nativeTokenSymbol": "ETH",
-  "swapResultAmount": "99400000"
+  "swapResultAmount": "99.40",
+  "effectiveAvailableOutflow": "10000"
 }
 ```
 
@@ -265,10 +275,12 @@ Returns a fee and confirmation time estimate for a proposed transfer. Call this 
 | `feePercentage` | Protocol fee as a percentage string |
 | `resultAmount` | Amount the recipient will receive after fees |
 | `nativeFee` | Gas fee in the sender's native token (multi-token transfers) |
+| `networkFee` | Source-network execution fee in the sender's native token |
 | `nativeStableFee` | Stable fee in the sender's native token (multi-token transfers) |
-| `totalNativeCommission` | Sum of `nativeFee` \+ `nativeStableFee` |
+| `totalNativeCommission` | Sum of the native fee components |
 | `nativeTokenSymbol` | Symbol of the native token used for commissions |
-| `swapResultAmount` | Result amount in the recipient token's smallest units |
+| `swapResultAmount` | Human-readable result amount in recipient token units |
+| `effectiveAvailableOutflow` | Remaining destination outflow allowance; omitted when no limit applies |
 
 ---
 
@@ -284,7 +296,7 @@ Pre-registers a transfer and returns the data needed for the user to initiate th
 ```json
 {
   "sender": {
-    "networkId": 84,
+    "networkId": 42161,
     "networkName": "ARBITRUM-ONE",
     "address": "0xYourEvmAddress"
   },
@@ -329,11 +341,15 @@ Pre-registers a transfer and returns the data needed for the user to initiate th
 | --- | --- |
 | `token` | EVM token contract address |
 | `amount` | Transfer amount in **smallest token units** (not human-readable) |
+| `gasCommission` | Gas commission in smallest token units |
+| `destination` | Destination network and address selected for the transfer |
 | `deadline` | EVM: UNIX timestamp expiry. RGB: always `"0"` |
 | `nonce` | Nonce for the EVM bridge contract call |
 | `transferId` | Internal transfer ID — store this for use in `verify-bridge-in` |
 | `signature` | EVM → RGB/RGB Lightning: `"0x"` (empty). RGB/RGB Lightning → EVM: RGB or Lightning invoice string selected by destination network ID |
 | `transferType` | Transfer routing type — see [Transfer Types](#transfer-types) |
+| `estimation` | Fee and result-amount estimation using the same fields as the estimate endpoint |
+| `entrypoint` | Ready-to-call entrypoint contract data; present only when the selected route uses the entrypoint contract |
 | `totalCommission` | Total commission in smallest token units |
 
 ---
@@ -371,7 +387,7 @@ Notifies the bridge that the user has completed the on-chain or off-chain send a
 ```json
 {
   "transferId": 1024,
-  "networkId": 84,
+  "networkId": 42161,
   "txHash": "abcdef1234...",
   "publicKey": "0xYourPublicKeyOrAddress",
   "authenticationSignature": "hex-encoded-signature"
@@ -407,7 +423,7 @@ Submits signed transaction data for a pre-registered transfer and returns the re
 ```json
 {
   "transferId": 1024,
-  "networkId": 26,
+  "networkId": 93,
   "txData": "base64-encoded-transaction",
   "publicKey": "sender-address-or-public-key",
   "authenticationSignature": "hex-encoded-signature"
@@ -418,7 +434,7 @@ Submits signed transaction data for a pre-registered transfer and returns the re
 | --- | --- | --- | --- |
 | `transferId` | `integer` | Yes | Transfer ID from `POST /transfers/bridge-in-signature` |
 | `networkId` | `integer` | Yes | Network on which the transaction is submitted |
-| `txData` | `string` | Conditional | Base64-encoded signed transaction data. Non-empty data is currently accepted only for Bitcoin and Concordium network types. |
+| `txData` | `string` | Conditional | Base64-encoded signed transaction data. Non-empty data is currently accepted only for Concordium; omit it or send an empty string for other network types. |
 | `publicKey` | `string` | Yes | Sender address or public key encoded for `networkId` |
 | `authenticationSignature` | `string` | Yes | Hex-encoded signature proving sender ownership |
 
@@ -462,7 +478,7 @@ Returns the current state of a transfer identified by its triggering transaction
     "commission": "0.6",
     "status": "FINISHED",
     "createdAt": "2026-06-18T09:00:00Z",
-    "sender": { "networkId": 84, "networkName": "ARBITRUM-ONE", "address": "0x..." },
+    "sender": { "networkId": 42161, "networkName": "ARBITRUM-ONE", "address": "0x..." },
     "recipient": { "networkId": 36, "networkName": "RGB", "address": "rgb:..." },
     "senderToken": { "id": 42, "shortName": "USDT", "longName": "Tether USD", "iconLink": "..." },
     "recipientToken": { ... },
@@ -478,10 +494,7 @@ Returns the current state of a transfer identified by its triggering transaction
 | --- | --- |
 | `WAITING` | Transfer registered, awaiting on-chain confirmation |
 | `CONFIRMING` | On-chain transaction detected, awaiting sufficient confirmations |
-| `ETCHING` | RGB asset inscription in progress |
 | `FINISHED` | Transfer completed successfully |
-| `CANCELING` | Cancellation in progress |
-| `CANCELLED` | Transfer was cancelled |
 | `FAILED` | Transfer failed — check `outboundTx` for details |
 
 <Info>
@@ -553,16 +566,10 @@ The `transferType` field in `BridgeInSignatureData` indicates the internal routi
 | Value | Description |
 | --- | --- |
 | `LP` | Liquidity pool route |
-| `WU` | Wire-up route |
-| `CCTP` | Circle Cross-Chain Transfer Protocol |
+| `WU` | Wrap/unwrap route |
 | `NTV` | Native token transfer |
-| `MLT` | Multi-leg transfer |
-| `BDXS` | Bridge-DEX swap |
-| `LPN` | Lightning-pegged native |
 
-<Warning>
-  The semantic definitions of `transferType` values are not formally documented in the API spec. The descriptions above are inferred from naming conventions. **Validation required** — consult the Utexo engineering team before building routing-dependent logic on this field.
-</Warning>
+The bridge selects the routing classification. Clients should treat this field as informational unless a transfer flow explicitly requires route-specific handling.
 
 ---
 
@@ -584,6 +591,7 @@ All endpoints return a consistent error envelope on failure.
 | `1` | RGB protocol error |
 | `2` | User balance error (insufficient funds) |
 | `3` | System balance error (bridge liquidity issue) |
+| `4` | Destination outflow limit exceeded |
 | `65535` | Other / unclassified error |
 
 ---
@@ -594,7 +602,7 @@ All endpoints return a consistent error envelope on failure.
 
 ```json
 {
-  "networkId": 84,
+  "networkId": 42161,
   "networkName": "ARBITRUM-ONE",
   "address": "0x..."
 }
@@ -604,7 +612,7 @@ All endpoints return a consistent error envelope on failure.
 
 ```json
 {
-  "id": 84,
+  "id": 42161,
   "name": "ARBITRUM-ONE",
   "displayName": "Arbitrum One",
   "type": "NT_EVM",
@@ -638,10 +646,8 @@ All endpoints return a consistent error envelope on failure.
 The following items require validation from the Utexo engineering or product team before this reference is considered complete:
 
 1. **Authentication signing procedure** — The message format and signing algorithm for `authenticationSignature` are not defined in the Swagger spec. Developers cannot implement `verify-bridge-in` or `history` without this information.
-2. **`transferType` enum semantics** — The values `LP`, `WU`, `CCTP`, `NTV`, `MLT`, `BDXS`, `LPN` appear in the spec enum but are not described. If transfer type affects the caller's required behavior (e.g., approvals, contract calls), this must be documented.
-3. **`additionalAddresses` field** — Present in `BridgeInSignatureRequest` but its purpose and expected values are undocumented. Needs clarification.
-4. **Mainnet base URL** — The current spec host is empty; `transfer.dev.utexo.com` is the dev/testnet environment. The production base URL must be published before this reference goes external.
-5. **`SupportedTokensResponse` PascalCase fields** — Confirmed from the spec (`NOTE: fields are PascalCase`). This is an unusual JSON convention and should be explicitly called out in SDK wrappers or normalized in a future API version.
+2. **`additionalAddresses` field** — Present in `BridgeInSignatureRequest` but its purpose and expected values are undocumented. Needs clarification.
+3. **Mainnet base URL** — The current spec host is empty; `transfer.dev.utexo.com` is the dev/testnet environment. The production base URL must be published before this reference goes external.
 
 ---
 
