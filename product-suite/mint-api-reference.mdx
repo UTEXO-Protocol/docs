@@ -43,7 +43,7 @@ Move assets from an EVM network to a plain RGB or RGB Lightning destination.
 
     `GET /networks/{network-id}/supported-tokens` — list tokens on that network and take the `id` of the one you want to bridge. USDT is the only token bridged today.
   </Step>
-  <Step title="Estimate fees">
+  <Step title="Estimate transfer">
     `GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}` — preview the transfer before committing: fees and the amount the recipient will receive.
   </Step>
   <Step title="Pre-register the transfer">
@@ -56,9 +56,7 @@ Move assets from an EVM network to a plain RGB or RGB Lightning destination.
     `POST /transfers/verify-bridge-in` — notify the mint with the on-chain tx hash to confirm the transfer.
   </Step>
   <Step title="Poll transfer status">
-    `GET /transfers/{tx}` — poll using the triggering tx hash until the transfer reaches a terminal status (`FINISHED` or `FAILED`).
-
-    `GET /transfers/history/{signature-hex}/{pub-key-hex}` also returns status for all of a user's transfers, if you already hold their signature.
+    `GET /transfers/history/{signature-hex}/{pub-key-hex}` — poll history until the transfer reaches a terminal status (`FINISHED` or `FAILED`).
   </Step>
 </Steps>
 
@@ -70,7 +68,7 @@ Move assets from a plain RGB or RGB Lightning wallet to an EVM network.
   <Step title="Discover networks and tokens">
     Same as EVM → RGB Step 1.
   </Step>
-  <Step title="Estimate fees">
+  <Step title="Estimate transfer">
     Same as EVM → RGB Step 2.
   </Step>
   <Step title="Pre-register the transfer">
@@ -81,9 +79,6 @@ Move assets from a plain RGB or RGB Lightning wallet to an EVM network.
   </Step>
   <Step title="Confirm the transfer">
     `POST /transfers/verify-bridge-in` — notify the mint that the RGB or Lightning invoice payment has been completed.
-  </Step>
-  <Step title="Poll transfer status">
-    `GET /transfers/{tx}` — poll for status as in the EVM → RGB flow.
   </Step>
   <Step title="Retrieve the invoice again (optional)">
     `GET /transfers/invoice/{tx-id}/{network-id}` — returns the invoice the bridge issued in Step 3, in case the user lost it before paying.
@@ -444,52 +439,6 @@ Submits signed transaction data for a pre-registered transfer and returns the re
 
 ---
 
-#### `GET /transfers/{tx}` — Get Transfer Status
-
-Returns the current state of a transfer identified by its triggering transaction hash. Poll this endpoint after calling `verify-bridge-in` until the transfer reaches a terminal status.
-
-**Path Parameters**
-
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `tx` | `string` | Yes | Triggering tx hash, hex-encoded **without** `0x` prefix |
-
-**Response `200`** — Array of `Transfer` objects
-
-```json
-[
-  {
-    "id": 1024,
-    "senderAmount": "100.5",
-    "recipientAmount": "99.9",
-    "commission": "0.6",
-    "status": "FINISHED",
-    "createdAt": "2026-06-18T09:00:00Z",
-    "sender": { "networkId": 42161, "networkName": "ARBITRUM-ONE", "address": "0x..." },
-    "recipient": { "networkId": 36, "networkName": "RGB", "address": "rgb:..." },
-    "senderToken": { "id": 42, "shortName": "USDT", "longName": "Tether USD", "iconLink": "..." },
-    "recipientToken": { ... },
-    "triggeringTx": { "networkName": "ARBITRUM-ONE", "hash": "abc123..." },
-    "outboundTx": { "networkName": "RGB", "hash": "def456..." }
-  }
-]
-```
-
-**Transfer Status Values**
-
-| Status | Description |
-| --- | --- |
-| `WAITING` | Transfer registered, awaiting on-chain confirmation |
-| `CONFIRMING` | On-chain transaction detected, awaiting sufficient confirmations |
-| `FINISHED` | Transfer completed successfully |
-| `FAILED` | Transfer failed — check `outboundTx` for details |
-
-<Info>
-  Poll `GET /transfers/{tx}` at a reasonable interval (e.g., every 5–10 seconds). Avoid aggressive polling — the bridge requires Bitcoin confirmations for RGB-leg completions, which may take several minutes.
-</Info>
-
----
-
 #### `GET /transfers/history/{signature-hex}/{pub-key-hex}` — Get Transfer History
 
 Returns a paginated list of transfers associated with a user's address. Identity is proven by providing a signature.
@@ -520,6 +469,19 @@ Returns a paginated list of transfers associated with a user's address. Identity
   "totalCount": 142
 }
 ```
+
+**Transfer Status Values**
+
+| Status | Description |
+| --- | --- |
+| `WAITING` | Transfer registered, awaiting on-chain confirmation |
+| `CONFIRMING` | On-chain transaction detected, awaiting sufficient confirmations |
+| `FINISHED` | Transfer completed successfully |
+| `FAILED` | Transfer failed — check `outboundTx` for details |
+
+<Info>
+  Poll history at a reasonable interval (e.g., every 5–10 seconds). Avoid aggressive polling — the bridge requires Bitcoin confirmations for RGB-leg completions, which may take several minutes.
+</Info>
 
 ---
 
