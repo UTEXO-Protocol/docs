@@ -13,6 +13,8 @@ USDT0 settles natively on Arbitrum, which acts as the hub; other EVM networks re
   **Base URL (testnet / dev):** `https://transfer.gateway.dev.utexo.com/api/v0`
 
   All paths in this reference are relative to the base URL. A mainnet base URL will be provided separately. Contact the Utexo team for production endpoint access.
+
+  **Interactive API docs:** [https://transfer.gateway.dev.utexo.com/api/v0/docs/](https://transfer.gateway.dev.utexo.com/api/v0/docs/)
 </Info>
 
 The API is stateless and JSON-based. Most `GET` endpoints are public; `GET /transfers/history/{signature-hex}/{pub-key-hex}` is the exception and carries the signature and public key in the path. The `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction` endpoints need a signature in the request body (see [Authentication](#authentication)).
@@ -27,15 +29,19 @@ Understanding the transfer direction is essential before making any API calls. T
   **RGB and Lightning destinations:** The RGB-side destination is selected by `networkId`. Use `36` (mainnet) or `91` (testnet) for plain RGB, and `94` (mainnet) or `95` (testnet) for RGB Lightning. The destination accepts an RGB invoice (`rgb:…`) for plain RGB or a Lightning invoice string for RGB Lightning. Network ID `96` identifies Utexo and is not a Lightning network ID.
 </Info>
 
+<Warning>
+  **RGB Lightning is work in progress.** The API surface is in place and documented throughout this reference, but Lightning destinations are not available for use yet. This section will be updated once they go live.
+</Warning>
+
 ### EVM → RGB or RGB Lightning
 
 Move assets from an EVM network to a plain RGB or RGB Lightning destination.
 
 <Steps>
   <Step title="Discover networks and tokens">
-    `GET /networks` — list all connected networks.
+    `GET /networks` — list all connected networks; take the `id` of your source and destination.
 
-    `GET /networks/{network-id}/supported-tokens` — list tokens supported on a given network.
+    `GET /networks/{network-id}/supported-tokens` — list tokens on that network and take the `id` of the one you want to bridge. USDT is the only token bridged today.
   </Step>
   <Step title="Estimate fees">
     `GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}` — get fee and confirmation time estimate before committing.
