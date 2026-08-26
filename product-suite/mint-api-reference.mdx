@@ -12,7 +12,7 @@ USDT0 settles natively on Arbitrum, which acts as the hub; Ethereum, Tron, and S
 For now, the only tested and available route is Arbitrum (mainnet) to Bitcoin (Utexo signet). Bitcoin mainnet is not available yet.
 
 <Info>
-  **Base URL (testnet / dev):** `https://transfer.dev.utexo.com/api/v0`
+  **Base URL (testnet / dev):** `https://transfer.stage.utexo.com/api/v0`
 
   All paths in this reference are relative to the base URL. A mainnet base URL will be provided separately. Contact the Utexo team for production endpoint access.
 </Info>
@@ -640,7 +640,7 @@ The following items require validation from the Utexo engineering or product tea
 1. **Authentication signing procedure** — The message format and signing algorithm for `authenticationSignature` are not defined in the Swagger spec. Developers cannot implement `verify-bridge-in` or `history` without this information.
 2. **`transferType` enum semantics** — The values `LP`, `WU`, `CCTP`, `NTV`, `MLT`, `BDXS`, `LPN` appear in the spec enum but are not described. If transfer type affects the caller's required behavior (e.g., approvals, contract calls), this must be documented.
 3. **`additionalAddresses` field** — Present in `BridgeInSignatureRequest` but its purpose and expected values are undocumented. Needs clarification.
-4. **Mainnet base URL** — The current spec host is empty; `transfer.dev.utexo.com` is the dev/testnet environment. The production base URL must be published before this reference goes external.
+4. **Mainnet base URL** — The current spec host is empty; `transfer.stage.utexo.com` is the staging environment. The production base URL must be published before this reference goes external.
 5. **`SupportedTokensResponse` PascalCase fields** — Confirmed from the spec (`NOTE: fields are PascalCase`). This is an unusual JSON convention and should be explicitly called out in SDK wrappers or normalized in a future API version.
 
 ---
