@@ -101,7 +101,6 @@ Three endpoints authenticate the caller the same way, differing only in where th
 **Signing procedure.** The signed message is the constant string `Bridge Authentication Proof`. Verification depends on the network type:
 
 - **EVM and Tron** — the public key is recovered from the signature, converted to an address, and compared against `publicKey`.
-- **Concordium** — the value is 96 bytes: a 64-byte signature followed by the 32-byte public key.
 - **RGB and RGB Lightning** — authentication is handled inside those networks; no signature check happens at this layer.
 
 A `401` response indicates an invalid authentication signature. A `403` response indicates the derived sender address does not match the pre-registered transfer.
@@ -193,40 +192,6 @@ Returns the token balance for a specific user address on a given network.
 **Response `200`** — `string`
 
 Balance as a human-readable decimal string in token units (e.g., `"100.50"`).
-
----
-
-#### `POST /networks/ccd-memo` — Build Concordium CBOR Memo
-
-Builds the hex-encoded Concordium CBOR memo required for a `fundsIn` transaction.
-
-**Request Body**
-
-```json
-{
-  "transferId": 42,
-  "sender": {
-    "networkId": 42161,
-    "address": "0x1250c5a9382a6beaedfffa477c378f2e728fb17f"
-  },
-  "amount": "1000000",
-  "commission": "1000",
-  "destination": {
-    "networkId": 93,
-    "address": "4N5UhfcdczAyD3pKgWsGmUbRAim4iNcr3cMBeNG2XRrLmq83Qf"
-  }
-}
-```
-
-`amount` and `commission` are unsigned integers in minor units, encoded as strings.
-
-**Response `200`**
-
-```json
-{
-  "memo": "d9d9f7a1634f70441234"
-}
-```
 
 ---
 
@@ -402,21 +367,11 @@ Submits signed transaction data for a pre-registered transfer and returns the re
 
 **Request Body**
 
-```json
-{
-  "transferId": 1024,
-  "networkId": 93,
-  "txData": "base64-encoded-transaction",
-  "publicKey": "sender-address-or-public-key",
-  "authenticationSignature": "hex-encoded-signature"
-}
-```
-
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `transferId` | `integer` | Yes | Transfer ID from `POST /transfers/bridge-in-signature` |
 | `networkId` | `integer` | Yes | Network on which the transaction is submitted |
-| `txData` | `string` | Conditional | Base64-encoded signed transaction data. Non-empty data is currently accepted only for Concordium; omit it or send an empty string for other network types. |
+| `txData` | `string` | Conditional | Base64-encoded signed transaction data. Populate this field only when required for the selected network. |
 | `publicKey` | `string` | Yes | Sender address or public key encoded for `networkId` |
 | `authenticationSignature` | `string` | Yes | Hex-encoded signature proving sender ownership |
 
