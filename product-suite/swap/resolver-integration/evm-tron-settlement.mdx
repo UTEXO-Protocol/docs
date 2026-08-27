@@ -1,0 +1,120 @@
+---
+title: "EVM and Tron Settlement"
+description: "Deploy resolver executors and settle Utexo swaps on EVM chains and Tron, including single-chain, cross-chain, DEX, and fast refund paths."
+sidebarTitle: "EVM and Tron"
+---
+
+Utexo supports four settlement paths on EVM:
+
+- Cross-chain swap
+- Cross-chain swap with DEX
+- Single-chain atomic swap
+- Fast refund
+
+Users sign Permit2 approvals. The resolver submits every on-chain transaction and pays gas.
+
+## Onboarding
+
+A protocol administrator registers each resolver in the `ResolversWhitelist` contract with:
+
+- Executor contract address
+- `depositAddresses` allow list
+- `withdrawAddresses` allow list
+
+The same resolver must own the authorized deposit and withdraw roles. The on-chain `checkSameResolver` check enforces this.
+
+## Executor contract
+
+Each resolver deploys an Executor implementing the `IExecutor` interface:
+
+```solidity
+function fulfill(
+  address token,
+  uint256 minAmount,
+  uint256 maxAmount,
+  bytes data
+) external returns (uint256 amount);
+
+function swap(
+  address outputToken,
+  uint256 minOutputAmount,
+  uint256 maxOutputAmount,
+  address inputToken,
+  uint256 inputAmount,
+  bytes data
+) external returns (uint256 amount);
+
+function dexSwap(
+  address outputToken,
+  uint256 minOutputAmount,
+  uint256 maxOutputAmount,
+  address inputToken,
+  uint256 inputAmount,
+  bytes data
+) external returns (uint256 amount);
+```
+
+The protocol verifies that its own ERC-20 balance increased by exactly the amount returned by `IExecutor`.
+
+### Method responsibilities
+
+- `fulfill` transfers between `minAmount` and `maxAmount` to the caller and returns the actual transferred amount.
+- `swap` receives input tokens already transferred to the Executor and returns a bounded output to `EscrowRouter`.
+- `dexSwap` uses only deposited user tokens with non-empty routing `data`.
+
+<Warning>
+  `dexSwap` must trade the deposited user tokens through the DEX. Do not fund the output from your own treasury liquidity.
+</Warning>
+
+## Fulfillment contract
+
+The protocol deploys a Fulfillment contract once per resolver per destination chain. The resolver supplies:
+
+- Executor address
+- Authorized caller/operator addresses
+
+## Cross-chain swap
+
+<Steps>
+  <Step title="Deposit">
+    `EscrowRouter.deposit` deploys a deterministic CREATE2 proxy and transfers the user's input tokens into it using Permit2.
+  </Step>
+  <Step title="Fulfill">
+    On the destination chain, the resolver's Executor `fulfill` pays the user the destination amount within `[minAmount, maxAmount]`.
+  </Step>
+  <Step title="Withdraw">
+    After Utexo verifies fulfillment and reveals the secret, the resolver withdraws from the source-chain escrow.
+  </Step>
+</Steps>
+
+<Note>
+  The source does not fully document the withdraw signature and parameters. See [Validation Gaps](/product-suite/swap/resolver-integration/validation-gaps).
+</Note>
+
+## Cross-chain swap with DEX
+
+Source-chain deposit transfers the user's input token to the Executor, calls `dexSwap`, validates the output against the declared bounds, and locks the resulting `tokenOut` in the proxy. The follow-on Order then uses `tokenOut` and `minAmountOut` on the destination.
+
+## Single-chain atomic swap
+
+`EscrowRouter.swap` atomically transfers the user's input to the Executor and sends a bounded output amount directly to the user. When the destination token is native ETH, the Executor supplies WETH and the protocol unwraps it before paying the user.
+
+## Fast refund
+
+Backend and resolver co-sign the following EIP-712 message in the `EscrowImplementation` domain:
+
+```text
+FastRefund(bytes32 orderHash)
+```
+
+The resolver signer must match `order.resolverDeposit`.
+
+## Tron
+
+Tron is architecturally aligned with EVM but uses TIP-712 with these differences:
+
+- No `version` field in the domain.
+- Domain type string: `EIP712Domain(string name,uint256 chainId,address verifyingContract)`.
+- `chainId` is masked with `chainId & 0xffffffff`.
+
+These rules apply to the deposit witness, fulfillment, and refund signing.

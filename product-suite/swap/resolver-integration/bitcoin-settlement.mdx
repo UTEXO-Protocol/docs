@@ -1,0 +1,107 @@
+---
+title: "Bitcoin Settlement"
+description: "Settle Utexo Bitcoin swaps with Taproot HTLC PSBTs, script-path withdrawals, and cooperative fast refunds."
+sidebarTitle: "Bitcoin"
+---
+
+Bitcoin settlement uses Taproot (P2TR) outputs and BIP 174 PSBTs. No smart contract is deployed on Bitcoin.
+
+## HTLC lock output
+
+Every deposit locks funds to a unique Taproot output with three script leaves:
+
+| Leaf | Script |
+| --- | --- |
+| Resolver withdraw | `OP_HASH256 <secretHash> OP_EQUALVERIFY <resolverPubKey> OP_CHECKSIG` |
+| Timelock refund | `<deadline> OP_CLTV OP_DROP <protocolPubKey> OP_CHECKSIG` |
+| Fast refund | `<protocolPubKey> OP_CHECKSIG <resolverPubKey> OP_CHECKSIGADD 2 OP_EQUAL` |
+
+- `secretHash` is double SHA-256 of the 32-byte secret.
+- The internal key may be a NUMS point or a resolver-selected key, per source.
+- The resolver returns the refund and fast-refund control blocks to Utexo and keeps the withdraw control block internally.
+
+## Deposit transaction
+
+### Intent tagging
+
+Every deposit contains an `OP_RETURN` output that tags the intent:
+
+```text
+OP_RETURN <protocolPrefix> <flag> <intentID>
+```
+
+### PSBT inputs
+
+| Field | Value |
+| --- | --- |
+| `WITNESS_UTXO` | Required for every input. |
+| Sighash | `SIGHASH_ALL` (`0x01`). |
+| `TAP_INTERNAL_KEY` | User's x-only public key. |
+| Sequence | `0xFFFFFFFF` (no RBF). |
+
+### Outputs
+
+| Index | Output |
+| --- | --- |
+| `0` | `OP_RETURN` with `0` sats. |
+| `1` | P2TR HTLC lock. The amount is the deposit minus a proportional share of network fees. |
+
+<Warning>
+  The source states there are exactly two or three outputs, but does not define the optional third output. Do not invent change behavior; see [Validation Gaps](/product-suite/swap/resolver-integration/validation-gaps).
+</Warning>
+
+## Spend paths
+
+### Key-spend path
+
+Used for deposit input signing, fulfillment, and native transfers.
+
+Witness:
+
+```text
+[schnorr_signature]
+```
+
+### Resolver withdraw (script-path)
+
+Witness:
+
+```text
+[schnorr_signature, secret_preimage, tap_script, control_block]
+```
+
+### Fast refund (script-path)
+
+Cooperative script-path spend co-signed by the protocol and the resolver.
+
+### Timelock refund
+
+Script-path refund after `deadline`.
+
+<Note>
+  The source does not document the final witness stack for the timelock refund path. Confirm with the current implementation before constructing this witness.
+</Note>
+
+## Fee model
+
+The resolver computes fees from a header plus per-input and per-output costs:
+
+```text
+header         = 11 vBytes
+size           = header
+               + sum(input_size + witness_size) * count
+               + sum(output_size) * count
+fee            = size * fee_rate
+```
+
+Default fee rate: `3 sat/vB`.
+
+### Size table
+
+| Type | Input | Witness | Output |
+| --- | --- | --- | --- |
+| P2TR | 41 | 17 | 43 |
+| P2WPKH | 41 | 27 | 31 |
+| P2SH (2-of-3) | 43 | 254 | 32 |
+| P2PKH | 41 | 107 | 34 |
+| P2WSH (2-of-3) | 41 | 64 | 43 |

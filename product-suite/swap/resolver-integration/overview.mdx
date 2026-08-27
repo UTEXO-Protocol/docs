@@ -1,0 +1,84 @@
+---
+title: "Resolver Overview"
+description: "Understand resolver responsibilities, intent lifecycle, and how Utexo coordinates quoting, settlement, and refunds."
+sidebarTitle: "Overview"
+---
+
+## What a resolver is
+
+A resolver is a permissioned liquidity provider that competes to quote user swaps on Utexo and, when assigned an intent, executes that swap end to end across the source and destination chains. Resolvers hold and route their own liquidity, sign settlement transactions, and pay gas.
+
+For the user-facing side of quotes, intents, and swaps, see the [Swap API Reference](/product-suite/swap/api/quotes). This section covers only what resolver operators must implement.
+
+## Intents and quotes
+
+An **intent** is an off-chain user instruction containing:
+
+- Source and destination networks and tokens
+- Amount
+- Slippage tolerance
+- Deadline
+
+An accepted intent produces an on-chain **swap execution record** that both Utexo and the assigned resolver track through settlement.
+
+A **quote** is a resolver's response to a quote callback. Quotes are:
+
+- Time-limited by an expiry expressed in milliseconds
+- Bounded by a destination amount minimum and maximum
+- Associated with affiliate fee information supplied by Utexo
+- Optionally routed through an intermediate token (typically USDC) for cross-chain paths
+
+<Note>
+  Utexo does not publish a canonical quote response schema. Return the destination bounds, expiry, and affiliate/intermediate routing data your resolver has agreed with Utexo, and validate against the current integration contract before going live.
+</Note>
+
+## Lifecycles
+
+Actual signing and settlement differ by chain. See [EVM and Tron Settlement](/product-suite/swap/resolver-integration/evm-tron-settlement), [Solana Settlement](/product-suite/swap/resolver-integration/solana-settlement), and [Bitcoin Settlement](/product-suite/swap/resolver-integration/bitcoin-settlement) for chain-specific details.
+
+### Standard escrowed swap
+
+<Steps>
+  <Step title="IntentAssigned">
+    Utexo assigns the intent to your resolver over a signed webhook.
+  </Step>
+  <Step title="Deposit">
+    Broadcast the user-authorized deposit into the chain-specific escrow.
+  </Step>
+  <Step title="Report deposit">
+    Call `POST /v1/intents/{id}/deposit` with the deposit transaction hash.
+  </Step>
+  <Step title="DepositConfirmed">
+    Utexo confirms the deposit and delivers the fulfillment request over webhook.
+  </Step>
+  <Step title="Fulfill">
+    Pay the destination amount to the user's destination address before the fulfillment deadline.
+  </Step>
+  <Step title="Report fulfillment">
+    Call `POST /v1/intents/{id}/fulfill` with the destination transaction hash.
+  </Step>
+  <Step title="WithdrawReady">
+    Utexo reveals the secret. Withdraw the source-chain escrow.
+  </Step>
+  <Step title="Report withdrawal">
+    Report the withdrawal transaction hash through the withdrawal reporting endpoint.
+  </Step>
+</Steps>
+
+### Optimized single-chain swap
+
+A single atomic step. Utexo signals completion with `SwapConfirmed`; no further resolver action is required.
+
+### Refund
+
+`RefundConfirmed` is terminal. The user has been refunded and your resolver must stop any in-flight fulfillment attempts for that intent.
+
+## Resolver responsibilities
+
+- Maintain sufficient liquidity on every supported destination chain and token.
+- Return executable quotes within your agreed latency and pricing bounds.
+- Verify signed webhooks before acting on them.
+- Meet the assigned deposit and fulfillment deadlines.
+- Report transaction hashes in order: deposit, fulfill, then withdraw for standard swaps.
+- Make webhook and API processing idempotent by intent ID.
+- Never act on an expired or refunded intent.

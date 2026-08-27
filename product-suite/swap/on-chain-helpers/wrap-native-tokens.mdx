@@ -6,7 +6,7 @@ sidebarTitle: "Wrap Native Tokens"
 
 ## Overview
 
-Utexo Swap interacts with token contracts rather than native blockchain assets. Wrap the native asset before execution—for example, wrap ETH into WETH on Ethereum—and use the wrapped-token contract address as `sourceToken`.
+For source inputs, Utexo Swap interacts with token contracts rather than native blockchain assets. Wrap the source asset before execution, for example, wrap ETH into WETH on Ethereum, and use the wrapped-token contract address as `sourceToken`. This requirement applies to source assets. On EVM destination chains, settlement can return native ETH by having the resolver supply WETH and the protocol unwrap it before transfer to the user.
 
 ```ts
 import { ethers } from "ethers";
