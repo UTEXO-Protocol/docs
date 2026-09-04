@@ -1,13 +1,13 @@
 ---
 title: "Self-Hosted RGB Lightning Node"
 sidebarTitle: "Self-Hosted RGB Lightning Node"
-description: "Step-by-step guide to running an RGB Lightning Node (RLN) on your own infrastructure — installation, configuration, authentication, and API usage."
+description: "Run one self-hosted RGB Lightning Node for on-chain RGB operations and RGB-enabled Lightning payments."
 ---
 
-The RGB Lightning Node (RLN) is an RGB-enabled Lightning Network daemon built on top of LDK. It lets you open payment channels that carry RGB assets and route RGB-denominated payments across the network with the same user experience and security model as standard Bitcoin Lightning payments.
+The RGB Lightning Node (RLN) is Utexo's self-hosted runtime for both direct, on-chain RGB operations and RGB-enabled Lightning payments. A single RLN daemon and REST API provides both paths, so integrators do not need a second on-chain node service.
 
 <Warning>
-  RLN is early beta software. Run it on regtest or testnet first. The maintainers take no responsibility for loss of funds.
+  Utexo supports on-chain RGB operations on mainnet. Lightning functionality is beta and testnet-only for now. Test your deployment on regtest or testnet before handling mainnet funds. The maintainers take no responsibility for loss of funds.
 </Warning>
 
 <Info>
@@ -16,17 +16,30 @@ The RGB Lightning Node (RLN) is an RGB-enabled Lightning Network daemon built on
   Full OpenAPI / Swagger reference: [https://utexo-protocol.github.io/rgb-lightning-node](https://utexo-protocol.github.io/rgb-lightning-node)
 </Info>
 
+## One node, two execution paths
+
+| Path | RLN capabilities | Current Utexo support |
+| --- | --- | --- |
+| **On-chain RGB** | Issue assets, create RGB invoices, transfer assets directly on Bitcoin, and inspect balances, transactions, transfers, and UTXOs | **Mainnet**; also available in test environments |
+| **RGB over Lightning** | Connect peers, open RGB channels, create invoices, and send or route payments through Lightning | **Testnet only**; beta |
+
+The `--network` option selects the Bitcoin network for the entire node. It does not change Utexo's support policy: use a mainnet deployment for on-chain RGB operations only. On testnet, you can exercise both the on-chain and Lightning paths through the same integration.
+
 ## Prerequisites
 
 Before starting, make sure you have the following available:
 
 | Dependency | Purpose |
 | --- | --- |
-| [**bitcoind**](https://github.com/bitcoin/bitcoin/tree/master/doc) | Bitcoin full node the RLN daemon connects to |
-| [**Electrum**](https://github.com/romanz/electrs)\*\* or [Esplora](https://github.com/Blockstream/esplora) indexer\*\* | Required for UTXO lookups |
+| [**bitcoind**](https://github.com/bitcoin/bitcoin/tree/master/doc) or [Esplora](https://github.com/Blockstream/esplora) | Chain backend used for Lightning chain synchronization |
+| [**Electrum**](https://github.com/romanz/electrs) or [Esplora](https://github.com/Blockstream/esplora) indexer | Indexer forwarded to `rgb-lib` for RGB wallet operations |
 | **RGB Proxy Server** | Relay for RGB state transitions (see [rgb-proxy-server](https://github.com/RGB-Tools/rgb-proxy-server)) |
 | **Rust toolchain** (stable) | Needed to build from source |
-| **Docker**_(optional)_ | For the containerised setup and regtest helper scripts |
+| **Docker** (optional) | For the containerized setup and regtest helper scripts |
+
+<Note>
+  The `/unlock` request selects one Lightning chain backend: provide all four `bitcoind_rpc_*` fields, or provide `indexer_url` without bitcoind fields to use Esplora or Electrum. When bitcoind is the chain backend, an optional Electrum `indexer_url` can still be forwarded to `rgb-lib`. Do not combine bitcoind fields with an Esplora URL; RLN rejects that configuration as ambiguous.
+</Note>
 
 ## Installation
 
@@ -117,7 +130,7 @@ proxy_endpoint:        rpc://127.0.0.1:3000/json-rpc
 ./regtest.sh sendtoaddress <address> <amount>
 
 # Mine blocks
-./regtest.sh mine
+./regtest.sh mine <blocks>
 
 # Stop services and clean data
 ./regtest.sh stop
@@ -191,6 +204,23 @@ Same as testnet3, with the following differences:
 bitcoind_rpc_port: 18443
 indexer_url:       ssl://electrum.iriswallet.com:50053
 ```
+
+## On-chain RGB operations
+
+The on-chain path uses the same RLN process and authentication model as the Lightning path. Use the following REST endpoints instead of integrating a separate on-chain service:
+
+| Operation | Endpoints |
+| --- | --- |
+| Prepare the wallet | `POST /address`, `POST /btcbalance`, `POST /createutxos`, `POST /listunspents` |
+| Issue assets | `POST /issueassetnia`, `POST /issueassetcfa`, `POST /issueassetifa`, `POST /issueassetuda` |
+| Receive and inspect RGB assets | `POST /rgbinvoice`, `POST /decodergbinvoice`, `POST /listassets`, `POST /assetbalance` |
+| Transfer and track RGB assets | `POST /sendrgb`, `POST /listtransfers`, `POST /refreshtransfers`, `POST /failtransfers` |
+| Inspect on-chain activity | `POST /listtransactions` |
+| Back up or restore node state | `POST /backup`, `POST /restore` |
+
+RLN does not use xPub request headers or a client-side `*begin`/`*end` PSBT flow. Authenticate to RLN with Biscuit tokens as described below. If your custody model requires an external signer, see [Remote Signer](/security/rln-remote-signer); support remains experimental and requires deployment-specific validation.
+
+For complete request and response schemas, see the [RGB Lightning Node API](/cloud/rgb-lightning-node-api).
 
 ## Authentication
 
