@@ -7,6 +7,12 @@
     "light": "#2F421D",
     "dark": "#A5B596"
   },
+  "redirects": [
+    {
+      "source": "/cloud/self-hosted-rgb-lightning-node",
+      "destination": "/rgb-lightning-node/self-hosted-rgb-lightning-node"
+    }
+  ],
   "navigation": {
     "groups": [
       {
@@ -66,7 +72,7 @@
               {
                 "group": "RGB Lightning Node",
                 "pages": [
-                  "cloud/self-hosted-rgb-lightning-node",
+                  "rgb-lightning-node/self-hosted-rgb-lightning-node",
                   "cloud/rgb-lightning-node-api",
                   {
                     "group": "Security",
