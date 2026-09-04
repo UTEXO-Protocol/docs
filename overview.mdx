@@ -1,123 +1,97 @@
 ---
 title: "Node Overview"
 sidebarTitle: "Overview"
-description: "Compare Utexo node types, deployment models, APIs, signing boundaries, and infrastructure responsibilities."
+description: "Understand how one RGB Lightning Node supports on-chain RGB and Lightning, and choose between self-hosted and Utexo Cloud deployments."
 ---
 
-Utexo provides two node runtimes for different integration models: **RGB Node** for watch-only, on-chain RGB operations and **RGB Lightning Node (RLN)** for RGB-enabled Lightning channels and payments. An RLN can be self-hosted or operated through Utexo Cloud.
+Running an **RGB Lightning Node (RLN)** enables both direct, on-chain RGB operations and RGB-enabled Lightning payments through one node runtime and REST API. You do not need a separate on-chain node integration.
+
+<Warning>
+  Utexo supports **on-chain RGB on mainnet** today. **Lightning is beta and testnet-only** for now. On testnet, you can test both paths; on mainnet, use RLN for on-chain RGB operations only.
+</Warning>
 
 <Info>
-  Utexo Cloud is a managed control plane for RGB Lightning Node instances. It is a deployment and operations model, not a separate node implementation.
+  Canonical source repository: [UTEXO-Protocol/rgb-lightning-node](https://github.com/UTEXO-Protocol/rgb-lightning-node)
 </Info>
 
-## Node types
+## Supported execution paths
 
-| Capability | RGB Node | RGB Lightning Node |
+| Path | What RLN provides | Current Utexo support |
 | --- | --- | --- |
-| Primary purpose | Issue and transfer RGB assets on-chain, inspect balances, and manage RGB-capable UTXOs | Operate RGB-enabled Lightning channels and perform Lightning, RGB, and on-chain wallet operations |
-| Signing model | Watch-only; clients sign PSBTs externally | Maintains Lightning state and performs signing operations; external-signer support is experimental |
-| Lightning support | No | Yes |
-| Asset schemas | NIA only | NIA, CFA, UDA |
-| Deployment | Operator-managed infrastructure | Self-hosted or Utexo Cloud |
+| **On-chain RGB** | Asset issuance, RGB invoices, direct RGB transfers, balances, transactions, transfer tracking, and RGB-capable UTXO management | **Mainnet**; also available in test environments |
+| **RGB over Lightning** | Peer and channel management, Lightning and RGB invoices, and Lightning payment execution and routing | **Testnet only**; beta |
 
-## RGB Node
+The node's `--network` option selects its Bitcoin network. This technical option does not change the supported deployment matrix above.
 
-RGB Node is a standalone REST service for applications that need on-chain RGB functionality without embedding the full RGB protocol stack. It manages watch-only wallets and never holds private keys.
+## Core runtime
 
-Clients identify a wallet with vanilla and colored xPubs plus the BIP32 master fingerprint. Operations that require a Bitcoin transaction use a begin/sign/end PSBT flow: the node constructs an unsigned PSBT, the client signs it, and the node finalizes the operation.
+RLN is an RGB-enabled Lightning daemon built on LDK. Its REST API combines:
 
-RGB Node is best suited to operator-controlled backends such as exchange, settlement, and custody infrastructure. Wallet applications should normally integrate through the Utexo SDK.
+- **On-chain RGB operations**, including asset issuance, invoices, direct transfers, balances, transactions, UTXOs, and backups.
+- **Lightning operations**, including peer connections, RGB channels, invoices, payments, and routing.
+- **Node lifecycle and security operations**, including initialization, locking, authentication, backup, restore, and shutdown.
 
-## RGB Lightning Node
+Applications use the relevant endpoints for the selected execution path. On mainnet, restrict the integration to the on-chain RGB endpoints. On testnet, the same integration can exercise both on-chain and Lightning flows.
 
-RGB Lightning Node is an RGB-enabled Lightning daemon built on LDK. It combines Lightning peer and channel management with RGB asset issuance, on-chain transfers, invoices, and payments.
+## Deployment models
 
-Use RLN when an application needs channel-based RGB payments or direct control over Lightning node operations. The same node runtime can be deployed on infrastructure you manage or provisioned through Utexo Cloud.
+RLN can be self-hosted or operated through Utexo Cloud. Utexo Cloud is a managed control plane for RLN instances, not a separate node implementation.
 
-## RGB Lightning Node deployment models
+| Model | Infrastructure responsibility | Use when |
+| --- | --- | --- |
+| **Self-hosted RLN** | Your team installs, configures, secures, monitors, upgrades, backs up, and recovers the node and its dependencies | You need direct infrastructure control and can operate the complete node stack |
+| **Utexo Cloud** | Utexo provides RLN provisioning and lifecycle management; your application connects to the managed node and control-plane APIs | You want managed node operations without maintaining the underlying servers |
 
-### Self-hosted
-
-With a self-hosted RLN, your team installs and operates the node and its supporting infrastructure. You control the runtime configuration, authentication, data storage, network exposure, upgrades, and recovery procedures.
-
-This model provides the greatest infrastructure control but also places operational and security responsibility on the node operator.
-
-### Utexo Cloud
-
-Utexo Cloud provides a managed control plane for provisioning and operating RLN instances. Applications can manage node lifecycle operations through the dashboard or Cloud API and connect to the running node API separately.
-
-Cloud management credentials authenticate requests to the control plane. Access to the RLN runtime is a separate connection and authentication concern.
-
-## How the components relate
+## Architecture and data flow
 
 ```text
 Application
     |
-    +-- RGB Node API ----------------> RGB Node
-    |                                    |
-    |                                    +-- Bitcoin RPC
-    |                                    +-- Indexer
-    |                                    +-- RGB transport endpoints
+    +-- RGB Lightning Node API --------> RGB Lightning Node
+    |                                      |
+    |                                      +-- Bitcoin chain backend
+    |                                      +-- RGB indexer
+    |                                      +-- RGB proxy / transport
+    |                                      +-- Lightning peers (testnet only)
     |
-    +-- RGB Lightning Node API ------> RGB Lightning Node
-    |                                    |
-    |                                    +-- Bitcoin RPC
-    |                                    +-- Indexer
-    |                                    +-- RGB proxy / transport
-    |                                    +-- Lightning peers
-    |
-    +-- Cloud API -------------------> Utexo Cloud control plane
-                                         |
-                                         +-- Provisions and manages RLN instances
+    +-- Cloud API ----------------------> Utexo Cloud control plane
+                                           |
+                                           +-- Provisions and manages RLN instances
 ```
 
-The **RGB Node API** and **RGB Lightning Node API** operate on their respective node runtimes. The **Cloud API** manages hosted RLN instances; it is not a replacement for the RLN runtime API.
+The **RGB Lightning Node API** performs on-chain RGB and Lightning operations on a running node. The **Cloud API** manages hosted RLN lifecycle operations; it does not replace the runtime API.
 
-## Choosing a node
+## Choosing an integration model
 
-Most applications don't need to run a node. If you're building a wallet or client application, integrate through the [Utexo SDK](/product-suite/sdk) — it wraps the same RGB functionality without requiring you to operate infrastructure. Choose a node runtime below only if you're operating backend infrastructure directly.
+Most wallet and client applications should integrate through the [Utexo SDK](/product-suite/sdk) instead of operating node infrastructure directly.
 
-Choose **RGB Node** when you need:
+Choose **self-hosted RLN** when your team needs direct control over runtime configuration, network exposure, authentication, storage, upgrades, and recovery.
 
-- On-chain RGB issuance, balances, invoices, and transfers
-- A watch-only service with external client-side signing
-- Integration into an operator-controlled backend
-- No Lightning channel or payment functionality
+Choose **Utexo Cloud** when you want Utexo to provide node provisioning and lifecycle management while your application integrates with the RLN runtime and Cloud APIs.
 
-Choose **RGB Lightning Node** when you need:
-
-- RGB-enabled Lightning channels and payments
-- Lightning peer, channel, invoice, and payment management
-- Both on-chain and Lightning operations through one node
-- A self-hosted or managed deployment option
-
-Choose **self-hosted RLN** when your team needs direct infrastructure control and can operate the Bitcoin, indexer, transport, networking, storage, and security layers.
-
-Choose **Utexo Cloud** when you want Utexo to provide the RLN provisioning and lifecycle-management layer while your application integrates with the node and control-plane APIs.
+In either model, the RLN integration covers both on-chain and Lightning functionality. Do not build a second integration for on-chain RGB.
 
 ## Signing and trust boundaries
 
-- **RGB Node** is watch-only and never signs transactions. Its xPub and master-fingerprint headers select a wallet; they do not authenticate or authorize the caller.
-- **RGB Lightning Node** maintains security-sensitive Lightning state. Remote external-signer support exists, but deployment-specific compatibility and production readiness must be validated.
-- **Self-hosted operators** are responsible for node authentication, TLS or private networking, data protection, backups, and dependency security.
-- **Utexo Cloud** introduces a separate control-plane trust boundary. Cloud API tokens and node-runtime access credentials serve different purposes and should be handled independently.
+- **RLN** maintains security-sensitive wallet and Lightning state and performs signing operations. Remote external-signer support is experimental and must be validated for each deployment.
+- **Self-hosted operators** are responsible for API authentication, TLS or private networking, data protection, backups, dependency security, and incident recovery.
+- **Utexo Cloud** adds a separate control-plane trust boundary. Cloud API tokens and RLN runtime credentials serve different purposes and must be managed independently.
 
-## Shared external dependencies
+## External dependencies
 
-Depending on the node and deployment model, the runtime may require:
+A self-hosted RLN deployment requires:
 
-- A Bitcoin node or Bitcoin RPC endpoint
-- An Electrum or Esplora-compatible indexer
-- RGB proxy or transport endpoints for consignment exchange
-- Persistent storage for wallet or channel state
-- Network access to Lightning peers for RLN
+- A Bitcoin chain backend: bitcoind or Esplora
+- An Electrum or Esplora indexer for RGB wallet operations
+- An RGB proxy or transport endpoint for consignment exchange
+- Persistent storage for wallet and channel state
+- Network access to Lightning peers when testing Lightning functionality
 
-Managed deployments may abstract some infrastructure responsibilities, but they do not change the underlying node protocol model.
+Utexo Cloud may manage some of these infrastructure concerns, but it does not change the underlying node protocol model or the supported mainnet/testnet split.
 
 ## Next steps
 
-- Read **RGB Node → General Overview** for the watch-only architecture and intended integrations.
-- Use **RGB Node → RGB Node API** for endpoints, wallet identification, configuration, and PSBT workflows.
-- Read **RGB Lightning Node → Self-Hosted RGB Lightning Node** to operate an RLN on your own infrastructure.
-- Use **RGB Lightning Node → RGB Lightning Node API** for the runtime REST endpoints.
-- Use **Utexo Cloud → Node Management** and **Cloud API** for managed RLN lifecycle operations.
+- Read [Self-Hosted RGB Lightning Node](/cloud/self-hosted-rgb-lightning-node) to install and operate RLN on your own infrastructure.
+- Use the [RGB Lightning Node API](/cloud/rgb-lightning-node-api) for the runtime REST endpoints.
+- Review [Remote Signer](/security/rln-remote-signer) before evaluating an external signing architecture.
+- Use **Utexo Cloud → Node Management** and **Access Token Authorization** for managed RLN lifecycle operations.
