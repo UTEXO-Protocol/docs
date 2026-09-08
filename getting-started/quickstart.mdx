@@ -4,6 +4,10 @@ sidebarTitle: "Quickstart"
 description: "Send your first USDT on Bitcoin transfer in under 15 minutes."
 ---
 
+<Warning>
+  This page documents the archived `@utexo/rgb-sdk` package. New Node.js integrations should use [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning). For browsers see the [Web Quickstart](/getting-started/quickstart/web); for iOS and Android see the [React Native Quickstart](/getting-started/quickstart/react-native).
+</Warning>
+
 ## What You Will Build
 
 This guide walks you through the full Utexo SDK integration flow: installing the SDK, generating and initializing a wallet, funding it with testnet BTC, creating UTXOs to anchor RGB state, generating an RGB invoice and completing your first USDT on Bitcoin transfer.
@@ -54,7 +58,7 @@ The SDK connects to the following endpoints by default on testnet. No configurat
 | RGB Transport | `rpcs://rgb-proxy.utexo.com/json-rpc` |
 | Bitcoin Indexer | `https://esplora-api.utexo.com` |
 
-For mainnet endpoint configuration, see the [SDK Reference](/sdk/utexo-sdk).
+For mainnet endpoint configuration, see the [wdk-rgb-lightning Reference](/sdk/wdk-rgb-lightning).
 
 ## Step 1: Install the SDK
 
@@ -153,7 +157,7 @@ console.log('USDT Asset ID:', usdtAssetId);
 ```
 
 <Info>
-  If no assets appear, your wallet may not yet have been assigned any RGB assets. You can also obtain the canonical testnet USDT asset ID from the [SDK Reference](/sdk/utexo-sdk) or by asking in the [Utexo Discord](https://discord.gg/utexo).
+  If no assets appear, your wallet may not yet have been assigned any RGB assets. You can also obtain the canonical testnet USDT asset ID from the [wdk-rgb-lightning Reference](/sdk/wdk-rgb-lightning) or by asking in the [Utexo Discord](https://discord.gg/utexo).
 </Info>
 
 ## Step 7: Generate an RGB Invoice (Receiver Side)
@@ -251,6 +255,6 @@ Expected result: the receiver's asset list shows a balance of `100` for the USDT
 
 ## Next Steps
 
-- [SDK Reference](/sdk/utexo-sdk) — Full method reference for `UTEXOWallet`, including Lightning channel management
+- [wdk-rgb-lightning Reference](/sdk/wdk-rgb-lightning) — Current Node.js / Bare module for RGB Lightning
 - [Architecture](/getting-started/architecture) — Understand how Bitcoin, Lightning, and RGB fit together
 - [Glossary](/getting-started/glossary) — Definitions for RGB, PSBT, blinded invoice, UTXO, and other key terms

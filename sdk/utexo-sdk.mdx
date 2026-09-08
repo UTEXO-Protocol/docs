@@ -1,217 +1,26 @@
 ---
 title: 'Utexo SDK Reference'
-description: 'Complete method reference for the @utexo/rgb-sdk Node.js package — wallet management, RGB asset operations, UTXO management, Lightning payments, on-chain interactions, backup and restore.'
-sidebarTitle: 'Node.js'
+description: 'The archived @utexo/rgb-sdk Node.js package. New Node.js integrations should use @utexo/wdk-rgb-lightning.'
+sidebarTitle: 'Node.js (archived)'
 ---
 
-The `@utexo/rgb-sdk` package is the Node.js SDK for applications built on the Utexo stack. It provides a complete set of bindings for wallet management, RGB asset operations, Lightning payments, async payments, and on-chain Bitcoin interactions. It is built on top of `@utexo/rgb-sdk-core`, the shared foundation used by all three Utexo SDK platforms.
-
-All operations are performed locally using client-side validation. Private keys and mnemonics are never transmitted to remote servers during normal execution.
-
 <Warning>
-  This SDK is designed for **Node.js only** and is not browser-compatible. For browser environments use `@utexo/rgb-sdk-web`; for iOS and Android use `@utexo/rgb-sdk-rn`.
+  `@utexo/rgb-sdk` is **archived**. The [source repository](https://github.com/UTEXO-Protocol/rgb-sdk) is read-only; its last committed package version is `1.0.0-beta.9`. Do not start new Node.js integrations on this package.
 </Warning>
 
-## Installation
+For new Node.js (and Bare / React Native worklet) integrations, use [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning). It is the current WDK module for RGB-over-Lightning: channels, invoices, payments, HODL invoices, LSP, APay, and VSS.
 
-```bash
-npm install @utexo/rgb-sdk
-```
-
-## Initialisation
-
-The primary wallet class is `UTEXOWallet`. Initialise it with a mnemonic and a configuration object, then call `await wallet.initialize()` before use.
-
-```js
-import { UTEXOWallet, generateKeys } from '@utexo/rgb-sdk';
-
-// 1. Generate wallet keys
-const keys = await generateKeys('utexo');
-console.log('Mnemonic:', keys.mnemonic); // Store securely
-
-// 2. Initialise wallet
-const wallet = new UTEXOWallet(keys.mnemonic, {
-  network: 'utexo',          // 'mainnet' | 'testnet' | 'utexo'
-  dataDir: './wallet',
-  lspBaseUrl: '...',         // optional — enables async (offline) payments
-  lspBearerToken: '...'  // optional — required when lspBaseUrl is set
-});
-await wallet.initialize();
-
-// 3. Get a deposit address
-const address = await wallet.getAddress();
-
-// 4. Check BTC balance
-const balance = await wallet.getBtcBalance();
-```
-
-`getBtcBalance()` returns separate balance objects for each path (vanilla and colored), each containing:
-
-## Networks
-
-| Environment | Identifier | RGB Transport Endpoint | Bitcoin Indexer |
-|---|---|---|---|
-| Mainnet | `mainnet` | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
-| Testnet | `testnet` | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
-| Utexo (Signet) | `utexo` | `rpcs://rgb-proxy.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
-
-Pass the identifier string in the `network` field of the init config. `utexo` is the default environment for development and testing.
-
-<Note>
-
-**Utexo Network Faucet** — To get test BTC and RGB assets on the Utexo network, use the Telegram bot [@Utexo_RLN_bot](https://t.me/Utexo_RLN_bot).
-
-| Command | Description |
+| Instead of | Use |
 |---|---|
-| `/getbtc` | Send your Bitcoin address to receive test satoshis |
-| `/getasset` | Send an RGB invoice to receive test RGB assets |
-| `/getinvoice` | Get an RGB Lightning invoice to test paying |
-| `/getnodeinfo` | Get the faucet node URI, asset ID, and ticker |
+| `@utexo/rgb-sdk` (Node.js, archived) | [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning) |
+| Browser | [`@utexo/rgb-sdk-web`](/sdk/web-sdk) |
+| iOS / Android | [`@utexo/rgb-sdk-rn`](/sdk/react-native-sdk) |
+| On-chain RGB issuance (WDK) | [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb) |
 
-Limited to 2 requests per 24 hours per user.
-
-</Note>
-
-## Vanilla vs Colored Addresses
-
-The SDK maintains two separate derivation paths:
-
-- **Vanilla** — the standard Bitcoin path. `getAddress()` returns a vanilla bech32 receive address used for on-chain BTC funding, withdrawals, and fee payments.
-- **Colored** — the RGB-specific path. Colored outputs anchor RGB asset allocations to Bitcoin UTXOs. This path is used internally by `createUtxos()` and all RGB transfer operations.
-
-`getXpub()` returns both:
-- `accountXpubVanilla` — the extended public key for the vanilla (BTC) derivation path
-- `accountXpubColored` — the extended public key for the colored (RGB) derivation path
-
-`getBtcBalance()` returns separate balance objects for each path, each containing:
-- `settled` — confirmed, final balance
-- `future` — expected balance after pending operations confirm
-- `spendable` — currently usable amount for new operations
-
-## Vanilla vs Colored Addresses
-
-The wallet manages two address types:
-
-- **Vanilla** — Standard Bitcoin addresses for receiving on-chain BTC. Also used as the change address for Bitcoin transactions that anchor RGB state transitions.
-- **Colored** — Addresses associated with UTXOs that hold RGB asset allocations. These UTXOs are reserved exclusively for RGB state transitions and should not be spent directly as BTC.
-
-Never manually spend a colored UTXO as regular BTC — doing so will permanently destroy the RGB asset allocation anchored to it.
-
-## Networks
-
-The available environments for the `network` field in the init config are:
-
-| Environment | Identifier | RGB Transport Endpoint | Bitcoin Indexer |
-| --- | --- | --- | --- |
-| Mainnet | `mainnet` | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
-| Testnet | `testnet` | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
-| Utexo (Signet) | `utexo` | `rpcs://rgb-proxy.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
-
-<Note>
-
-**Utexo Network Faucet** — To get test BTC and RGB assets on the Utexo network, use the Telegram bot [@Utexo\_RLN\_bot](https://t.me/Utexo_RLN_bot).
-
-| Command | Description |
-|---|---|
-| `/getbtc` | Send your Bitcoin address to receive test satoshis |
-| `/getasset` | Send an RGB invoice to receive test RGB assets |
-| `/getinvoice` | Get an RGB Lightning invoice to test paying |
-| `/getnodeinfo` | Get the faucet node URI, asset ID, and ticker |
-
-Limited to 2 requests per 24 hours per user.
-
-</Note>
-
-## UTXO Management
-
-Before issuing or receiving RGB assets, prepare colored UTXOs:
-
-```js
-await wallet.createUtxos({ num: 5, size: 1000 });
-await wallet.refreshWallet();
-```
-
-- `createUtxos({ num, size, up_to? })` — Create colored UTXOs (combines begin, sign, end internally)
-
-## Asset Methods
-
-- `listAssets()` — List all RGB assets held by the wallet
-- `getAsset(assetId)` — Get metadata and balance for a specific asset
-- `issueAssetNia(params)` — Issue a new NIA (Non-Inflatable Asset) RGB asset
-- `issueAssetCfa(params)` — Issue a new CFA (Collectible) RGB asset
-- `blindReceive(params)` — Generate a blinded invoice to receive an RGB asset
-- `send(params)` — Send RGB assets to a blinded invoice
-- `listTransfers(assetId)` — List all transfers for a given asset
-- `refreshWallet()` — Sync wallet state with the chain and transport layer
-- `failTransfers(params)` — Expire stale pending transfers
-- `deleteTransfers(params)` — Remove transfer records
-
-## BTC Methods
-
-- `getAddress()` — Get the current vanilla Bitcoin deposit address
-- `getBtcBalance()` — Get the BTC balance (vanilla and colored paths)
-- `sendBtc(params, mnemonic?)` — Send BTC from the vanilla wallet
-- `drainBtc(params, mnemonic?)` — Drain the entire vanilla BTC balance to an address
-
-## Key Derivation and Backup
-
-- `generateKeys(network)` — Generate a new BIP-39 mnemonic and derive xpub
-- `deriveKeysFromMnemonic(network, mnemonic)` — Re-derive keys from an existing mnemonic
-- `backup(backupPath, password)` — Create an encrypted wallet backup
-- `restore(mnemonic, backupPath, password)` — Restore a wallet from a backup file
-
-## PSBT Methods
-
-For advanced use cases where signing must happen externally:
-
-- `createUtxosBegin(params)` — Create an unsigned PSBT for UTXO creation
-- `createUtxosEnd(params)` — Finalise UTXO creation with a signed PSBT
-- `sendBegin(params)` — Create an unsigned PSBT for an RGB send
-- `sendEnd(params)` — Finalise an RGB send with a signed PSBT
-- `sendBtcBegin(params)` — Create an unsigned PSBT for a BTC send
-- `sendBtcEnd(params, mnemonic?)` — Finalise a BTC send with a signed PSBT
-
-## Lightning Methods
-
-- `createLightningInvoice(params)` — Create a standard BOLT11 Lightning invoice for receiving
-
-Synchronous payments follow a begin → sign → end flow:
-
-- `payLightningInvoiceBegin(params)` — Start Lightning payment (returns unsigned PSBT)
-- `payLightningInvoiceEnd(params)` — Finalise Lightning payment with signed PSBT
-- `payLightningInvoice(params, mnemonic?)` — Complete Lightning payment in a single call
-
-Async payments allow funds to be sent to an offline recipient. The LSP holds the payment via a HODL invoice until the recipient comes online to collect. Requires `lspBaseUrl` and `lspBearerToken` in the wallet init config. The inbound leg (receiving while offline) is fully operational; the outbound leg is in active development.
-
-When LSP integration is configured, recipients receive a stable Lightning Address rather than a per-transfer invoice. The address is provisioned automatically — no additional method calls are required.
-
-- `getLightningSendRequest(lnInvoice)` — Get status of a Lightning send request
-- `getLightningReceiveRequest(lnInvoice)` — Get status of a Lightning receive request
-- `listLightningPayments()` — List all Lightning payments
-
-## On-chain Methods
-
-- `onchainReceive(params)` — Generate an invoice for depositing from mainnet to UTEXO
-- `onchainSend(params, mnemonic?)` — Complete an on-chain withdrawal (begin → sign → end)
-- `getOnchainSendStatus(invoice)` — Get the status of an on-chain withdrawal
-
-## Security
-
-By using this SDK, developers have full control over transfer orchestration, UTXO selection, invoice lifecycle, and signing policy. The SDK supports an **external signer** architecture: key management can be handled entirely outside the node, keeping signing logic isolated from the rest of the application. This is the recommended approach for custody-grade and enterprise deployments where key isolation is a hard requirement.
-
-Private keys and mnemonics should be stored securely and never logged or transmitted. Use environment variables or a secrets manager for mnemonic storage:
-
-```js
-const keys = await generateKeys('utexo');
-const mnemonic = keys.mnemonic; // Sensitive — protect at rest
-
-// Restore from stored mnemonic
-const storedMnemonic = process.env.WALLET_MNEMONIC;
-const restoredKeys = await deriveKeysFromMnemonic('utexo', storedMnemonic);
-```
+Existing applications still on `@utexo/rgb-sdk` can follow the [legacy Node.js Quickstart](/getting-started/quickstart/node-js) for the last committed API. New work should follow the [wdk-rgb-lightning reference](/sdk/wdk-rgb-lightning).
 
 ## Further Reading
 
-- [SDK Overview](/product-suite/sdk) — SDK family, key concepts, execution model, and network environments.
-- [Product Suite](/getting-started/product-suite) — How the SDK fits into the full Utexo product surface.
-- [Architecture](/getting-started/architecture) — The Bitcoin + RGB stack the SDK operates on.
+- [wdk-rgb-lightning Reference](/sdk/wdk-rgb-lightning)
+- [SDK Overview](/product-suite/sdk)
+- [WDK Overview](/sdk/wdk-overview)

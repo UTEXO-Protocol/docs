@@ -87,7 +87,7 @@ Key terms used throughout the Utexo documentation.
 
 **USDT (RGB)** Tether's USDT stablecoin issued natively on Bitcoin using the RGB protocol. Distinct from ERC-20 USDT (Ethereum) and TRC-20 USDT (Tron). RGB USDT is transferred over Lightning channels and validated client-side.
 
-**UTEXOWallet** The primary class exported by the `@utexo/rgb-sdk`, `@utexo/rgb-sdk-rn`, and `@utexo/rgb-sdk-web` packages. It encapsulates all wallet operations including initialization, asset transfers, Lightning invoice creation and payment, balance checking, and backup/restore. All SDK interactions go through an instance of `UTEXOWallet`.
+**UTEXOWallet** The primary class exported by the `@utexo/rgb-sdk-rn` and `@utexo/rgb-sdk-web` packages. It encapsulates wallet operations including initialization, asset transfers, Lightning invoice creation and payment, balance checking, and backup/restore. Node.js integrations use `@utexo/wdk-rgb-lightning` (`WalletManagerRgbLightning`) instead of `UTEXOWallet`.
 
 **UTXO (Unspent Transaction Output)** A unit of Bitcoin that has been received but not yet spent. In RGB, UTXOs serve as anchors for asset state — each RGB asset allocation is bound to a specific UTXO.
 

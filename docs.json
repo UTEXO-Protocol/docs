@@ -19,6 +19,10 @@
     {
       "source": "/cloud/rgb-node/api-reference",
       "destination": "/cloud/rgb-lightning-node-api"
+    },
+    {
+      "source": "/sdk/utexo-sdk",
+      "destination": "/sdk/wdk-rgb-lightning"
     }
   ],
   "navigation": {
@@ -54,7 +58,6 @@
             "group": "SDK",
             "pages": [
               "product-suite/sdk",
-              "sdk/utexo-sdk",
               "sdk/react-native-sdk",
               "sdk/web-sdk",
               {
