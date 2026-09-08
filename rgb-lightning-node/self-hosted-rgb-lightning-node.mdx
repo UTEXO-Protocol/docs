@@ -282,12 +282,14 @@ echo 'role("custom"); right("api", "/nodeinfo"); right("api", "/networkinfo");' 
   | biscuit generate --private-key-file private-key-file -
 ```
 
-Add an expiry date to any token:
+Add an expiry date to any token. Replace the timestamp with your own — the node rejects a token once its expiry has passed:
 
 ```sh
-echo 'role("admin"); check if time($t), $t <= 2025-12-31T00:00:00Z;' \
+echo 'role("admin"); check if time($t), $t <= 2027-12-31T00:00:00Z;' \
   | biscuit generate --private-key-file private-key-file -
 ```
+
+For short-lived tokens, generate the timestamp at issue time rather than hardcoding it — `date -u -d '+30 days' +%Y-%m-%dT%H:%M:%SZ` with GNU coreutils, or `date -u -v+30d +%Y-%m-%dT%H:%M:%SZ` on macOS.
 
 ### Using Tokens
 
