@@ -4,11 +4,11 @@ sidebarTitle: "Overview"
 description: "Choose the Utexo SDK package and lifecycle for your application runtime."
 ---
 
-The Utexo SDK has current React Native and Web packages, plus a legacy Node.js package whose source repository is archived. Choose the guide for your runtime before copying any initialization or payment code.
+The Utexo SDK has current Web, React Native, and WDK (Node.js / Bare) packages. `@utexo/rgb-sdk` is archived. Choose the guide for your runtime before copying any initialization or payment code.
 
 <CardGroup cols={3}>
-  <Card title="Node.js" icon="node-js" href="/getting-started/quickstart/node-js">
-    Existing server-side applications using the legacy `@utexo/rgb-sdk` package.
+  <Card title="Node.js" icon="node-js" href="/sdk/wdk-rgb-lightning">
+    New server-side applications using `@utexo/wdk-rgb-lightning`.
   </Card>
 
   <Card title="React Native" icon="mobile" href="/getting-started/quickstart/react-native">
@@ -21,18 +21,19 @@ The Utexo SDK has current React Native and Web packages, plus a legacy Node.js p
 </CardGroup>
 
 <Warning>
-  The [`@utexo/rgb-sdk` source repository](https://github.com/UTEXO-Protocol/rgb-sdk) was archived on July 28, 2026 and is read-only; its last committed package version is `1.0.0-beta.9`. The packages share models from `@utexo/rgb-sdk-core`, but they do not expose an identical runtime API. Use the platform-specific guide, check the installed package version, and verify support status before starting a new Node.js integration.
+  The [`@utexo/rgb-sdk` source repository](https://github.com/UTEXO-Protocol/rgb-sdk) was archived on July 28, 2026 and is read-only; its last committed package version is `1.0.0-beta.9`. **New Node.js integrations should use [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning).** The remaining packages share models from `@utexo/rgb-sdk-core`, but they do not expose an identical runtime API. Use the platform-specific guide and check the installed package version before copying code.
 </Warning>
 
 ## Platform API Differences
 
 | Package | Wallet startup | On-chain RGB send |
 | --- | --- | --- |
+| `@utexo/wdk-rgb-lightning` (Node.js / Bare) | `WalletManagerRgbLightning` + `getAccount(0)` + `unlock()` | `sendRgbAsset()` / `transfer()` |
 | `@utexo/rgb-sdk` (legacy; source archived) | Construct with a mnemonic and call `initialize()` | `send()` |
 | `@utexo/rgb-sdk-rn` | Construct with node parameters and a signer, then call `init()` and `unlock()` | `onchainSend()` |
-| `@utexo/rgb-sdk-web` | Call `initRlnWasm()`, construct with one parameter object, then call `init()` and `unlock()` | `onchainSend()` |
+| `@utexo/rgb-sdk-web` | Construct with one parameter object, then call `init()` and `unlock()` | `onchainSend()` |
 
-The Web and React Native packages implement the shared conformance contract. The archived Node.js package uses its legacy wallet core, so do not substitute `onchainSend()` for `send()` in Node.js code.
+The Web and React Native packages implement a shared `UTEXOWallet` conformance contract. `@utexo/wdk-rgb-lightning` uses WDK manager/account types — do not copy `UTEXOWallet` method names into WDK code. The archived Node.js package uses its legacy wallet core; do not substitute `onchainSend()` for `send()` in that package.
 
 ## How RGB Transfers Work
 
@@ -71,13 +72,13 @@ A newly created receiver wallet will not discover an asset it has never received
 
 ## Lightning Payments
 
-The Web and React Native packages use `createLightningInvoice()`, `payLightningInvoice()`, and `getLightningSendStatus()`. Omit the `asset` field when creating a BTC-only invoice. The archived Node.js package retains its legacy status method; follow the Node.js guide for that package.
+The Web and React Native packages use `createLightningInvoice()`, `payLightningInvoice()`, and `getLightningSendStatus()`. `@utexo/wdk-rgb-lightning` uses `createInvoice()` / `createLightningInvoice()` and `sendPayment()`. Omit the `asset` field when creating a BTC-only invoice on the application SDKs.
 
 Lightning payments also require usable peer and channel state. Wallet initialization alone does not create a channel or fund the node.
 
 ## Network Selection
 
-The hosted Web and React Native examples use the `utexo` network profile, which resolves to Utexo's signet infrastructure. The archived Node.js package uses its package-specific `testnet` profile. Do not reuse a constructor or endpoint configuration across packages without checking the platform implementation.
+The hosted Web and React Native examples use the `utexo` network profile, which resolves to Utexo's signet infrastructure. `@utexo/wdk-rgb-lightning` takes `network` plus explicit indexer/proxy (or bitcoind RPC) at `unlock()`. The archived Node.js package uses its package-specific `testnet` profile. Do not reuse a constructor or endpoint configuration across packages without checking the platform implementation.
 
 <Warning>
   Never use mainnet keys or real funds while following a Quickstart. Test and signet assets have no monetary value.
@@ -89,7 +90,7 @@ These files are the reviewed sources for the API distinctions above:
 
 - [Shared SDK conformance contract](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/conformance/index.ts)
 - [Shared wallet models](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/types/wallet-model.ts)
-- [Node.js wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk/blob/dev/src/utexo/utexo-wallet.ts)
+- [wdk-rgb-lightning](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/dev/README.md)
 - [React Native wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/utexo-wallet.ts)
 - [Web wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk-web/blob/dev/src/utexo/utexo-wallet.ts)
 

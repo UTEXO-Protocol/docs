@@ -1,196 +1,363 @@
 ---
 title: 'wdk-rgb-lightning Reference'
-description: 'Complete reference for @utexo/wdk-rgb-lightning — WDK module for RGB Lightning channels, invoices, and payments. Alpha.'
+description: 'Reference for @utexo/wdk-rgb-lightning — WDK module for RGB Lightning channels, invoices, and payments. Pre-1.0 beta.'
 sidebarTitle: 'wdk-rgb-lightning'
 ---
 
-`@utexo/wdk-rgb-lightning` is a WDK module for the RGB Lightning Node, enabling channels, invoices, payments, and swaps for RGB assets over the Lightning Network. It wraps `@utexo/rgb-lightning-node-bare`, which interfaces with Rust C-FFI bindings using LDK and tokio.
+`@utexo/wdk-rgb-lightning` is a WDK module for RGB-over-Lightning, built on `rgb-lightning-node` (RLN). It runs an LDK + `rgb-lib` node behind WDK's manager/account contract: channels, BOLT11 and RGB invoices, payments, HODL invoices, optional VSS backup, and an LSP client.
+
+The node runs in **external-signer** mode. The BIP-39 mnemonic stays in the WDK secret manager. Channel-state crypto runs in-process through a VLS signer.
 
 <Warning>
-  This package is an **alpha**. Layers A and B are complete and operational. Layer C (full wiring) is in progress. Some methods are still in active development (🚧) or paused (⏸) — review the status column before depending on a specific method in production.
+  Pre-1.0 beta (`0.1.0-beta` line). APIs may change between releases.
 </Warning>
 
 ## Why a Separate Package
 
-The RGB Lightning Node manages its own seed through LDK's `KeysManager`, which conflicts with the WDK convention where the secret manager owns the seed. `wdk-rgb-lightning` provides a WDK-compatible wrapper and coordination layer. Consolidation with `wdk-wallet-rgb` is planned once upstream improvements from LDK are merged.
+This module complements [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb). Each owns its own `rgb-lib` SQLite state and they do **not** share asset records. Give each module a **separate** `dataDir` — `rgb-lib` takes an exclusive lock on a wallet directory.
+
+This module holds and transfers RGB assets for channels and invoices. For issuance, use `@utexo/wdk-wallet-rgb`. Node-level issuance calls are forwarded on the account, but `wdk-wallet-rgb` is the supported path.
 
 ## Installation
 
 ```bash
 npm install @utexo/wdk-rgb-lightning
+
+# Native binding for your runtime (optional peer deps):
+npm install @utexo/rgb-lightning-node-nodejs   # Node
+# or
+npm install @utexo/rgb-lightning-node-bare     # Bare / React Native
 ```
+
+Install only the binding for your runtime. Each `postinstall` downloads a prebuilt native artifact; no Rust toolchain is required.
+
+On Node, `import '@utexo/wdk-rgb-lightning'` wires `@utexo/rgb-lightning-node-nodejs`. In a Bare worklet, `require('@utexo/wdk-rgb-lightning')` wires `@utexo/rgb-lightning-node-bare`. Both re-export the same manager, account, errors, and LSP surface.
 
 ## Configuration
 
-`WalletManagerRgbLightning` requires the seed mnemonic at construction time (not at unlock) because LDK's `KeysManager` initialises the seed during node creation.
+`WalletManagerRgbLightning` takes the seed at construction. `network` and `dataDir` are required.
 
 | Option | Type | Description |
 |---|---|---|
-| `network` | `string` | Bitcoin network: `'mainnet'`, `'testnet'`, `'utexo'`, `'regtest'` |
-| `dataDir` | `string` | Directory for node state persistence |
-| `daemonPort` | `number` | RLN daemon HTTP port |
-| `ldkPort` | `number` | LDK peer-to-peer port |
+| `network` | `string` | `'mainnet'`, `'testnet'`, `'signet'`, or `'regtest'` |
+| `dataDir` | `string` | Persistent directory for RLN SQLite + LDK state |
+| `daemonListeningPort` | `number` | RLN daemon port. Default `0` (ephemeral) |
+| `ldkPeerListeningPort` | `number` | LDK peer port. Default `0` (ephemeral) |
+| `enableVirtualChannelsV0` | `boolean` | Required for APay against a production LSP. Default `false` |
+| `virtualPeerPubkeys` | `string[]` | Peer node IDs allowed to open `trusted_no_broadcast` virtual channels |
+| `vssUrl` | `string` | VSS cloud backup URL. Omit to disable |
+| `vssAllowHttp` | `boolean` | Allow plain `http://` for non-loopback VSS hosts. Default `false` |
+| `lspBaseUrl` | `string` | LSP base URL for APay and `createLsp()` |
+| `lspBearerToken` | `string` | Bearer token for LSP `/internal/*` routes |
+
+```typescript
+import WalletManagerRgbLightning from '@utexo/wdk-rgb-lightning';
+
+const manager = new WalletManagerRgbLightning(mnemonic, {
+  network: 'regtest',
+  dataDir: '/path/to/wallet-data',
+});
+```
 
 ## Classes
 
 ### `WalletManagerRgbLightning`
 
-```typescript
-import { WalletManagerRgbLightning } from '@utexo/wdk-rgb-lightning';
-
-const manager = new WalletManagerRgbLightning(mnemonic, {
-  network: 'utexo',
-  dataDir: '/path/to/wallet-data',
-  daemonPort: 9735,
-  ldkPort: 9736,
-});
-```
+Default export. Construct with a BIP-39 mnemonic (or `Uint8Array` seed) and config.
 
 #### Methods
 
 | Method | Description |
 |---|---|
-| `getAccount(unlockParams)` | Unlock the node and return a `WalletAccountRgbLightning` |
-| `disconnect()` | Shut down the node and release resources |
-
-#### `unlockParams`
-
-| Field | Type | Description |
-|---|---|---|
-| `bitcoindRpcUsername` | `string` | Bitcoin RPC username |
-| `bitcoindRpcPassword` | `string` | Bitcoin RPC password |
-| `bitcoindRpcHost` | `string` | Bitcoin RPC host |
-| `bitcoindRpcPort` | `number` | Bitcoin RPC port |
-| `indexerUrl` | `string?` | Electrum indexer URL |
-| `proxyEndpoint` | `string?` | RGB proxy endpoint |
+| `getAccount(0)` | Return the single `WalletAccountRgbLightning`. Index must be `0` |
+| `getAccountByPath(path)` | Same account, looked up by derivation path |
+| `getFeeRates()` | `{ normal, fast }` fee rates as `bigint` sat/vB |
+| `dispose()` | Shut down the node. Synchronous |
 
 ```typescript
-const account = await manager.getAccount({
-  bitcoindRpcUsername: 'user',
-  bitcoindRpcPassword: 'password',
-  bitcoindRpcHost: '127.0.0.1',
-  bitcoindRpcPort: 18443,
-  indexerUrl: '127.0.0.1:50001',
-  proxyEndpoint: 'rpc://127.0.0.1:3000/json-rpc',
+const account = await manager.getAccount(0);
+
+await account.unlock({
+  indexer_url: 'tcp://localhost:50001',
+  proxy_endpoint: 'rpc://localhost:3000/json-rpc',
+  announce_addresses: [],
+  announce_alias: 'my-node',
 });
 ```
+
+Unlock takes **exactly one** chain backend: `indexer_url`, or all four `bitcoind_rpc_*` fields (`bitcoind_rpc_username`, `bitcoind_rpc_password`, `bitcoind_rpc_host`, `bitcoind_rpc_port`). Mixing both is rejected. `proxy_endpoint`, `announce_addresses`, and `announce_alias` are always required.
 
 ---
 
 ### `WalletAccountRgbLightning`
 
-The account instance returned by `getAccount()`.
+Returned by `getAccount(0)`. RGB Lightning is single-account; RLN owns one LDK node per `dataDir`.
+
+#### Lifecycle
+
+| Method | Description |
+|---|---|
+| `unlock(request)` | Bring the node online. Returns `{ ok: true }` |
+| `getBootstrap()` | Signer/node identity material |
+| `shutdown()` | Shut down the native node. Returns `{ ok: true }` |
+| `dispose()` | No-op on the account. Call `manager.dispose()` to release the node |
 
 #### Node Info
 
-| Method | Status | Description |
-|---|---|---|
-| `getNodeInfo()` | ✅ | Node pubkey, channel counts, sync status |
-| `getNetworkInfo()` | ✅ | Network-level info |
+| Method | Description |
+|---|---|
+| `getNodeInfo()` | Node pubkey, channel counts, sync status |
+| `getNetworkInfo()` | Bitcoin network and chain info |
+| `refreshWalletSnapshot(options?)` | Production refresh. `options.mode` is `'routine'` (default) or `'recovery'` |
+| `sync()` | Deprecated. Colored FastSync only — do not use for portfolio state |
+| `getAddress()` | Current receive address. Throws `AccountLockedError` before unlock |
+| `getAddressState()` | `{ status: 'ready', address }` or `{ status: 'locked', address: null }` |
+| `rotateAddress()` | Advance the receive address. Returns the new address |
 
 #### Peers
 
-| Method | Status | Description |
-|---|---|---|
-| `connectPeer(peerPubkeyAndAddr)` | ✅ | Connect to a peer (`pubkey@host:port`) |
-| `disconnectPeer(peerPubkey)` | ✅ | Disconnect a peer |
-| `listPeers()` | ✅ | List connected peers |
+| Method | Description |
+|---|---|
+| `connectPeer(peerPubkeyAndAddr)` | Connect. String form: `'pubkey@host:port'`. Returns `{ ok: true }` |
+| `disconnectPeer({ peer_pubkey })` | Disconnect a peer. Returns `{ ok: true }` |
+| `listPeers()` | Connected peers |
 
 #### Channels
 
-| Method | Status | Description |
-|---|---|---|
-| `openChannel({ peerPubkeyAndOptAddr, capacitySat, pushMsat, public, withAnchors, assetId?, assetAmount? })` | ✅ | Open a BTC or RGB asset channel |
-| `closeChannel(channelId, peerPubkey, force)` | ✅ | Close a channel (cooperative or force) |
-| `listChannels()` | ✅ | List open channels |
+| Method | Description |
+|---|---|
+| `openChannel({ peer_pubkey_and_opt_addr, capacity_sat, push_msat?, public?, with_anchors?, asset_id?, asset_amount?, virtual_open_mode? })` | Open a BTC or RGB channel |
+| `closeChannel({ channel_id })` | Close a channel. Returns `{ ok: true }` |
+| `listChannels()` | Open channels |
+| `getChannelId(temporaryChannelIdHex)` | Resolve a temporary channel ID |
+
+Set `virtual_open_mode: 'trusted_no_broadcast'` for APay virtual channels. Requires `enableVirtualChannelsV0: true` and the peer in `virtualPeerPubkeys`.
 
 #### Invoices & Payments
 
-| Method | Status | Description |
-|---|---|---|
-| `createLnInvoice({ amountSats?, expirySeconds? })` | ✅ | Create a BTC Lightning invoice |
-| `createRgbInvoice({ assetId, amount, expirySeconds? })` | ✅ | Create an RGB asset Lightning invoice |
-| `payLnInvoice({ invoice, amount? })` | ✅ | Pay a Lightning invoice |
-| `payRgbInvoice({ invoice, assetId })` | ✅ | Pay an RGB Lightning invoice |
-| `decodeLnInvoice(invoice)` | ✅ | Decode a Lightning invoice |
-| `listPayments()` | ✅ | List all Lightning payments |
-| `keysend({ destPubkey, amtMsat, assetId?, assetAmount? })` | 🚧 WIP | Spontaneous keysend payment |
+| Method | Description |
+|---|---|
+| `createInvoice({ amt_msat?, expiry_sec, asset_id?, asset_amount? })` | Create a BOLT11 invoice (native snake_case) |
+| `createLightningInvoice({ amountMsat?, expirySec, assetId?, assetAmount? })` | Same call, camelCase alias |
+| `decodeInvoice(invoice)` | Decode a BOLT11 invoice |
+| `getInvoiceStatus(invoice)` | Invoice status |
+| `sendPayment({ invoice, amt_msat?, asset_id?, asset_amount?, max_total_routing_fee_msat? })` | Pay a BOLT11 invoice |
+| `keysend({ dest_pubkey, amt_msat, asset_id?, asset_amount? })` | Spontaneous keysend |
+| `listPayments()` | Payment history |
+| `getPayment(paymentHash, type)` | One payment. `type` is `'Outbound'`, `'InboundAutoClaim'`, or `'InboundHodl'` |
 
-#### Balances & Address
+#### HODL Invoices
 
-| Method | Status | Description |
-|---|---|---|
-| `btcBalance(skipSync?)` | ✅ | BTC balance (vanilla + colored) |
-| `address()` | ✅ | On-chain deposit address |
-| `listAssets()` | 🚧 WIP | List RGB assets held by the node |
-| `assetBalance(assetId)` | 🚧 WIP | Balance for a specific RGB asset |
+| Method | Description |
+|---|---|
+| `createHodlInvoice({ paymentHash, expirySec, amtMsat?, assetId?, assetAmount? })` | Returns `{ bolt11, paymentHash }` |
+| `cancelHodlInvoice({ payment_hash })` | Cancel. Returns `{ ok: true }` |
+| `claimHodlInvoice({ payment_hash, preimage })` | Claim an inbound HODL payment |
 
-#### Swaps & HODL
+#### RGB Assets
 
-| Method | Status | Description |
-|---|---|---|
-| `createSwap(params)` | ⏸ Paused | Atomic swap initiation |
-| `executeSwap(params)` | ⏸ Paused | Swap execution |
-| `createHodlInvoice(params)` | ⏸ Paused | HODL invoice creation |
-| `settleHodlInvoice(params)` | ⏸ Paused | HODL invoice settlement |
+RGB receive supports two invoice styles:
 
-**Status legend**: ✅ complete · 🚧 in active development · ⏸ paused
+- **Blinded invoice** — most common. The receiver creates a blinded endpoint; the sender pays the invoice directly.
+- **Witness invoice** — the receiver binds the transfer to witness data. The sender must provide `witnessData` (at minimum `amountSats`) in `transfer()`.
+
+```typescript
+// Blinded invoice
+await receiver.createRgbInvoice({
+  min_confirmations: 1,
+  witness: false,
+  asset_id: assetId,
+  assignment_amount: 100,
+});
+
+await sender.transfer({
+  recipient: blindedInvoice,
+  amount: 100,
+  token: assetId,
+});
+
+// Witness invoice
+await receiver.createRgbInvoice({
+  min_confirmations: 1,
+  witness: true,
+  asset_id: assetId,
+  assignment_amount: 100,
+});
+
+await sender.transfer({
+  recipient: witnessInvoice,
+  amount: 100,
+  token: assetId,
+  witnessData: { amountSats: 1000 },
+});
+```
+
+`transfer()` rejects `witnessData` on a blinded recipient. `decodeRgbInvoice()` reports `recipient_type` as `'Blind'` or `'Witness'`.
+
+| Method | Description |
+|---|---|
+| `listAssets(filterAssetSchemas?)` | List assets. Optional filter, e.g. `['Nia']` |
+| `getAssetBalance(assetId)` | Balance for one asset |
+| `getAssetMetadata(assetId)` | Asset metadata |
+| `getTokenBalance(assetId)` | Spendable amount as `bigint` |
+| `listTransfers(assetId)` | Transfer history for one asset |
+| `listTransfersByTxid(txid)` | Transfers for an on-chain txid |
+| `refreshTransfers(request)` / `failTransfers({ batch_transfer_idx })` | Advance or fail pending transfers |
+| `createRgbInvoice({ min_confirmations, witness, asset_id?, assignment_amount?, duration_seconds? })` | On-chain RGB invoice. `witness: true` = witness receive, `false` = blinded |
+| `decodeRgbInvoice(invoice)` | Decode an RGB invoice |
+| `sendRgbAsset({ donation, fee_rate, min_confirmations, recipient_groups })` | Send RGB. Recipients come from `decodeRgbInvoice` |
+| `importRgbContract({ contract_base64, expected_asset_id })` | Register trusted contract metadata only — no allocation |
+| `importRgbTransferConsignment({ consignment_base64, offchain_txid })` | Persist metadata for a transfer the native receive path already accepted |
+
+Issuance (`issueAssetNia`, `issueAssetUda`, `issueAssetCfa`, `issueAssetIfa`, `inflate`) is forwarded to the binding. Prefer [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb) for issuance.
+
+Atomic swaps are on the native binding but are **not** on the WDK account.
+
+#### BTC
+
+| Method | Description |
+|---|---|
+| `getBalance(skipSync?)` | Spendable vanilla BTC as `bigint` satoshis |
+| `getBalanceDetails(skipSync?)` | Full vanilla/colored breakdown |
+| `sendTransaction({ to, value, feeRate?, confirmationTarget? })` | WDK-shaped send. Returns `{ hash, fee }` |
+| `sendBtc({ address, amount, fee_rate, skip_sync })` | Native RLN send. Returns `{ txid }` |
+| `getTransactions(skipSync?)` / `getTransactionsByTxid(txid, skipSync?)` | On-chain history |
+| `listUnspents(skipSync?)` | Unspent outputs with RGB allocations |
+| `createUtxos({ up_to, num?, size?, fee_rate, skip_sync })` | Create colored UTXOs. Returns `{ ok: true }` |
+| `estimateFee(blocks)` | Fee estimate for a confirmation target |
+
+Prepare/commit/cancel variants exist for BTC sends, RGB sends, and UTXO creation (`prepareBtcSend`, `commitPreparedBtcSend`, `prepareRgbSend`, `prepareCreateUtxos`, …).
+
+#### VSS
+
+Requires `vssUrl` at construction. Otherwise these throw `VssNotConfiguredError`.
+
+| Method | Description |
+|---|---|
+| `vssStatus()` | Local view: `{ configured, url, allowHttp, lastBackupVersion }` |
+| `vssBackup()` | Flush now. Returns `{ version }` |
+| `clearVssFence(password)` | Take over a stale VSS fence. Two live nodes on one store corrupt state |
+| `vssDeleteAll(password)` | Delete all VSS keys. Returns `{ deleted_keys }` |
+
+VSS replicates RLN's LDK and wallet KV state. It does not replicate the VLS signer database under `dataDir`, so same-device restarts work; cross-device recovery with open channels does not.
+
+#### APay / LSP
+
+Production APay needs `enableVirtualChannelsV0: true` and the LSP node ID in `virtualPeerPubkeys`.
+
+| Method | Description |
+|---|---|
+| `createLsp(peer?)` | Composed `UtexoLsp`. No-arg form discovers the peer from `lspBaseUrl` |
+| `getLspConfig()` | `{ baseUrl, bearerToken }` from construction |
+| `getLspInfo()` | Validated LSP `GET /get_info` document |
+| `bootstrapLsp({ peerPubkeyAndAddr, hostNodeId? })` | Connect, wait until the peer is in `listPeers`, optionally call `apayNew` |
+| `apayNewWithAddress(hostNodeId, username, domain)` | Register an attested hash batch |
+| `apayNew(hostNodeId)` | Legacy unattested registration |
+| `payLightningAddress(addr, amountMsat)` | Pay a Lightning Address |
+| `requestLspRgbDeposit(args)` / `payRgbViaLsp(args)` | RGB deposit / pay via the LSP |
+
+```typescript
+const lsp = await account.createLsp();
+await lsp.connect();
+const { lnInvoice, rgbInvoice } = await lsp.receiveAsset({
+  assetId,
+  amountSats: 3_000,
+  amountRgb: 100,
+});
+await lsp.awaitReceiveSettlement(lnInvoice);
+```
+
+`UtexoLsp` also exposes `sendAsset()`, `quoteAddress()`, `payAddress()`, `enableLightningAddress()`, and `claimPendingPayments()`. Do not call `apayNew` immediately before `enableLightningAddress` — the native batch can fill the LSP hash-pool cap.
+
+#### WDK-standard
+
+| Method | Description |
+|---|---|
+| `transfer({ recipient, amount, token?, feeRate?, witnessData? })` | Routes BOLT11, LN pubkey, BTC address, or RGB invoice. `token` is an RGB asset id. Amounts are msats (LN) or sats (on-chain). Witness RGB invoices require `witnessData.amountSats` |
+| `quoteTransfer(options)` / `quoteSendTransaction(tx)` | Fee quote |
+| `getTransactionReceipt(hash)` | Receipt, or `null` if pending/unknown |
+| `sign(message)` / `verify(message, signature)` | Lightning message sign/verify |
+| `toReadOnlyAccount()` | Cached query-only account (`Promise`). No signing, channels, VSS recovery, or LSP credentials |
+
+## Error Handling
+
+Typed errors are exported from the package root. Branch on `err.name` / `err.code`. The original RLN message is on `cause`.
+
+```
+RgbLightningError            code: RGB_LIGHTNING_ERROR
+├── UnlockError              code: UNLOCK_FAILED
+├── AccountLockedError       code: ACCOUNT_LOCKED
+├── VssError                 code: VSS_ERROR
+│   └── VssNotConfiguredError code: VSS_NOT_CONFIGURED
+├── ApayError                code: APAY_ERROR
+├── WalletSyncError          code: WALLET_SYNC_FAILED
+├── WalletSnapshotError      code: WALLET_SNAPSHOT_FAILED
+└── NotImplementedError      code: NOT_IMPLEMENTED
+```
+
+```typescript
+import { UnlockError } from '@utexo/wdk-rgb-lightning';
+
+try {
+  await account.unlock(request);
+} catch (err) {
+  if (err instanceof UnlockError) {
+    console.error(err.code, err.message, err.cause);
+  }
+}
+```
+
+LSP HTTP failures throw `LspError` / `LspProtocolError`. Channel and liquidity waits throw `LspChannelTimeoutError` and `LspLiquidityTimeoutError`.
 
 ## Usage Example
 
 ```typescript
-import { WalletManagerRgbLightning } from '@utexo/wdk-rgb-lightning';
+import WalletManagerRgbLightning from '@utexo/wdk-rgb-lightning';
 
 const manager = new WalletManagerRgbLightning(mnemonic, {
-  network: 'utexo',
+  network: 'regtest',
   dataDir: '/path/to/wallet-data',
-  daemonPort: 9735,
-  ldkPort: 9736,
 });
 
-const account = await manager.getAccount({
-  bitcoindRpcUsername: 'user',
-  bitcoindRpcPassword: 'password',
-  bitcoindRpcHost: '127.0.0.1',
-  bitcoindRpcPort: 18443,
+const account = await manager.getAccount(0);
+
+await account.unlock({
+  indexer_url: 'tcp://localhost:50001',
+  proxy_endpoint: 'rpc://localhost:3000/json-rpc',
+  announce_addresses: [],
+  announce_alias: 'my-node',
 });
 
-// Get node info
 const info = await account.getNodeInfo();
 console.log('Node pubkey:', info.pubkey);
 
-// Connect to a peer and open a channel
 await account.connectPeer(`${peerPubkey}@127.0.0.1:9736`);
 await account.openChannel({
-  peerPubkeyAndOptAddr: `${peerPubkey}@127.0.0.1:9736`,
-  capacitySat: 500_000,
-  pushMsat: 0,
+  peer_pubkey_and_opt_addr: `${peerPubkey}@127.0.0.1:9736`,
+  capacity_sat: 500_000,
+  push_msat: 0,
   public: false,
-  withAnchors: true,
-  assetId: null,
-  assetAmount: null,
+  with_anchors: true,
 });
 
-// Create and pay a Lightning invoice
-const { invoice } = await receiverAccount.createLnInvoice({
-  amountSats: 1000,
-  expirySeconds: 900,
+const invoice = await account.createInvoice({
+  amt_msat: 5_000,
+  expiry_sec: 3600,
 });
-await account.payLnInvoice({ invoice });
+await account.sendPayment({ invoice: bolt11 });
 
-// Shutdown
-await manager.disconnect();
+manager.dispose();
 ```
+
+End-to-end LSP + RGB-over-Lightning examples live in [utexo-rgb-wdk-demo](https://github.com/UTEXO-Protocol/utexo-rgb-wdk-demo).
 
 ## Using with `wdk-wallet-rgb`
 
-Both packages are built on `rgb-lib`, so the on-chain experience — UTXO management, asset state, and RGB operations — is consistent between them. Developers familiar with `wdk-wallet-rgb` will find the on-chain behaviour works the same way in `wdk-rgb-lightning`.
-
-The packages are kept separate because LDK's `KeysManager` currently owns its own seed, which conflicts with WDK's convention where the secret manager holds the seed. Consolidation is planned once the required upstream LDK changes land.
+Both packages use `rgb-lib`, but they do **not** share asset records. Use `@utexo/wdk-wallet-rgb` for issuance and on-chain inventory; use this module for channels, invoices, and Lightning transfers. Give each module its own `dataDir`.
 
 ## Further Reading
 
 - [WDK Overview](/sdk/wdk-overview)
 - [wdk-wallet-rgb Reference](/sdk/wdk-wallet-rgb)
 - [SDK Overview](/product-suite/sdk)
-
+- [Package README](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/dev/README.md)

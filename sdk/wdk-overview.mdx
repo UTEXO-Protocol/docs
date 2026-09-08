@@ -4,27 +4,28 @@ description: 'Overview of the Utexo Wallet Development Kit — WDK abstractions 
 sidebarTitle: 'Overview'
 ---
 
-The Wallet Development Kit (WDK) is a set of packages that expose RGB capabilities through standardised wallet abstraction interfaces. Where the `@utexo/rgb-sdk` family targets application developers building end-to-end flows, the WDK targets **wallet infrastructure builders** who already use WDK-compatible account and signing abstractions and want to add RGB support without reimplementing the protocol layer.
+The Wallet Development Kit (WDK) is a set of packages that expose RGB capabilities through standardised wallet abstraction interfaces. `@utexo/wdk-rgb-lightning` is the current Node.js / Bare module for RGB-over-Lightning. `@utexo/rgb-sdk-web` and `@utexo/rgb-sdk-rn` target application developers building end-to-end Web and mobile flows. The archived `@utexo/rgb-sdk` Node.js package is not used for new integrations.
 
 ## WDK Packages
 
 | Package | Platform | Description | Status |
 |---|---|---|---|
 | `@utexo/wdk-wallet-rgb` | Node.js & Bare | RGB asset management — issuance, transfers, inventory, backup | Stable |
-| `@utexo/wdk-rgb-lightning` | Node.js & Bare | RGB Lightning node — channels, invoices, payments | Alpha |
+| `@utexo/wdk-rgb-lightning` | Node.js & Bare | RGB Lightning node — channels, invoices, payments, LSP, VSS | Pre-1.0 beta |
 
-Both packages are built on `rgb-lib`, so the on-chain experience — UTXO management, asset state, and RGB operations — is consistent between them.
+Both packages are built on `rgb-lib`, so the on-chain experience — UTXO management, asset state, and RGB operations — is consistent between them. They do **not** share asset records: give each module a **separate** `dataDir`.
 
-The packages are currently separate because LDK's `KeysManager` owns its own seed, which conflicts with WDK's convention where the secret manager holds the seed. Consolidation is planned once the required upstream LDK changes land.
+`wdk-rgb-lightning` runs in external-signer mode: the mnemonic stays in the WDK secret manager, and channel-state cryptography happens in-process through a VLS signer. Use `wdk-wallet-rgb` for issuance; use `wdk-rgb-lightning` for channels, invoices, and Lightning transfers.
 
 ## When to Use the WDK
 
 Use the WDK packages when:
+- You are building a **new Node.js** integration (use `@utexo/wdk-rgb-lightning`, not the archived `@utexo/rgb-sdk`)
 - Your application already builds on WDK-style account and manager abstractions
-- You want to plug RGB or RGB Lightning into an existing wallet architecture without adopting the full `UTEXOWallet` lifecycle
+- You want to plug RGB or RGB Lightning into an existing wallet architecture without adopting the `UTEXOWallet` lifecycle
 - You need lower-level control over account management, signing policy, and key derivation
 
-If you are building from scratch, the `@utexo/rgb-sdk` family (`rgb-sdk`, `rgb-sdk-web`, `rgb-sdk-rn`) provides a higher-level API and is easier to integrate end-to-end.
+If you are building a **browser** or **React Native** app from scratch, `@utexo/rgb-sdk-web` and `@utexo/rgb-sdk-rn` provide a higher-level `UTEXOWallet` API.
 
 
 ## Further Reading
