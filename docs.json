@@ -18,7 +18,11 @@
     },
     {
       "source": "/cloud/rgb-node/api-reference",
-      "destination": "/cloud/rgb-lightning-node-api"
+      "destination": "/rgb-lightning-node/rgb-lightning-node-api"
+    },
+    {
+      "source": "/cloud/rgb-lightning-node-api",
+      "destination": "/rgb-lightning-node/rgb-lightning-node-api"
     }
   ],
   "navigation": {
@@ -120,7 +124,7 @@
                 "group": "RGB Lightning Node",
                 "pages": [
                   "rgb-lightning-node/self-hosted-rgb-lightning-node",
-                  "cloud/rgb-lightning-node-api",
+                  "rgb-lightning-node/rgb-lightning-node-api",
                   {
                     "group": "Security",
                     "pages": [

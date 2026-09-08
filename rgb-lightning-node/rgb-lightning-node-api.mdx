@@ -5,19 +5,31 @@ description: "REST JSON API reference for interacting with running RGB Lightning
 
 ## Overview
 
-Once an RLN node is running on Utexo Cloud, it exposes a REST JSON API that can be called directly to perform Lightning and RGB operations: channel management, asset issuance, payments, peer connections and more.
+A running RGB Lightning Node (RLN) exposes a REST JSON API that can be called directly to perform Lightning and RGB operations: channel management, asset issuance, payments, peer connections and more.
 
-### Base URL
+The endpoints below are the same in both deployments. Only the base URL and the authentication method differ.
+
+### Base URL — Utexo Cloud
 
 Each node has a unique endpoint URL visible on its dashboard page (`/nodes/{nodeId}`). Connections can be made via mTLS or API token. See [Connect to RLN Node](/cloud/rln-node/connect-rln-node) for details.
-
-### Example Request
 
 ```bash
 curl -X POST \
   -H "Content-type: application/json" \
   -d '{"ticker": "USDT", "name": "Tether", "amounts": [666], "precision": 0}' \
   https://{userId}.thunderstack.org/nodes/{userId}/{nodeId}/issueassetnia
+```
+
+### Base URL — self-hosted
+
+The API listens on the port passed to `--daemon-listening-port` (default `3001`). Authenticate with a Biscuit token — see [Authentication](/rgb-lightning-node/self-hosted-rgb-lightning-node#authentication) for issuing and revoking tokens.
+
+```bash
+curl -X POST \
+  -H "Content-type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{"ticker": "USDT", "name": "Tether", "amounts": [666], "precision": 0}' \
+  http://localhost:3001/issueassetnia
 ```
 
 ## Available Endpoints
