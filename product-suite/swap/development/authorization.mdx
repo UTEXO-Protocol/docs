@@ -1,0 +1,24 @@
+---
+title: "Authorization"
+description: "Authenticate Utexo Swap API requests with your affiliate API key."
+sidebarTitle: "Authorization"
+---
+
+Affiliates must include their assigned API key in the `X-API-Key` header of every request. All requests are authenticated by validating this header; any request without a valid `X-API-Key` is rejected.
+
+```http
+X-API-Key: <your_api_key>
+```
+
+Example:
+
+```bash
+curl https://api.swap.utexo.com/affiliate/v1/networks \
+  -H "X-API-Key: $UTEXO_SWAP_API_KEY"
+```
+
+<Warning>
+  Keep the API key on your server. Do not ship it in browser or mobile client code.
+</Warning>
+
+To request an API key, [contact the Utexo team](https://utexo.com/contact-sales).

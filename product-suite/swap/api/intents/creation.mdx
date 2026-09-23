@@ -1,0 +1,124 @@
+---
+title: "Create an Intent"
+description: "Create a swap intent from a quote and receive the chain-specific data the user must sign."
+sidebarTitle: "Creation"
+---
+
+Create a new swap intent that describes what the user wants to swap. The intent is created off-chain and later executed on-chain by a resolver.
+
+```http
+POST /affiliate/v1/intents
+```
+
+## Request
+
+```json
+{
+  "quote_id": "fe5601fb-60f2-4cb0-8a67-c55bd3640411",
+  "refund_address": "0x0000000000000000000000000000000000000000",
+  "user_destination_address": "0x0000000000000000000000000000000000000000",
+  "user_source_address": "0x0000000000000000000000000000000000000000",
+  "user_source_public_key": null
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `quote_id` | string | Yes | Quote ID returned by [`POST /affiliate/v1/quotes/best`](/product-suite/swap/api/quotes) |
+| `refund_address` | string | Yes | Address on the source network that receives funds if the swap is refunded |
+| `user_destination_address` | string | Yes | Address on the destination network that receives the swapped asset |
+| `user_source_address` | string | Yes | Address on the source network that provides the funds |
+| `user_source_public_key` | string | Conditional | Required only when the source chain is Bitcoin or Solana |
+| `retail_user_id` | string | No | Your own user identifier, for analytics and user-level tracking |
+
+## Response
+
+The response contains the intent ID, the deadline, and the data the user must sign.
+
+```json
+{
+  "intent_id": "8a2d3f92-2a2b-4e4c-9d8a-3c9f92e4a111",
+  "deadline_secs": 1761545456,
+  "secret_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "approval_mechanism": "permit2",
+  "params_to_sign": {
+    "escrow_contract_address": "0x0000000000000000000000000000000000000000",
+    "permit2_contract_address": "0x0000000000000000000000000000000000000000",
+    "resolver_deposit_address": "0x0000000000000000000000000000000000000000",
+    "nonce": 10000,
+    "additional_data": {
+      "domain": { },
+      "types": { },
+      "witness": { },
+      "witness_type_string": "ExampleTrade witness)ExampleTrade(address exampleTokenAddress,uint256 exampleMinimumAmountOut)",
+      "witness_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}
+```
+
+## Approval mechanism
+
+The approval flow depends on the source chain and swap type. The value of `approval_mechanism` may change, and the structure of `params_to_sign` depends on it. **Always check `approval_mechanism` and handle `params_to_sign` accordingly.**
+
+| `approval_mechanism` | Source chain | Signing guide |
+| --- | --- | --- |
+| `permit2` | EVM, Tron | [EVM](/product-suite/swap/api/intents/approvals/evm), [Tron](/product-suite/swap/api/intents/approvals/tron) |
+| `htlc` | Bitcoin | [Bitcoin](/product-suite/swap/api/intents/approvals/bitcoin) |
+| `cosign` | Solana | [Solana](/product-suite/swap/api/intents/approvals/solana) |
+
+<Tabs>
+  <Tab title="Permit2 (EVM, Tron)">
+    ```json
+    {
+      "intent_id": "528d72ae-61cd-4fbc-9940-48ce4104abbb",
+      "deadline_secs": 1772124002,
+      "secret_hash": "0x19875e12d834bc245b834c4c031d4b89c6354fba4575e44dd26f37d367a44926",
+      "approval_mechanism": "permit2",
+      "params_to_sign": {
+        "escrow_contract_address": "0x8DcbE1aCf345BF5117543f69C3541e318F8e8836",
+        "permit2_contract_address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+        "resolver_deposit_address": "0xF3B3a4edBb93E8eb85B4DBCB1483B2f69f557029",
+        "nonce": 499,
+        "additional_data": {
+          "domain": { },
+          "types": { },
+          "witness": { },
+          "secretHash": "0xabcde...",
+          "witness_type_string": "DepositWitness witness)DepositWitness(address resolverDepositAddress,bytes32 secretHash,uint256 deadline)TokenPermissions(address token,uint256 amount)",
+          "witness_hash": "0xc77ff4a96e07cede0217fa3bf985d16078f9f1b637ea7b60e8b8c12636c39f7f"
+        }
+      }
+    }
+    ```
+    `domain`, `types`, and `witness` contain the EIP-712 domain, types, and witness data (shortened here).
+  </Tab>
+  <Tab title="HTLC (Bitcoin)">
+    ```json
+    {
+      "approval_mechanism": "htlc",
+      "params_to_sign": {
+        "psbt": "cHNidP8BAJ0CAAAAAQEBAQEB...",
+        "inputs": [0, 1, 2]
+      }
+    }
+    ```
+    `psbt` is Base64-encoded. `inputs` lists the input indexes the user must sign.
+  </Tab>
+  <Tab title="Cosign (Solana)">
+    ```json
+    {
+      "intent_id": "0a47fbd6-056a-4e4d-a1e3-9b9a1bf947e5",
+      "deadline_secs": 1772124152,
+      "secret_hash": "0x84edcf73255d3a419a9f12686128d0ef00bfff31e82b110fe160dd0fb60baccf",
+      "approval_mechanism": "cosign",
+      "params_to_sign": {
+        "transaction": "02000..."
+      }
+    }
+    ```
+    `transaction` is a hex-encoded versioned transaction.
+  </Tab>
+</Tabs>
+
+Next: [submit the signed approval](/product-suite/swap/api/intents/approvals).

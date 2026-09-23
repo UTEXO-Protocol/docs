@@ -1,41 +1,48 @@
 ---
 title: "Swap Security Model"
-description: "Understand escrow isolation, resolver permissions, settlement conditions, and refund paths."
+description: "Escrow isolation, resolver permissions, timeouts and refunds in Utexo Swap."
 sidebarTitle: "Security Model"
 ---
 
-## Overview
+Utexo does not hold or custody user funds. Every swap is governed by on-chain settlement logic: swaps either complete in full or revert safely. There is no partial execution risk.
 
-Utexo does not hold user funds in custody. Signed intent parameters, deterministic protocol rules, and chain-specific settlement mechanisms control asset movement throughout execution.
+On every supported network (Ethereum, Tron, Solana, Bitcoin), a dedicated escrow is created for each swap. User funds are locked inside this escrow and can only be released once the swap is fulfilled.
 
-### Resolver permissions
+## Resolver permissions
 
-A resolver can:
+Resolvers provide liquidity and execute swaps on-chain. Their permissions are strictly limited by the protocol.
 
-- Transfer user-approved assets into the settlement mechanism associated with the swap.
-- Execute the swap under the signed intent parameters.
-- Withdraw escrowed assets only after fulfillment verification confirms compliance with the swap conditions.
+**Resolvers can:**
 
-A resolver cannot:
+- Move user-approved assets into the swap-specific escrow
+- Execute the swap according to the signed intent
+- Withdraw escrowed funds **only after** fulfillment is verified
 
-- Withdraw escrowed assets before fulfillment verification.
-- Access assets associated with another swap.
-- Transfer user assets outside the authorized execution flow.
-- Modify the conditions defined in the signed intent.
+**Resolvers cannot:**
 
-If execution does not complete within the applicable time constraints, the swap enters its network-specific refund or revert path.
+- Withdraw funds before fulfillment conditions are met
+- Access funds from any other swap
+- Move user assets outside the defined execution flow
+- Modify the conditions defined in the signed intent
 
-## Architecture and settlement
+## Timeouts and refunds
 
-Utexo uses cryptographic time constraints and network-native escrow mechanisms to coordinate cross-chain settlement.
+Every swap has a time-to-live (TTL). If the resolver does not complete the swap before the TTL expires, the swap enters a refund path and funds are returned to the `refund_address` specified in the intent. Funds cannot be locked indefinitely.
 
-| Network | Settlement mechanism |
+## Chain-specific settlement mechanisms
+
+| Network | Mechanism |
 | --- | --- |
-| Bitcoin | Taproot hash time-locked contract (HTLC) escrow |
-| Ethereum and other EVM networks | Dedicated escrow smart contract per swap |
-| Solana | Program escrow |
-| Tron | Contract escrow |
+| Ethereum / EVM | Dedicated escrow smart contract per swap |
+| Tron | Same escrow model as EVM |
+| Solana | Program-derived escrow account (PDA) per swap |
+| Bitcoin | Taproot-based hash time-locked contract (HTLC) |
 
-Each swap uses an isolated settlement mechanism. Ethereum, other EVM networks, and Tron use a dedicated escrow instance for each swap. Swap-level isolation prevents funds associated with one swap from being exposed to another.
+## Security guarantees
 
-Resolvers provide liquidity and perform the on-chain operations required to fulfill signed intents. Protocol rules restrict a resolver to the assets, amount, destination, and time constraints authorized by the user.
+- Funds are segregated at the individual swap level.
+- Resolvers cannot access assets outside the swap execution flow.
+- Escrow release is conditional on verified fulfillment.
+- Swaps automatically revert through the refund path if execution fails.
+
+These mechanisms ensure that swaps either complete successfully or revert safely, without exposing users to partial execution risk.

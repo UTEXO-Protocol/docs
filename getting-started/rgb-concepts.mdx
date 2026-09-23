@@ -1,0 +1,72 @@
+---
+title: "Getting Started with RGB"
+description: "The RGB concepts a new integrator needs before moving USDT on Bitcoin: client-side validation, colored UTXOs, invoices, consignments, and transport."
+sidebarTitle: "RGB Concepts"
+---
+
+USDT on Bitcoin is an [RGB](https://rgb.info) asset. RGB works differently from account-based chains such as Ethereum or Tron: there is no global ledger of balances. This page explains the handful of concepts you need before integrating.
+
+## Client-side validation
+
+RGB asset state is held off-chain by the parties to a transfer. Bitcoin only carries a cryptographic commitment to each state transition. When you receive an asset, your wallet validates its history itself — this is **client-side validation**.
+
+What this means for an integration:
+
+- **Privacy:** transfers are not visible on a public ledger; only the counterparties hold the proofs.
+- **Your node holds the state:** the wallet data (and its backups) is the record of your balances. Back it up after every significant change.
+- **Both sides take part:** the receiver creates an invoice first, and both wallets refresh until the transfer settles.
+
+## UTXOs as anchors: vanilla and colored
+
+Every RGB allocation is bound to a Bitcoin UTXO. Wallets therefore keep two kinds of outputs:
+
+| Kind | Holds | Used for |
+| --- | --- | --- |
+| **Vanilla** | Plain BTC | Fees, funding, and BTC withdrawals |
+| **Colored** | RGB asset allocations | Receiving and holding RGB assets |
+
+Before a wallet can receive or issue RGB assets, it must create colored UTXOs from its BTC (`POST /createutxos` on RLN, `createUtxos()` in the SDK).
+
+## Assets and amounts
+
+- Each asset has an **asset ID** of the form `rgb:...`. USDT issued via Utexo is a **NIA** (non-inflationary asset) with a fixed supply.
+- Amounts are **integer base units**. One displayed unit equals `10 ** precision` base units.
+- A wallet only knows about assets it has received or issued. Get the asset ID from the sender or an authoritative registry.
+
+## Invoices
+
+To receive, the receiver creates an **RGB invoice** containing the asset, the amount, and a reference to where the asset should be bound. There are two kinds:
+
+| Invoice | How it works | Use when |
+| --- | --- | --- |
+| **Blinded** | Refers to one of the receiver's UTXOs in blinded form, hiding it from the sender. | Default for app-to-app transfers. More private. |
+| **Witness** | The sender creates the receiving output in the transfer transaction, so the sender provides witness data (at least the BTC amount for that output). | The integration needs witness-bound receive semantics. Less private than a blinded invoice. |
+
+Invoices expire. Create a new one for each payment.
+
+## Consignments and transport
+
+Because state is off-chain, the sender must hand the receiver the data that proves the transfer: the **consignment**. The receiver validates it and acknowledges it. Consignments can move three ways:
+
+- **RGB proxy** — the invoice carries proxy `transport_endpoints`; a proxy server relays the consignment and the acknowledgement automatically.
+- **Lightning P2P** — automatic during RGB channel opening and RGB Lightning payments.
+- **Out of band** — no transport endpoint; the parties exchange the consignment themselves.
+
+The transport only delivers data. It never replaces client-side validation.
+
+## Lifecycle of an on-chain transfer
+
+1. The receiver creates a blinded or witness invoice.
+2. The sender pays the invoice; the node builds and broadcasts the Bitcoin transaction that anchors the transfer, and sends the consignment.
+3. The receiver validates the consignment. Both wallets refresh while the transaction confirms.
+4. The transfer settles and the receiver's balance updates.
+
+## On-chain and Lightning
+
+RGB assets can move on-chain (each transfer anchored by a Bitcoin transaction) or over Lightning through RGB channels, for instant, low-cost payments. With Utexo, on-chain RGB is supported on mainnet and Lightning is available on testnet. One [RGB Lightning Node](/overview) covers both paths, so integrating on-chain now needs no second integration later.
+
+## Next steps
+
+- [RLN Quick Start](/rgb-lightning-node/quickstart) — launch a node and move RGB USDT.
+- [Quickstart Overview](/getting-started/quickstart/overview) — the same flow through the Utexo SDK.
+- [Glossary](/getting-started/glossary) — definitions of every term above.

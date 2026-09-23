@@ -1,0 +1,86 @@
+---
+title: "Signing an Intent for Solana"
+description: "Cosign the prebuilt Solana versioned transaction while preserving signature order."
+sidebarTitle: "Solana"
+---
+
+Versioned-transaction cosigning lets the user authorize a swap by signing a prebuilt Solana transaction that encodes the exact execution parameters. The user signs it locally, preserving the required signature order, and returns it as the approval. Funds remain secure until the resolver executes the swap according to the authorized transaction.
+
+## Signature order
+
+When `approval_mechanism` is `cosign`, `params_to_sign.transaction` is a hex-encoded versioned transaction. After signing, the signatures must be in this order:
+
+| Position | Signer |
+| --- | --- |
+| `0` | Resolver |
+| `1` | User |
+| `2` | Backend (optional) |
+
+## Example
+
+```ts
+import { Keypair, VersionedTransaction } from "@solana/web3.js";
+import bs58 from "bs58";
+
+const BASE_URL = "https://api.swap.utexo.com/affiliate";
+const API_KEY = process.env.UTEXO_SWAP_API_KEY!;
+const keypair = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
+const destinationAddress = process.env.DESTINATION_ADDRESS!;
+
+async function api<T>(path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`${path} failed: ${response.status} ${text}`);
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+const userAddress = keypair.publicKey.toBase58();
+
+// 1. Quote: WSOL on Solana -> WETH on Ethereum
+const quote = await api<any>("/v1/quotes/best", {
+  source_chain: 4,
+  source_token: "So11111111111111111111111111111111111111112",
+  dest_chain: 1,
+  dest_token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  amount: 0.01,
+  slippage_bps: "50",
+  swap_type: "standard",
+  deposit_type: "escrowed",
+  retail_user_id: null,
+  user_meta: null,
+  affiliate_fees: null,
+});
+
+// 2. Intent
+const intent = await api<any>("/v1/intents", {
+  quote_id: quote.id,
+  user_source_address: userAddress,
+  user_destination_address: destinationAddress,
+  refund_address: userAddress,
+  user_source_public_key: userAddress,
+});
+
+// 3. Cosign, keeping the resolver (0) and backend (2) signatures in place
+const tx = VersionedTransaction.deserialize(
+  Uint8Array.from(Buffer.from(intent.params_to_sign.transaction, "hex")),
+);
+const existing = [...tx.signatures];
+tx.sign([keypair]);
+tx.signatures[0] = existing[0];
+if (tx.signatures[2] !== undefined) {
+  tx.signatures[2] = existing[2];
+}
+
+// 4. Approval
+await api(`/v1/intents/${intent.intent_id}/approvals`, {
+  type: "cosign",
+  signed_data: {
+    transaction: Buffer.from(tx.serialize()).toString("hex"),
+    user_address: userAddress,
+  },
+});
+```

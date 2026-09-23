@@ -1,46 +1,178 @@
 ---
 title: "Quotes"
-description: "Request resolver-based cross-chain pricing and execution constraints from Utexo Swap."
+description: "Get the best available swap quote, including affiliate fees."
 sidebarTitle: "Quotes"
 ---
 
-## Overview
+## Get the best quote
 
-A quote is a time-limited RFQ offer used to create an intent. Do not create an intent after the quote expires.
+Retrieve the best available quote for a source token, destination token, and amount. The response contains the pricing details, limits, and metadata required to create an intent.
 
-### `POST /quote`
+Quotes are time-limited and must be used before they expire.
 
-Requests an optimal cross-chain quote for a token pair and amount. A quote remains valid until its `expiry` value.
+```http
+POST /affiliate/v1/quotes/best
+```
 
-**Authentication:** `X-API-Key`
-
-| Body field | Type | Description |
-| --- | --- | --- |
-| `amount` | decimal | Source amount in decimal-adjusted token units. |
-| `depositType` | string | Deposit type, such as `escrowed`. |
-| `destChain` | integer | Destination network ID. |
-| `destToken` | string | Destination token address or identifier. |
-| `fees` | array | Affiliate fee settings. |
-| `fees[].affiliateName` | string | Affiliate name. |
-| `fees[].feeBps` | string | Affiliate fee in basis points, such as `10`. |
-| `retailUserId` | string | Optional retail user identifier for analytics or user-level tracking. |
-| `slippageBps` | string | Maximum slippage in basis points, such as `50`. |
-| `sourceChain` | integer | Source network ID. |
-| `sourceToken` | string | Source token address or identifier. |
-| `swapType` | string | Swap type, such as `standard`. |
+### Request
 
 ```json
 {
-  "amount": 0.5,
-  "depositType": "escrowed",
-  "destChain": 0,
-  "destToken": "string",
-  "fees": [],
-  "slippageBps": "50",
-  "sourceChain": 0,
-  "sourceToken": "string",
-  "swapType": "standard"
+  "source_chain": 1,
+  "source_token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  "dest_chain": 4,
+  "dest_token": "So11111111111111111111111111111111111111112",
+  "amount": 100,
+  "slippage_bps": "50",
+  "swap_type": "standard",
+  "deposit_type": "escrowed",
+  "retail_user_id": "fe5601fb-60f2-4cb0-8a67-c55bd3640411",
+  "user_meta": null,
+  "affiliate_fees": null
 }
 ```
 
-The response contains pricing, execution constraints, affiliate fee data, token amount ranges, the quote ID, and metadata required for intent creation.
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `source_chain` | integer | Yes | Source network ID from `GET /affiliate/v1/networks` |
+| `source_token` | string | Yes | Source token address |
+| `dest_chain` | integer | Yes | Destination network ID |
+| `dest_token` | string | Yes | Destination token address |
+| `amount` | number | Yes | Amount in decimal-adjusted format (for example `100` for 100 tokens) |
+| `slippage_bps` | string | Yes | Slippage in basis points, sent as a string |
+| `swap_type` | string | Yes | `standard` or `optimized` |
+| `deposit_type` | string | Yes | `escrowed` or `direct` |
+| `retail_user_id` | string | No | Your own user identifier, for analytics and user-level tracking |
+| `user_meta` | object | No | Arbitrary JSON, or `null` |
+| `affiliate_fees` | object | No | Affiliate fee configuration, see [Affiliate fees](#affiliate-fees) |
+
+### Response
+
+```json
+{
+  "id": "355dc56b-478e-4f06-8769-9ec12fe5b03f",
+  "source_chain": 1,
+  "source_token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  "dest_chain": 4,
+  "dest_token": "So11111111111111111111111111111111111111112",
+  "intermediate_token": null,
+  "intermediate_token_amount_min": null,
+  "intermediate_token_amount_max": null,
+  "intermediate_token_decimals": null,
+  "source_amount_lots": "100000000000000000000",
+  "source_amount_decimals": 18,
+  "min_dest_amount_lots": "2323701565483",
+  "max_dest_amount_lots": "2335378457772",
+  "dest_amount_decimals": 9,
+  "slippage_bps": "50",
+  "expiry": 1774531518561,
+  "swap_type": "standard",
+  "affiliate_fees": null,
+  "deposit_type": "escrowed"
+}
+```
+
+### Quote expiry
+
+- `expiry` is a Unix timestamp in milliseconds.
+- After this timestamp the quote is no longer valid and must be refreshed.
+- Create the intent before expiry to guarantee pricing.
+
+### Intermediate token routing
+
+If the user swaps a volatile token, the system may route the swap through a highly liquid intermediate token, typically USDC, to improve execution reliability and manage price volatility. All fields prefixed with `intermediate_` describe this routing and the token used.
+
+## Affiliate fees
+
+Specify affiliate fees in the quote request. `affiliate_fees` is a map that may contain multiple entries, where each key is a sub-affiliate ID. This lets affiliates manage multiple sub-affiliates and set a different fee rate for each.
+
+**Request example**
+
+```json
+{
+  "source_chain": 1,
+  "source_token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  "dest_chain": 4,
+  "dest_token": "So11111111111111111111111111111111111111112",
+  "amount": 100,
+  "slippage_bps": "50",
+  "swap_type": "standard",
+  "deposit_type": "escrowed",
+  "retail_user_id": "fe5601fb-60f2-4cb0-8a67-c55bd3640411",
+  "user_meta": null,
+  "affiliate_fees": {
+    "a1b2c3d4-e5f6-7890-abcd-ef0123456789": {
+      "fee_bps": "50",
+      "network_id": 1,
+      "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    }
+  }
+}
+```
+
+`fee_bps: "50"` is a 0.5% fee.
+
+**Response example**
+
+```json
+{
+  "id": "b4df5062-bad8-4673-8d2f-5ebdd19645ba",
+  "source_chain": 1,
+  "source_token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  "dest_chain": 4,
+  "dest_token": "So11111111111111111111111111111111111111112",
+  "intermediate_token": null,
+  "intermediate_token_amount_min": null,
+  "intermediate_token_amount_max": null,
+  "intermediate_token_decimals": null,
+  "source_amount_lots": "100000000000000000000",
+  "source_amount_decimals": 18,
+  "min_dest_amount_lots": "2311886409938",
+  "max_dest_amount_lots": "2323503929586",
+  "dest_amount_decimals": 9,
+  "slippage_bps": "50",
+  "expiry": 1774531657577,
+  "swap_type": "standard",
+  "affiliate_fees": {
+    "a1b2c3d4-e5f6-7890-abcd-ef0123456789": {
+      "fee_bps": "50",
+      "network_id": 1,
+      "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "fee_amount_lots": "1038400612",
+      "fee_amount_decimals": 6
+    }
+  },
+  "deposit_type": "escrowed"
+}
+```
+
+The response includes the estimated fee, so affiliates can preview charges before execution.
+
+Affiliates with front-end integrations can configure default fee settings that apply automatically to every swap. A configurable flag controls whether these defaults can be overridden per swap.
+
+## Example
+
+```ts
+const BASE_URL = "https://api.swap.utexo.com/affiliate";
+
+const quote = await fetch(`${BASE_URL}/v1/quotes/best`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key": process.env.UTEXO_SWAP_API_KEY!,
+  },
+  body: JSON.stringify({
+    source_chain: 1,
+    source_token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // WETH on Ethereum
+    dest_chain: 2,
+    dest_token: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", // USDT on Tron
+    amount: 0.001,
+    slippage_bps: "50",
+    swap_type: "standard",
+    deposit_type: "escrowed",
+    retail_user_id: null,
+    user_meta: null,
+    affiliate_fees: null,
+  }),
+}).then((r) => r.json());
+```

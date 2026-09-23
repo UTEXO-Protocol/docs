@@ -1,0 +1,182 @@
+---
+title: "RLN Quick Start"
+description: "Launch an RGB Lightning Node, fund it, and receive and send RGB USDT, then try RGB over Lightning on testnet."
+sidebarTitle: "Quick Start"
+---
+
+This guide takes a new integrator from zero to a working RGB transfer with one [RGB Lightning Node (RLN)](/overview): launch the node, top it up, create an invoice, and pay it. The on-chain path is the one available on mainnet today; the Lightning path runs on testnet.
+
+<Warning>
+  This guide uses testnet3 and disables authentication to keep the steps short. Never use `--disable-authentication` in production, and never use mainnet keys or real funds while following this guide.
+</Warning>
+
+<Info>
+  New to RGB? Read [Getting Started with RGB](/getting-started/rgb-concepts) first — it explains invoices, colored UTXOs, and consignments used below. Request and response schemas for every call are in the [API reference](https://utexo-protocol.github.io/rgb-lightning-node).
+</Info>
+
+## 1. Launch the node
+
+Build RLN (see [Self-Hosted RGB Lightning Node](/rgb-lightning-node/self-hosted-rgb-lightning-node#installation) for Docker and other options):
+
+```sh
+git clone https://github.com/UTEXO-Protocol/rgb-lightning-node --recurse-submodules --shallow-submodules
+cd rgb-lightning-node
+cargo install --locked --path .
+```
+
+Start it on testnet3:
+
+```sh
+rgb-lightning-node dataldk0/ \
+  --daemon-listening-port 3001 \
+  --ldk-peer-listening-port 9735 \
+  --network testnet \
+  --disable-authentication
+```
+
+Initialise the node once. The response contains the mnemonic — store it securely; it is the only way to recover the wallet.
+
+```sh
+curl -X POST http://localhost:3001/init \
+  -H "Content-Type: application/json" \
+  -d '{"password": "nodepassword"}'
+```
+
+Unlock it (required after every start), using the public testnet3 services:
+
+```sh
+curl -X POST http://localhost:3001/unlock \
+  -H "Content-Type: application/json" \
+  -d '{
+    "password": "nodepassword",
+    "ldk_chain_sync": {
+      "mode": "BlockSync",
+      "config": {
+        "bitcoind_rpc_username": "user",
+        "bitcoind_rpc_password": "password",
+        "bitcoind_rpc_host": "electrum.iriswallet.com",
+        "bitcoind_rpc_port": 18332
+      }
+    },
+    "indexer_url": "ssl://electrum.iriswallet.com:50013",
+    "proxy_endpoint": "rpcs://proxy.iriswallet.com/0.2/json-rpc",
+    "announce_addresses": []
+  }'
+```
+
+Check that the node is up:
+
+```sh
+curl http://localhost:3001/nodeinfo
+```
+
+## 2. Top up
+
+Get a Bitcoin address and send testnet BTC to it:
+
+```sh
+curl -X POST http://localhost:3001/address
+```
+
+Check the balance once the transaction confirms. `vanilla` is spendable BTC; `colored` holds the UTXOs that carry RGB assets.
+
+```sh
+curl -X POST http://localhost:3001/btcbalance \
+  -H "Content-Type: application/json" \
+  -d '{"skip_sync": false}'
+```
+
+Create colored UTXOs. RGB allocations are bound to Bitcoin UTXOs, so the node needs some before it can receive or hold assets:
+
+```sh
+curl -X POST http://localhost:3001/createutxos \
+  -H "Content-Type: application/json" \
+  -d '{"up_to": false, "num": 4, "size": 32500, "fee_rate": 5, "skip_sync": false}'
+```
+
+## 3. Create an invoice
+
+On the **receiving** node, create an RGB invoice for the asset and amount you expect. Get the asset ID from the sender or from `POST /listassets` on a node that already holds the asset.
+
+```sh
+curl -X POST http://localhost:3001/rgbinvoice \
+  -H "Content-Type: application/json" \
+  -d '{
+    "asset_id": "rgb:<ASSET_ID>",
+    "assignment": {"type": "Fungible", "value": 100},
+    "min_confirmations": 1,
+    "witness": false,
+    "transport_endpoints": ["rpcs://proxy.iriswallet.com/0.2/json-rpc"]
+  }'
+```
+
+The response contains the `invoice` string to share with the sender and its `recipient_id`.
+
+<Tip>
+  Amounts are integer base units. One displayed unit is `10 ** precision` base units.
+</Tip>
+
+## 4. Pay the invoice
+
+On the **sending** node, pay the invoice with `POST /sendrgb`, using the `recipient_id` from the invoice:
+
+```sh
+curl -X POST http://localhost:3002/sendrgb \
+  -H "Content-Type: application/json" \
+  -d '{
+    "donation": false,
+    "fee_rate": 5,
+    "min_confirmations": 1,
+    "recipient_map": {
+      "rgb:<ASSET_ID>": [
+        {
+          "recipient_id": "<RECIPIENT_ID>",
+          "assignment": {"type": "Fungible", "value": 100},
+          "transport_endpoints": ["rpcs://proxy.iriswallet.com/0.2/json-rpc"]
+        }
+      ]
+    }
+  }'
+```
+
+Use `POST /decodergbinvoice` to read the `recipient_id`, asset, amount, and transport endpoints from an invoice string.
+
+## 5. Confirm settlement
+
+Both nodes refresh their transfers while the transfer moves through the RGB and Bitcoin confirmation flow:
+
+```sh
+curl -X POST http://localhost:3001/refreshtransfers \
+  -H "Content-Type: application/json" \
+  -d '{"filter": [], "skip_sync": false}'
+```
+
+Then check the receiver's balance:
+
+```sh
+curl -X POST http://localhost:3001/assetbalance \
+  -H "Content-Type: application/json" \
+  -d '{"asset_id": "rgb:<ASSET_ID>"}'
+```
+
+`settled` shows confirmed balance; `future` includes pending incoming transfers. Use `POST /listtransfers` to inspect individual transfers.
+
+## 6. Try RGB over Lightning (testnet only)
+
+The same node also handles RGB-enabled Lightning payments. On testnet:
+
+1. `POST /connectpeer` with `peer_pubkey_and_addr` (`<pubkey>@<host>:<port>`).
+2. `POST /openchannel` with the peer, `capacity_sat`, `asset_id`, and `asset_amount` to open an RGB channel. Check `GET /listchannels` until the channel is usable.
+3. On the receiver, `POST /lninvoice` with `amt_msat`, `expiry_sec`, `asset_id`, and `asset_amount`.
+4. On the sender, `POST /sendpayment` with the `invoice`.
+
+<Note>
+  Lightning on mainnet is not supported yet. Integrations built on the on-chain path keep working unchanged when Lightning reaches mainnet.
+</Note>
+
+## Next steps
+
+- [Self-Hosted RGB Lightning Node](/rgb-lightning-node/self-hosted-rgb-lightning-node) — authentication, sync modes, and the production checklist.
+- [RGB Lightning Node API](/rgb-lightning-node/rgb-lightning-node-api) — the full endpoint list.
+- [Remote Signer](/security/rln-remote-signer) — keep keys outside the node.
+- [Utexo Cloud](/product-suite/RLN-overview) — run RLN without managing servers.

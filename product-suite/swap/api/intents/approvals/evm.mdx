@@ -1,0 +1,115 @@
+---
+title: "Signing an Intent for EVM"
+description: "Build and sign the Permit2 typed-data approval for an EVM source chain."
+sidebarTitle: "EVM"
+---
+
+Permit2 lets the user lock tokens and produce a signature that authorizes the swap. Tokens stay secure until the swap is executed, on the same chain or across chains. The resolver uses this signature to move funds into escrow and complete the swap.
+
+<Note>
+  The user must have granted the Permit2 contract an allowance on the source token first. See [Approve for Permit2](/product-suite/swap/on-chain-helpers/approve-for-permit2).
+</Note>
+
+## How the signature is built
+
+When `approval_mechanism` is `permit2`, sign an EIP-712 `PermitWitnessTransferFrom` message built from the quote and the intent:
+
+| Typed-data part | Value |
+| --- | --- |
+| `domain` | `params_to_sign.additional_data.domain` — use `name`, `chainId`, and `verifyingContract` |
+| `types` | `params_to_sign.additional_data.types` |
+| `primaryType` | `PermitWitnessTransferFrom` |
+| `message.permitted` | `{ token: quote.source_token, amount: quote.source_amount_lots }` |
+| `message.spender` | `params_to_sign.escrow_contract_address` |
+| `message.nonce` | `params_to_sign.nonce` |
+| `message.deadline` | `deadline_secs` from the intent response |
+| `message.witness` | `params_to_sign.additional_data.witness`, with `minAmountOut`, `maxAmountOut`, and `deadline` converted from hex to decimal strings when present |
+
+## Example
+
+End to end with `fetch` and [viem](https://viem.sh): quote, intent, Permit2 signature, approval.
+
+```ts
+import { hexToBigInt, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+
+const BASE_URL = "https://api.swap.utexo.com/affiliate";
+const API_KEY = process.env.UTEXO_SWAP_API_KEY!;
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as Hex);
+const destinationAddress = process.env.DESTINATION_ADDRESS!;
+
+async function api<T>(path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`${path} failed: ${response.status} ${text}`);
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+// 1. Quote: WETH on Ethereum -> USDT on Tron
+const quote = await api<any>("/v1/quotes/best", {
+  source_chain: 1,
+  source_token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  dest_chain: 2,
+  dest_token: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+  amount: 0.001,
+  slippage_bps: "50",
+  swap_type: "standard",
+  deposit_type: "escrowed",
+  retail_user_id: null,
+  user_meta: null,
+  affiliate_fees: null,
+});
+
+// 2. Intent
+const intent = await api<any>("/v1/intents", {
+  quote_id: quote.id,
+  user_source_address: account.address,
+  user_destination_address: destinationAddress,
+  refund_address: account.address,
+  user_source_public_key: null,
+});
+if (intent.approval_mechanism !== "permit2") {
+  throw new Error(`Expected permit2, got ${intent.approval_mechanism}`);
+}
+
+// 3. Build the Permit2 typed data
+const params = intent.params_to_sign;
+const data = params.additional_data;
+const toDecimal = (value?: string) => (value ? hexToBigInt(value as Hex).toString() : undefined);
+
+const witness = {
+  ...data.witness,
+  ...(data.witness.minAmountOut ? { minAmountOut: toDecimal(data.witness.minAmountOut) } : {}),
+  ...(data.witness.maxAmountOut ? { maxAmountOut: toDecimal(data.witness.maxAmountOut) } : {}),
+  ...(data.witness.deadline ? { deadline: toDecimal(data.witness.deadline) } : {}),
+};
+
+const signature = await account.signTypedData({
+  domain: {
+    name: data.domain.name,
+    chainId: data.domain.chainId,
+    verifyingContract: data.domain.verifyingContract,
+  },
+  types: data.types,
+  primaryType: "PermitWitnessTransferFrom",
+  message: {
+    permitted: { token: quote.source_token, amount: quote.source_amount_lots },
+    spender: params.escrow_contract_address,
+    nonce: params.nonce,
+    deadline: intent.deadline_secs,
+    witness,
+  },
+});
+
+// 4. Approval
+await api(`/v1/intents/${intent.intent_id}/approvals`, {
+  type: "permit2",
+  signed_data: signature,
+});
+```
+
+Then [track the intent status](/product-suite/swap/api/intents/status).

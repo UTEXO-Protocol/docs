@@ -19,7 +19,7 @@ Utexo is built on a layered stack. Each layer has a distinct and non-overlapping
 | RGB | Asset issuance and client-side validation | Stablecoin creation, privacy-preserving transfers, Bitcoin-secured ownership |
 | Utexo | Execution and coordination layer | Routing, liquidity, fee management, SDK/API abstraction |
 | Mint | USDT Cross-chain connectivity | Inbound and outbound transfers between Ethereum, Tron and the RGB layer |
-| Swap | Cross-chain swap | Cross-chain BTC ↔ USDT swaps on Bitcoin and Lightning via the HotPot intent protocol |
+| Swap | Cross-chain swap | Intent-based cross-chain swaps across Bitcoin, Ethereum, Tron, and Solana |
 
 In the Utexo model, ownership proofs are validated locally by users' wallets (client-side validation), while actual payments occur through bidirectional Lightning channels. There is no global state to synchronise. Each transaction is a direct peer-to-peer exchange verified by cryptographic commitments.
 
@@ -102,16 +102,16 @@ The Mint is composed of five coordinated components:
 
 ## Swap
 
-The Utexo Swap enables cross-chain swaps, with BTC ↔ USDT exchange directly on Bitcoin, also on Solana, Ethereum, Tron powered by the [HotPot](https://docs.hotpot.tech) intent protocol. It provides internal BTC/USDT execution for settlement, treasury management and payments, reducing reliance on centralised venues for rebalancing and conversion.
+Utexo Swap is an intent-based liquidity layer for cross-chain swaps across Bitcoin, Ethereum, Tron, and Solana. Resolvers compete to price and fulfill each swap, and every swap settles through a dedicated escrow on the source chain, reducing reliance on centralised venues for rebalancing and conversion.
 
 **How it works:**
 
 Swap uses an intent-based execution model with two participants: the **user**, who initiates the swap and a **resolver**, who executes it.
 
-1. **Quote** - The user requests a quote for their desired currency pair and amount via the HotPot Quote API. The API returns a time-limited execution estimate with all pricing information.
+1. **Quote** - The user requests a quote for their desired currency pair and amount via the Utexo Swap API. The API returns a time-limited execution estimate with all pricing information.
 2. **Intent creation** - The user creates a structured intent specifying their addresses and the agreed quote identifier, representing their intention to execute the swap under the quoted conditions.
 3. **Signing** - The user signs the intent off-chain, cryptographically authorising resolvers to execute the swap according to the quoted conditions.
-4. **Execution** - HotPot notifies the winning resolver, who deposits assets into a per-swap escrow contract. Funds are only released once fulfillment is verified on-chain. The swap either completes in full or reverts, there is no partial execution risk.
+4. **Execution** - Utexo notifies the winning resolver, who deposits assets into a per-swap escrow contract. Funds are only released once fulfillment is verified on-chain. The swap either completes in full or reverts, there is no partial execution risk.
 
 **Key properties:**
 
@@ -119,12 +119,10 @@ Swap uses an intent-based execution model with two participants: the **user**, w
 | --- | --- |
 | Non-custodial | Users maintain control of assets throughout the swap process |
 | Atomic settlement | Swaps complete in full or revert safely — no partial fills |
-| Smart routing | Best-execution path across all available liquidity |
-| Privacy-preserving | Front-running is prevented by design via off-chain signed intents |
-| Instant finality | Trades settle with predictable fees on Bitcoin |
+| Best execution | Resolvers compete on price for every quote |
 
 <Info>
-  For full component details, supported networks, transfer flow and security properties, see [SWAP](product-suite/swap/swap).
+  For full component details, supported networks, transfer flow and security properties, see [Swap](/product-suite/swap).
 </Info>
 
 ## Further Reading
@@ -138,7 +136,7 @@ Swap uses an intent-based execution model with two participants: the **user**, w
     Product overview and integration paths.
   </Card>
 
-  <Card title="Mint" href="/product-suite/bridge">
+  <Card title="Mint" href="/product-suite/mint">
     Full Mint component reference, supported networks, and security model.
   </Card>
 

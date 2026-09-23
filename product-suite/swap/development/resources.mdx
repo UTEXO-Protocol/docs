@@ -1,0 +1,26 @@
+---
+title: "Resources"
+description: "Base URLs and interactive API reference for Utexo Swap."
+sidebarTitle: "Resources"
+---
+
+## Base URL
+
+| API | Base URL |
+| --- | --- |
+| Affiliate API | `https://api.swap.utexo.com/affiliate` |
+| Health check | `https://api.swap.utexo.com/v1/system/live` |
+
+All affiliate endpoints are versioned in the path, for example `POST /affiliate/v1/quotes/best`.
+
+## Swagger
+
+Explore available endpoints, request parameters, and response formats in the interactive API reference:
+
+<Card title="Utexo Swap API reference (Swagger)" icon="code" href="https://affiliate-docs-swap.utexo.com/affiliate/docs/">
+  Endpoints, schemas, and example requests for the affiliate API.
+</Card>
+
+## Code examples
+
+The examples in this documentation call the REST API directly with `fetch` and sign approvals with standard chain libraries (viem, TronWeb, `@solana/web3.js`, or a Bitcoin wallet that supports `signPsbt`). No Utexo-specific client library is required.

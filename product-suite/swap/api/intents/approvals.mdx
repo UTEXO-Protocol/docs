@@ -1,0 +1,70 @@
+---
+title: "Approvals"
+description: "Attach the user's signed approval to an intent so it can be executed."
+sidebarTitle: "Approvals"
+---
+
+After an intent is created, an approval must be added before it can be executed. This endpoint attaches a signed approval to an existing intent. The approval proves the user has authorized the swap and allows it to proceed.
+
+```http
+POST /affiliate/v1/intents/{intent_id}/approvals
+```
+
+## Request body
+
+The body depends on the approval mechanism returned when the intent was created. It includes the approval `type` and the data signed by the user.
+
+<Tabs>
+  <Tab title="Permit2 (EVM, Tron)">
+    ```json
+    {
+      "type": "permit2",
+      "signed_data": "0x..."
+    }
+    ```
+    `signed_data` is the Permit2 signature. See [Signing for EVM](/product-suite/swap/api/intents/approvals/evm) and [Signing for Tron](/product-suite/swap/api/intents/approvals/tron).
+
+    If the API returns [error code](/product-suite/swap/development/errors) **25**, the user has not yet approved Permit2 for the selected token. The user must approve Permit2 on-chain before continuing. See [Approve for Permit2](/product-suite/swap/on-chain-helpers/approve-for-permit2).
+  </Tab>
+  <Tab title="PSBT (Bitcoin)">
+    ```json
+    {
+      "type": "psbt",
+      "signed_data": "cHNid..."
+    }
+    ```
+    `signed_data` is the signed PSBT, Base64-encoded. See [Signing for Bitcoin](/product-suite/swap/api/intents/approvals/bitcoin).
+  </Tab>
+  <Tab title="Cosign (Solana)">
+    ```json
+    {
+      "type": "cosign",
+      "signed_data": {
+        "transaction": "02000...",
+        "user_address": "F8ZRdxvWEczGyxEBPiYraWCcMjv2sQZxuhh7BGETTDFg"
+      }
+    }
+    ```
+    `signed_data.transaction` is the signed versioned transaction, hex-encoded. See [Signing for Solana](/product-suite/swap/api/intents/approvals/solana).
+  </Tab>
+</Tabs>
+
+## Example
+
+```ts
+const BASE_URL = "https://api.swap.utexo.com/affiliate";
+
+async function addApproval(intentId: string, approval: object): Promise<void> {
+  const response = await fetch(`${BASE_URL}/v1/intents/${intentId}/approvals`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": process.env.UTEXO_SWAP_API_KEY!,
+    },
+    body: JSON.stringify(approval),
+  });
+  if (!response.ok) {
+    throw new Error(`Approval failed: ${response.status} ${await response.text()}`);
+  }
+}
+```

@@ -1,58 +1,63 @@
 ---
 title: "Swap Overview"
-description: "How Utexo coordinates resolver-based cross-chain swaps through RFQ pricing, signed intents, and non-custodial settlement."
+description: "Utexo Swap is an intent-based liquidity layer for cross-chain swaps across Ethereum, Tron, Solana, and Bitcoin, with non-custodial, per-swap settlement."
 sidebarTitle: "Overview"
 ---
 
 ## Overview
 
-Utexo Swap provides execution infrastructure for wallets, applications, exchanges, and other integration partners. It coordinates cross-chain swaps through resolver-based request-for-quote (RFQ) pricing, signed intents, and chain-specific settlement mechanisms.
+Utexo Swap is an open liquidity layer that connects fragmented liquidity across multiple blockchains. It lets users swap tokens across Ethereum, Solana, Tron, and Bitcoin through a single execution layer and a single REST API.
 
 Resolvers compete to price and fulfill each swap. Utexo coordinates quote discovery, intent validation, execution, and settlement without taking custody of user funds or acting as the swap counterparty.
 
 <Info>
-  Utexo Swap currently supports Ethereum and other EVM networks, Tron, Solana, and Bitcoin. Use `GET /networks` and `GET /tokens` to discover the networks and assets available to your integration instead of hardcoding availability.
+  Use [`GET /affiliate/v1/networks`](/product-suite/swap/api/networks-and-tokens) and [`GET /affiliate/v1/tokens`](/product-suite/swap/api/networks-and-tokens) to discover the networks and tokens available to your integration instead of hardcoding availability.
 </Info>
 
-### Core properties
+### Key features
 
-- **RFQ execution:** Distributed resolvers provide pricing and liquidity.
-- **Intent-based authorization:** A signed intent defines the asset pair, amount, source network, destination network, recipient, and execution constraints.
-- **Atomic settlement:** Each swap completes under the signed conditions or enters the applicable refund or revert path.
-- **Non-custodial design:** Utexo does not custody user funds.
-- **Unified integration:** A single REST API supports all available networks and their chain-specific approval mechanisms.
+- **Cross-chain swaps:** Swap tokens between Ethereum, Solana, Tron, and Bitcoin.
+- **Best execution:** Resolvers compete on price through request-for-quote (RFQ) pricing; the API returns the best available quote.
+- **Universal access:** Swap any supported token across any supported chain through one integration.
+- **Non-custodial:** Users keep control of their assets throughout the swap. Every swap completes in full or reverts through its refund path.
 
-## Architecture and settlement
+## How a swap works
 
-Utexo uses cryptographic time constraints and network-native escrow mechanisms to coordinate cross-chain settlement.
+1. **Quote** — the client requests the best quote for a token pair and amount.
+2. **Intent** — the client creates an intent from the quote with the user's source, destination, and refund addresses.
+3. **Approval** — the user signs the chain-specific approval returned with the intent, and the client submits it.
+4. **Execution** — the winning resolver deposits the user's assets into a per-swap escrow on the source chain and delivers the destination asset to the user.
+5. **Status** — the client tracks the intent until it reaches a final status.
+
+See [User Flow](/product-suite/swap/development/user-flow) for the full sequence.
+
+## Settlement
 
 | Network | Settlement mechanism |
 | --- | --- |
-| Bitcoin | Taproot hash time-locked contract (HTLC) escrow |
-| Ethereum and other EVM networks | Dedicated escrow smart contract per swap |
-| Solana | Program escrow |
-| Tron | Contract escrow |
+| Ethereum / EVM | Dedicated escrow smart contract per swap |
+| Tron | Same escrow model as EVM |
+| Solana | Program-derived escrow account (PDA) per swap |
+| Bitcoin | Taproot-based hash time-locked contract (HTLC) |
 
-Each swap uses an isolated settlement mechanism. Ethereum, other EVM networks, and Tron use a dedicated escrow instance for each swap. Swap-level isolation prevents funds associated with one swap from being exposed to another.
-
-Resolvers provide liquidity and perform the on-chain operations required to fulfill signed intents. Protocol rules restrict a resolver to the assets, amount, destination, and time constraints authorized by the user.
+Each swap uses an isolated settlement mechanism, so funds associated with one swap are never exposed to another. See [Security Model](/product-suite/swap/security-model).
 
 ## Documentation map
 
-- [**Integration**](/product-suite/swap/integration/overview) explains access, authentication, and the end-to-end user flow.
-- [**Security Model**](/product-suite/swap/security-model) defines escrow isolation, resolver permissions, and refund behavior.
-- [**API Reference**](/product-suite/swap/api/networks-and-tokens) documents discovery, quotes, intents, swaps, and affiliates.
-- [**Resolver Integration**](/product-suite/swap/resolver-integration/overview) documents resolver responsibilities, protocol-facing endpoints, webhook lifecycle events, and chain-specific settlement requirements.
-- [**On-chain Helpers**](/product-suite/swap/on-chain-helpers/wrap-native-tokens) covers native-token wrapping and Permit2 token allowance.
+- [**Development**](/product-suite/swap/development/user-flow) — user flow, authorization, errors, and developer resources.
+- [**API Reference**](/product-suite/swap/api/networks-and-tokens) — networks and tokens, quotes, intents and approvals, intent status, swap history, and health check.
+- [**RGB USDT**](/product-suite/swap/rgb) — what platforms and resolvers need to support USDT on Bitcoin (RGB) in Utexo Swap.
+- [**Resolver Integration**](/product-suite/swap/resolver-integration/overview) — resolver responsibilities, protocol-facing endpoints, webhook lifecycle events, and chain-specific settlement.
+- [**On-chain Helpers**](/product-suite/swap/on-chain-helpers/wrap-native-tokens) — native-token wrapping and Permit2 token allowance.
 
 ## Glossary
 
 | Term | Definition |
 | --- | --- |
-| **Intent** | A signed, machine-verifiable request to execute a swap under defined conditions. |
+| **Intent** | A user's request to perform a swap, created from a quote and attached to it. |
 | **Resolver** | A liquidity provider that prices and fulfills swap intents. |
 | **RFQ** | Request for quote; the process through which resolvers return competing prices. |
 | **Permit2** | An approval mechanism that combines an on-chain token allowance with an off-chain typed-data signature. |
-| **PSBT** | Partially Signed Bitcoin Transaction. Utexo uses it to authorize Bitcoin HTLC deposits. |
-| **HTLC** | Hash time-locked contract; an escrow mechanism controlled by a hash condition and timeout. |
-| **Lots** | Integer token amounts expressed in the smallest-unit representation used by the API. |
+| **PSBT** | Partially Signed Bitcoin Transaction. Used to authorize Bitcoin HTLC deposits. |
+| **HTLC** | Hash time-locked contract; an escrow controlled by a hash condition and a timeout. |
+| **Lots** | Integer token amounts in the token's smallest unit, as returned by the API (for example `source_amount_lots`). |

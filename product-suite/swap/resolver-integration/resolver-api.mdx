@@ -4,10 +4,10 @@ description: "Callbacks and endpoints resolvers must expose so Utexo can request
 sidebarTitle: "Resolver API"
 ---
 
-The Resolver API is the direction Utexo calls **on the resolver**. Each resolver defines and configures its own callback URLs; the source documentation does not prescribe paths.
+The Resolver API is the direction Utexo calls **on the resolver**. Each resolver defines and configures its own callback URLs; there are no prescribed paths.
 
 <Warning>
-  The source does not specify an authentication mechanism for resolver callbacks other than webhook signatures. Do not assume `X-API-Key` protects this direction. Agree the transport authentication with Utexo before exposing endpoints.
+  Resolver callbacks are not protected by `X-API-Key`. Agree the transport authentication for this direction with Utexo before exposing endpoints.
 </Warning>
 
 ## Quote callback
@@ -33,7 +33,7 @@ Utexo calls the resolver to request a quote for a user swap.
 ### Response
 
 <Note>
-  The source describes expected destination minimum and maximum, expiry in milliseconds, and affiliate and intermediate routing data, but does not publish a canonical quote response schema. Confirm the exact shape with Utexo.
+  The quote response carries the destination minimum and maximum, expiry in milliseconds, and affiliate and intermediate routing data. Confirm the exact response shape with Utexo during onboarding.
 </Note>
 
 ### Error responses
@@ -120,7 +120,7 @@ Source fields:
 ### Response
 
 <Warning>
-  The source does not document the Solana co-signed callback response schema. Confirm the response shape with Utexo before implementing.
+  Confirm the Solana co-signed callback response shape with Utexo before implementing.
 </Warning>
 
 ## Fast-refund signing callback
@@ -142,5 +142,5 @@ Utexo requests a resolver signature for a fast refund.
 ```
 
 <Warning>
-  The source spells the Bitcoin script field `tapscipt`. This appears to be a typo of `tapscript` and must be validated against the current implementation before you wire it up.
+  The Bitcoin script field is currently named `tapscipt`. Validate the field name against the current implementation before you wire it up.
 </Warning>

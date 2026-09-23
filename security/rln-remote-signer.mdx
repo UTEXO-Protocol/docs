@@ -1,57 +1,124 @@
 ---
 title: "RLN Remote Signer"
-description: "How Validating Lightning Signer (VLS) keeps private keys off your RGB Lightning Node."
+description: "Keep RGB Lightning Node keys out of the node with a VLS-backed external signer, in-process or as a separate signer daemon."
 ---
 
 ## Overview
 
-Validating Lightning Signer (VLS) is an open-source Rust library for secure, self-custodial Lightning signers. Unlike hot wallets or blind signers, VLS keeps your private keys off the node and validates each signing request, ensuring only legitimate channel operations are approved.
+RGB Lightning Node (RLN) can run in **external-signer mode**. In this mode the node holds no seed and no private keys. Every signing operation it needs — channel signing, node cryptography (ECDH, inbound payments, peer storage, offers), and RGB PSBT signing — is answered by a signer built on [Validating Lightning Signer (VLS)](https://gitlab.com/lightning-signer/validating-lightning-signer).
 
-<Note>
-  RGB Lightning Node includes generic remote external-signer support introduced in [UTEXO-Protocol/rgb-lightning-node#95](https://github.com/UTEXO-Protocol/rgb-lightning-node/commit/e8aa52e838ad523962e81196c137d6a7b4d45980). The VLS-specific integration described on this page remains tracked in [RGB-Tools/rgb-lightning-node#43](https://github.com/RGB-Tools/rgb-lightning-node/issues/43) and should still be considered experimental until its compatibility and production-readiness are confirmed.
-</Note>
+VLS does not sign blindly: it checks every request for protocol correctness and against its policy before producing a signature, and rejects anything that fails.
 
-## System Architecture
+External-signer mode is part of the Utexo RLN ([#27](https://github.com/UTEXO-Protocol/rgb-lightning-node/pull/27), [#95](https://github.com/UTEXO-Protocol/rgb-lightning-node/pull/95)) and is used by the [Utexo WDK](/sdk/wdk-rgb-lightning) today. Like the rest of RLN it is in beta: on mainnet, RLN supports on-chain RGB operations only.
 
-VLS splits Lightning key management into two primary components:
+## Deployment modes
 
-### Lightning Node
+| Mode | Where the seed lives | Use when |
+| --- | --- | --- |
+| **In-process signer** (`NativeExternalSigner`) | In the host application's secret storage (for example the WDK secret manager, Keystore, or Keychain). VLS runs inside the same process as the node. | Mobile and wallet integrations. This is the mode used by [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning). |
+| **Remote signer daemon** (`rln-signer-daemon`) | In a separate process, typically on a separate host. The node is watch-only and connects to the daemon over TCP. | Server deployments that isolate keys from the node host. |
 
-Runs the standard LN logic — channel opening, routing, HTLC management. **No private keys are stored here.**
+Both modes share one signer contract ([`rln-external-signer`](https://github.com/UTEXO-Protocol/rln-external-signer)) and a VLS core patched for RGB channels.
 
-### Remote Validating Signer
-
-Stores private keys in a secure environment and validates each request before generating a signature. If the request fails policy checks, it denies signing.
-
-### Additional Components
-
-| Component | Description |
-| --- | --- |
-| **Policy Engine** | Customizable rules ensuring no suspicious requests are signed |
-| **UTXO Oracle** (optional) | Provides chain data to detect remote breaches |
-| **State Storage** | Secure cloud storage with anti-rollback protection |
-
-## Validation Flow
+## Validation flow
 
 ```text
-[Lightning Node] --> proposes transaction/state update
+[RGB Lightning Node] --> proposes a transaction or state update
         |
         v
-[VLS Signer] --> checks protocol correctness + local policy
+[VLS signer] --> checks protocol correctness + policy
         |
-        +-- valid --> returns signature
+        +-- valid   --> returns signature
         |
         +-- invalid --> rejects request
 ```
 
-1. The Lightning Node proposes a transaction or state update.
-2. VLS checks protocol correctness and local policy.
-3. If valid, the signer returns a signature. Otherwise, it rejects the request.
+Because the keys never reach the node:
 
-## Why This Matters
+- **Reduced attack surface:** a compromised node cannot read signing keys.
+- **Policy enforcement:** the signer refuses requests that break protocol rules or its policy.
+- **Self-custody:** keys stay in the environment you control.
 
-Traditional Lightning nodes require private keys to be on the same machine that handles routing and channel logic. VLS decouples these concerns:
+## What changes in external-signer mode
 
-- **Reduced attack surface** — a compromised node cannot access signing keys
-- **Policy enforcement** — custom rules prevent unauthorized channel operations
-- **Self-custody** — keys never leave the secure signing environment
+| Operation | Behaviour |
+| --- | --- |
+| Asset issuance (NIA, CFA, IFA, UDA) and inflation | Not supported. Returns `UnsupportedInExternalSignerMode`. |
+| `POST /changepassword`, `POST /restore` | Not supported. Returns `UnsupportedInExternalSignerMode`. |
+| Authentication | Required. The node refuses to configure or unlock external-signer mode when started with `--disable-authentication` (`ExternalSignerRequiresAuthentication`). Use [Biscuit tokens](/rgb-lightning-node/self-hosted-rgb-lightning-node#authentication). |
+| Restart | The same signer must be attached. A different signer identity is rejected with `ExternalSignerMismatch` before any channel state is read. |
+| Secrets on the node | None. The node stores only public signer metadata (`key_source.json`). |
+
+## Run the remote signer daemon
+
+The daemon and the node's remote-signer support are behind the `remote-signer` cargo feature, which is not enabled in the default build or the Docker image. Build from source:
+
+```sh
+cargo build --release --locked --features remote-signer
+# produces target/release/rgb-lightning-node and target/release/rln-signer-daemon
+```
+
+<Steps>
+  <Step title="Start the daemon">
+    ```sh
+    rln-signer-daemon \
+      --seed-file /secure/signer/seed.hex \
+      --network bitcoin \
+      --listen-addr 127.0.0.1:9737
+    ```
+    A new seed is generated (file mode `0600`) if `--seed-file` does not exist. The daemon keeps its VLS state in `--data-dir` (default: a `signer-db` directory next to the seed file). **Persist this directory** — it is what lets a restarted daemon keep signing for existing channels.
+
+    `--network` accepts `bitcoin`, `testnet`, `signet`, or `regtest`.
+  </Step>
+  <Step title="Print the signer identity">
+    ```sh
+    rln-signer-daemon --seed-file /secure/signer/seed.hex --network bitcoin --print-bootstrap
+    ```
+    This prints the daemon's bootstrap identity as JSON and exits.
+  </Step>
+  <Step title="Start the node pointing at the daemon">
+    ```sh
+    rgb-lightning-node dataldk0/ \
+      --daemon-listening-port 3001 \
+      --ldk-peer-listening-port 9735 \
+      --network mainnet \
+      --root-public-key <YOUR_PUBLIC_KEY> \
+      --remote-signer-addr 127.0.0.1:9737
+    ```
+  </Step>
+  <Step title="Initialise external-signer mode">
+    Send the bootstrap JSON from step 2 to the locked node:
+    ```sh
+    curl -X POST http://localhost:3001/initexternalsigner \
+      -H "Authorization: Bearer <ADMIN_TOKEN>" \
+      -H "Content-Type: application/json" \
+      -d @bootstrap.json
+    ```
+    The node probes the daemon at `--remote-signer-addr` and rejects the request if the submitted identity does not match the live daemon.
+  </Step>
+  <Step title="Unlock">
+    Call `POST /unlock` as usual. In external-signer mode the `password` field is not checked; the Biscuit token is the credential that protects the node.
+  </Step>
+</Steps>
+
+## Securing the signer link
+
+| Side | Setting |
+| --- | --- |
+| Daemon | `--tls-cert` and `--tls-key` enable TLS. The certificate SAN must include `rln-remote-signer`. `--client-ca` enables mTLS and authenticates the node. |
+| Daemon | A non-loopback `--listen-addr` is refused unless mTLS is configured. `--allow-unauthenticated-remote-signer` overrides this; use it only when the link is already secured by other means, such as a WireGuard tunnel. |
+| Node | Place `ca.pem` in `<data-dir>/remote-signer-tls/` to verify the daemon certificate. Add `client.pem` and `client.key` to the same directory for mTLS. |
+
+<Warning>
+  If `remote-signer-tls/ca.pem` is missing, the node connects to the daemon **without TLS**. Always provision the TLS directory when the node and the signer are not on the same host.
+</Warning>
+
+<Warning>
+  `--permissive` relaxes the VLS policy for development and testing. Never use it with real funds; the daemon refuses it on mainnet.
+</Warning>
+
+## Related
+
+- [Self-Hosted RGB Lightning Node](/rgb-lightning-node/self-hosted-rgb-lightning-node)
+- [RLN Quick Start](/rgb-lightning-node/quickstart)
+- [wdk-rgb-lightning Reference](/sdk/wdk-rgb-lightning)

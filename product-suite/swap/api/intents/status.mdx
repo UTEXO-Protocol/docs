@@ -1,0 +1,65 @@
+---
+title: "Retrieving Intent Status"
+description: "Check the lifecycle state, transactions, and metadata of a swap intent."
+sidebarTitle: "Intent Status"
+---
+
+Check the current status of a swap intent. The response includes the intent's lifecycle state, the related transactions, and additional metadata.
+
+```http
+GET /affiliate/v1/swaps/intents/{intent_id}
+```
+
+## Response example
+
+```json
+{
+  "intent_id": "ad663b54-8fc3-4ab9-992f-00705fc83643",
+  "status": "Fulfilled",
+  "swap_metadata": {
+    "id": "ad663b54-8fc3-4ab9-992f-00705fc83643",
+    "proxy_address": "EJdcVPNgyKUMgsFX1Kcy7TTXuvQoxtp7oLtYtfG2jMfg",
+    "user_deposit_tx": "3QySyu7ByMymZigUT7buk5R794BHoMEdqqvJPKud8UDwHLA6y4wXqBdWQakDkkLbBAwupGHgiRiL1JVDvecxN8fY",
+    "fulfill_tx": "xHcL5Ley44CJWWKzWAhSvfG7YYExRTNsR4Tgx45MXjnvRDXpb5K9X2EE6QRd6SYLytWz9CvEBPa1RiXjSxxdL8V",
+    "swap_tx": null,
+    "created_at": "2026-03-24T09:41:24.698253Z",
+    "user_deposited_at": "2026-03-24T09:41:51.869018Z",
+    "fulfilled_at": "2026-03-24T09:42:21.184734Z",
+    "swapped_at": null,
+    "refunded_at": null,
+    "refund_requested_at": null
+  },
+  "source_amount_decimals": 6,
+  "source_amount_lots": "1000000",
+  "source_chain": 4,
+  "source_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "dest_amount_decimals": 9,
+  "dest_chain": 4,
+  "dest_token": "So11111111111111111111111111111111111111112",
+  "min_dest_amount_lots": "10823996",
+  "max_dest_amount_lots": "10878388",
+  "user_source_address": "F8ZRdxvWEczGyxEBPiYraWCcMjv2sQZxuhh7BGETTDFg",
+  "user_dest_address": "F8ZRdxvWEczGyxEBPiYraWCcMjv2sQZxuhh7BGETTDFg"
+}
+```
+
+## Statuses
+
+`status` represents the overall progress of the swap, combining intent and swap state.
+
+| Status | Description |
+| --- | --- |
+| `Initiated` | The intent has been created but no approval has been added yet. |
+| `ApprovalAdded` | The user has added the approval/signature for the swap. |
+| `Accepted` | A resolver has accepted the intent and is ready to execute. |
+| `Declined` | The resolver declined the intent. |
+| `UserDeposited` | The resolver has deposited the user's tokens into the escrow on the source network. |
+| `Fulfilled` | The user has received the target token on the destination network. |
+| `Expired` | The intent expired before execution. |
+| `RefundRequested` | A refund has been requested for this intent. |
+| `Refunded` | Tokens have been refunded to the user. |
+
+## Notes
+
+- Poll this endpoint to track an intent's progress.
+- `swap_metadata` provides transaction hashes and timestamps for each stage.

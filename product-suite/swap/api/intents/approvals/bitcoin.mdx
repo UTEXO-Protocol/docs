@@ -1,0 +1,66 @@
+---
+title: "Signing an Intent for Bitcoin"
+description: "Sign only the user's inputs in the protocol-built PSBT that funds the Bitcoin HTLC deposit."
+sidebarTitle: "Bitcoin"
+---
+
+PSBT cosigning lets the user authorize a Bitcoin HTLC deposit by signing only the inputs they control. The protocol builds the transaction; the user signs it locally and preserves any existing partial signatures. The signed PSBT is returned as the approval, keeping funds secure until the resolver executes the swap under the authorized parameters.
+
+## Signing process
+
+When `approval_mechanism` is `htlc`, `params_to_sign` contains a Base64-encoded `psbt` and the list of `inputs` the user must sign.
+
+1. Parse the Base64-encoded PSBT.
+2. Load the user's signing key.
+3. Iterate over the input indexes listed in `params_to_sign.inputs`.
+4. For each input, read the referenced UTXO data from the PSBT (amount, script, and Taproot data where applicable).
+5. Compute the signature hash and produce the witness signature: a Schnorr signature for Taproot (P2TR key-path) inputs, or an ECDSA signature for P2WPKH inputs.
+6. Insert the signatures into the corresponding inputs without modifying any other transaction data.
+7. Serialize the PSBT back to Base64 and submit it as the approval.
+
+<Warning>
+  Sign only the indexes in `params_to_sign.inputs`, and do not broadcast the transaction. The resolver broadcasts the deposit after the approval is accepted.
+</Warning>
+
+## Example: sign with a browser wallet
+
+Most Bitcoin wallets expose a `signPsbt` method that handles the cryptography. With [Sats Connect](https://docs.xverse.app/sats-connect), pass the PSBT and a map of the user's address to the input indexes to sign:
+
+```ts
+// Browser: sign the user's inputs with the wallet
+import { request } from "sats-connect";
+
+export async function signDepositPsbt(
+  psbtBase64: string,
+  inputs: number[],
+  userAddress: string,
+): Promise<string> {
+  const response = await request("signPsbt", {
+    psbt: psbtBase64,
+    signInputs: { [userAddress]: inputs },
+    broadcast: false,
+  });
+  if (response.status !== "success") {
+    throw new Error(`PSBT signing failed: ${response.error.message ?? "Unknown error"}`);
+  }
+  return response.result.psbt; // signed PSBT, Base64
+}
+```
+
+Then submit the signed PSBT from your backend, where the API key lives:
+
+```ts
+// Server: attach the approval to the intent
+await fetch(`https://api.swap.utexo.com/affiliate/v1/intents/${intentId}/approvals`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key": process.env.UTEXO_SWAP_API_KEY!,
+  },
+  body: JSON.stringify({ type: "psbt", signed_data: signedPsbtBase64 }),
+});
+```
+
+<Note>
+  Bitcoin is a source chain that requires `user_source_public_key` when [creating the intent](/product-suite/swap/api/intents/creation).
+</Note>

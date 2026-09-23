@@ -1,0 +1,22 @@
+---
+title: "System Health Check"
+description: "Check that the Utexo Swap API is up and ready to accept requests."
+sidebarTitle: "Health Check"
+---
+
+Use this endpoint to verify that the system is up and ready to accept requests. It returns no data; it only confirms that the API is healthy and responsive.
+
+```http
+GET /v1/system/live
+```
+
+```bash
+curl -i https://api.swap.utexo.com/v1/system/live
+```
+
+## Response
+
+| Status | Meaning |
+| --- | --- |
+| `200 OK` | The system is healthy and ready to process requests. |
+| `500 Internal Server Error` | The system is experiencing issues. |

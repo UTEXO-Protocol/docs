@@ -1,0 +1,30 @@
+---
+title: "RGB USDT in Utexo Swap"
+description: "What a platform and a resolver need in order to support USDT on Bitcoin (RGB) in Utexo Swap."
+sidebarTitle: "RGB USDT"
+---
+
+USDT on Bitcoin is issued and transferred with the [RGB protocol](/getting-started/rgb-concepts). Supporting it touches two sides of a swap integration: the **platform** that holds and moves the user's RGB USDT, and the **resolver** that settles the Bitcoin leg of the swap.
+
+<Warning>
+  **Draft.** RGB USDT support in Utexo Swap is being rolled out with resolver partners. Use [`GET /affiliate/v1/networks`](/product-suite/swap/api/networks-and-tokens) to check what is available to your integration. The resolver section below is pending engineering review.
+</Warning>
+
+## Platform side: add RGB USDT
+
+A platform (exchange, wallet, or swap provider) needs to hold RGB assets, receive them with RGB invoices, and send them. All of this runs on one [RGB Lightning Node (RLN)](/overview):
+
+1. **Learn the model.** RGB state lives off-chain and is validated client-side; Bitcoin UTXOs anchor it. Read [Getting Started with RGB](/getting-started/rgb-concepts) first — invoices, colored UTXOs, and consignments behave differently from account-based chains.
+2. **Run a node.** Follow the [RLN Quick Start](/rgb-lightning-node/quickstart) to launch a node, fund it, prepare colored UTXOs, and receive and send RGB USDT on-chain.
+3. **Choose your deployment.** [Self-host RLN](/rgb-lightning-node/self-hosted-rgb-lightning-node) or run it on [Utexo Cloud](/product-suite/RLN-overview).
+4. **Keep keys where you need them.** If your custody model requires keys outside the node, see [Remote Signer](/security/rln-remote-signer).
+
+On mainnet, RLN supports on-chain RGB operations. Lightning is available on testnet only; the same RLN integration picks up Lightning when it reaches mainnet, with no second integration.
+
+## Resolver side: settle the Bitcoin leg
+
+Resolvers settle Bitcoin swaps with a Taproot HTLC. See [Bitcoin Settlement](/product-suite/swap/resolver-integration/bitcoin-settlement) for the HTLC lock output, deposit transaction, spend paths, and fee model, and [Resolver Overview](/product-suite/swap/resolver-integration/overview) for the full lifecycle.
+
+{/* DRAFT: RGB-specific resolver steps (holding RGB USDT inventory, RGB transfer in the deposit/fulfill path) to be added from the RGB integration notes shared with resolver partners. Owner: Swap team. */}
+
+To start a resolver integration that includes RGB USDT, [contact the Utexo team](https://utexo.com/contact-sales).
