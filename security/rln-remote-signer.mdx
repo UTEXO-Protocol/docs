@@ -45,13 +45,14 @@ Because the keys never reach the node:
 | --- | --- |
 | Asset issuance (NIA, CFA, IFA, UDA) and inflation | Not supported. Returns `UnsupportedInExternalSignerMode`. |
 | `POST /changepassword`, `POST /restore` | Not supported. Returns `UnsupportedInExternalSignerMode`. |
+| `POST /backup` | Not available. File backups are encrypted with the node password, and an external-signer node has none. Use [VSS cloud backup](https://github.com/UTEXO-Protocol/rgb-lightning-node#vss-cloud-backup-optional) instead; it supports external-signer mode. |
 | Authentication | Required. The node refuses to configure or unlock external-signer mode when started with `--disable-authentication` (`ExternalSignerRequiresAuthentication`). Use [Biscuit tokens](/rgb-lightning-node/self-hosted-rgb-lightning-node#authentication). |
 | Restart | The same signer must be attached. A different signer identity is rejected with `ExternalSignerMismatch` before any channel state is read. |
 | Secrets on the node | None. The node stores only public signer metadata (`key_source.json`). |
 
 ## Run the remote signer daemon
 
-The daemon and the node's remote-signer support are behind the `remote-signer` cargo feature, which is not enabled in the default build or the Docker image. Build from source:
+The daemon and the node's remote-signer support are behind the `remote-signer` cargo feature. It is not enabled in the default build or the Docker image, so build from source:
 
 ```sh
 cargo build --release --locked --features remote-signer
