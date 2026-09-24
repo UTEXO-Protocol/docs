@@ -17,7 +17,7 @@ Every deposit locks funds to a unique Taproot output with three script leaves:
 | Fast refund | `<protocolPubKey> OP_CHECKSIG <resolverPubKey> OP_CHECKSIGADD 2 OP_EQUAL` |
 
 - `secretHash` is double SHA-256 of the 32-byte secret.
-- The internal key may be a NUMS point or a resolver-selected key, per source.
+- The internal key may be a NUMS point or a resolver-selected key. RGB USDT swaps use a NUMS internal key; see [RGB USDT in Utexo Swap](/product-suite/swap/rgb#for-resolvers).
 - The resolver returns the refund and fast-refund control blocks to Utexo and keeps the withdraw control block internally.
 
 ## Deposit transaction

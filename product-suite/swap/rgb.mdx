@@ -1,30 +1,126 @@
 ---
 title: "RGB USDT in Utexo Swap"
-description: "What a platform and a resolver need in order to support USDT on Bitcoin (RGB) in Utexo Swap."
+description: "How affiliates and resolvers handle swaps where the user pays with USDT on Bitcoin (RGB)."
 sidebarTitle: "RGB USDT"
 ---
 
-USDT on Bitcoin is issued and transferred with the [RGB protocol](/getting-started/rgb-concepts). Supporting it touches two sides of a swap integration: the **platform** that holds and moves the user's RGB USDT, and the **resolver** that settles the Bitcoin leg of the swap.
+USDT on Bitcoin is an [RGB](/getting-started/rgb-concepts) asset. When a user swaps **from** RGB USDT, the user's asset is locked in the same kind of Taproot HTLC used for [Bitcoin settlement](/product-suite/swap/resolver-integration/bitcoin-settlement). The difference is that the lock also carries the RGB allocation, so the user pays an **RGB witness invoice** instead of sending plain BTC.
 
 <Warning>
-  **Draft.** RGB USDT support in Utexo Swap is being rolled out with resolver partners. Use [`GET /affiliate/v1/networks`](/product-suite/swap/api/networks-and-tokens) to check what is available to your integration. The resolver section below is pending engineering review.
+  **Draft.** This page covers swaps where RGB USDT is the **source** asset. Swaps where the user **receives** RGB USDT, and the final affiliate signing flow, are still being confirmed.
 </Warning>
 
-## Platform side: add RGB USDT
+## For affiliates
 
-A platform (exchange, wallet, or swap provider) needs to hold RGB assets, receive them with RGB invoices, and send them. All of this runs on one [RGB Lightning Node (RLN)](/overview):
+To support RGB USDT, the user needs an RGB-capable wallet. See [Getting Started with RGB](/getting-started/rgb-concepts), the [RLN Quick Start](/rgb-lightning-node/quickstart), or the [Utexo SDK](/product-suite/sdk). The swap integration itself adds one step: **the user pays the invoice returned with the intent.**
 
-1. **Learn the model.** RGB state lives off-chain and is validated client-side; Bitcoin UTXOs anchor it. Read [Getting Started with RGB](/getting-started/rgb-concepts) first — invoices, colored UTXOs, and consignments behave differently from account-based chains.
-2. **Run a node.** Follow the [RLN Quick Start](/rgb-lightning-node/quickstart) to launch a node, fund it, prepare colored UTXOs, and receive and send RGB USDT on-chain.
-3. **Choose your deployment.** [Self-host RLN](/rgb-lightning-node/self-hosted-rgb-lightning-node) or run it on [Utexo Cloud](/product-suite/RLN-overview).
-4. **Keep keys where you need them.** If your custody model requires keys outside the node, see [Remote Signer](/security/rln-remote-signer).
+<Steps>
+  <Step title="Quote and intent">
+    Quote and create the intent as for any swap, with `deposit_type: "escrowed"`. `user_source_public_key` is required, as for other Bitcoin sources.
+  </Step>
+  <Step title="Read the rgb_lock approval">
+    The intent response returns `approval_mechanism: "rgb_lock"`:
 
-On mainnet, RLN supports on-chain RGB operations. Lightning is available on testnet only; the same RLN integration picks up Lightning when it reaches mainnet, with no second integration.
+    ```json
+    {
+      "intent_id": "8a2d3f92-2a2b-4e4c-9d8a-3c9f92e4a111",
+      "deadline_secs": 1761545456,
+      "secret_hash": "0x…",
+      "approval_mechanism": "rgb_lock",
+      "params_to_sign": {
+        "lock_address": "bc1p…",
+        "psbt": "cHNid…",
+        "witness_invoice": "wvout:…",
+        "inputs": [0, 1, 2],
+        "asset_id": "rgb:…",
+        "asset_amount": 100,
+        "lock_anchor_sat": 546
+      }
+    }
+    ```
 
-## Resolver side: settle the Bitcoin leg
+    | Field | Meaning |
+    | --- | --- |
+    | `witness_invoice` | RGB invoice bound to the HTLC. Paying it locks the user's RGB USDT in escrow. |
+    | `lock_address` | Taproot address of the HTLC. |
+    | `psbt`, `inputs` | Prepared lock transaction and the input indexes the user signs. |
+    | `asset_id`, `asset_amount` | RGB asset and amount (base units) to lock. |
+    | `lock_anchor_sat` | BTC amount carried by the HTLC output. |
+  </Step>
+  <Step title="Pay the invoice">
+    The user's wallet pays `witness_invoice` for `asset_amount` of `asset_id`, and signs the resulting PSBT without broadcasting it. Submit it as a `psbt` approval:
 
-Resolvers settle Bitcoin swaps with a Taproot HTLC. See [Bitcoin Settlement](/product-suite/swap/resolver-integration/bitcoin-settlement) for the HTLC lock output, deposit transaction, spend paths, and fee model, and [Resolver Overview](/product-suite/swap/resolver-integration/overview) for the full lifecycle.
+    ```json
+    { "type": "psbt", "signed_data": "cHNid…" }
+    ```
 
-{/* DRAFT: RGB-specific resolver steps (holding RGB USDT inventory, RGB transfer in the deposit/fulfill path) to be added from the RGB integration notes shared with resolver partners. Owner: Swap team. */}
+    Utexo accepts either the provided `psbt` signed by the user, or a PSBT built by the user's wallet that pays the lock address.
+  </Step>
+  <Step title="Track the swap">
+    Track the intent as usual with [Intent Status](/product-suite/swap/api/intents/status). If the swap is not fulfilled before the deadline, the RGB USDT is refunded to the user.
+  </Step>
+</Steps>
+
+## For resolvers
+
+An RGB-source swap follows the [Bitcoin settlement](/product-suite/swap/resolver-integration/bitcoin-settlement) lifecycle — lock, fulfill, claim — with RGB-specific work in the lock and the claim. It happens in two phases:
+
+1. **Escrow:** the RGB allocation is bound to the HTLC output. It is not in your wallet yet.
+2. **Ownership:** after fulfillment, you spend the HTLC into an RGB receive output of your own wallet, which moves the allocation to you.
+
+You need an RGB wallet that can create witness invoices, accept consignments, and color HTLC spends. Utexo's [`rgb-lib`](https://github.com/UTEXO-Protocol/rgb-lib) exposes the required calls (`htlc_prepare`, `htlc_apply`, `htlc_abort`), with Go bindings in [`rgb-lib-go`](https://github.com/UTEXO-Protocol/rgb-lib-go).
+
+### 1. Lock: answer the deposit PSBT callback
+
+Utexo calls your [Bitcoin deposit PSBT callback](/product-suite/swap/resolver-integration/resolver-api#bitcoin-deposit-psbt-callback) as for a BTC swap.
+
+1. **Build the HTLC** exactly as for [Bitcoin](/product-suite/swap/resolver-integration/bitcoin-settlement#htlc-lock-output): NUMS internal key and the three leaves (resolver withdraw with `OP_HASH256`, timelock refund, fast refund).
+2. **Load the asset and amount from the quote.** The callback request does not include them.
+3. **Create your claim destination:** call `witness_receive` for the asset and amount, then convert the recipient ID into a script with `script_hex_from_recipient_id`. It must be a **witness** receive; a blinded receive cannot be used as a claim destination.
+4. **Build the lock PSBT** with `OP_RETURN` (intent tag) at output `0` and the P2TR HTLC at output `1`, at least dust.
+5. **Return** the usual fields plus `destination_script_hex` (the claim destination script, not the HTLC).
+
+Persist the lock address, Taproot spend info, and the withdraw leaf. Do not assume a fixed leaf order when rebuilding the tree later.
+
+The lock is **one** transaction that carries both the BTC and the RGB allocation. Do not lock BTC first and send RGB to the HTLC in a second transaction.
+
+### 2. Fulfill
+
+Unchanged from Bitcoin settlement: deliver the destination asset and report the fulfillment. Nothing RGB-specific happens in this step.
+
+### 3. Claim: move the RGB into your wallet
+
+After the swap is fulfilled and the secret is revealed:
+
+<Steps>
+  <Step title="Accept the lock consignment">
+    Call `fetch_and_accept_transfer_by_recipient_id` for the lock invoice, then check the amount on the HTLC outpoint with `contract_assignments_for_outpoints`. The HTLC is not a wallet UTXO, so accept first, then read.
+  </Step>
+  <Step title="Build the claim PSBT">
+    Input: the HTLC outpoint, with the withdraw leaf, control block, and witness UTXO. Outputs: an empty `OP_RETURN` at `0`, and your claim destination (`destination_script_hex`) at `1`. Do not sign yet.
+  </Step>
+  <Step title="Color it">
+    Call `htlc_prepare` with the PSBT, the asset mapped to output `1`, and the HTLC as the input carrying RGB. Color **before** signing.
+  </Step>
+  <Step title="Post, sign, broadcast, apply">
+    Post the consignment produced by `htlc_prepare` to the RGB proxy, sign the HTLC input with `[signature, secret, script, control block]`, broadcast, then call `htlc_apply` and refresh. If you never broadcast, call `htlc_abort`.
+  </Step>
+</Steps>
+
+### Coloring rules
+
+| Rule | If you get it wrong |
+| --- | --- |
+| An empty `OP_RETURN` is already in the PSBT, at output `0` for Taproot | Coloring is rejected |
+| Output indexes in the asset map are the final ones | RGB lands on the wrong output |
+| Color before any input is signed | The signed PSBT is rejected |
+| Include every input that still holds RGB, and assign the full amount | An omitted input burns the allocation |
+| `htlc_apply` after broadcast, `htlc_abort` if not broadcast | Wallet state is left half-applied |
+
+Do not register the HTLC as a wallet output and do not treat the lock as a wallet UTXO.
+
+### Refunds
+
+If the swap is not fulfilled before the deadline, the locked RGB USDT goes back to the user through the timelock refund leaf, as in [Bitcoin settlement](/product-suite/swap/resolver-integration/bitcoin-settlement#timelock-refund).
 
 To start a resolver integration that includes RGB USDT, [contact the Utexo team](https://utexo.com/contact-sales).

@@ -28,7 +28,7 @@ POST /affiliate/v1/intents
 | `refund_address` | string | Yes | Address on the source network that receives funds if the swap is refunded |
 | `user_destination_address` | string | Yes | Address on the destination network that receives the swapped asset |
 | `user_source_address` | string | Yes | Address on the source network that provides the funds |
-| `user_source_public_key` | string | Conditional | Required only when the source chain is Bitcoin or Solana |
+| `user_source_public_key` | string | Conditional | Required only when the source chain is Bitcoin (including RGB USDT) or Solana |
 | `retail_user_id` | string | No | Your own user identifier, for analytics and user-level tracking |
 
 ## Response
@@ -65,6 +65,7 @@ The approval flow depends on the source chain and swap type. The value of `appro
 | --- | --- | --- |
 | `permit2` | EVM, Tron | [EVM](/product-suite/swap/api/intents/approvals/evm), [Tron](/product-suite/swap/api/intents/approvals/tron) |
 | `htlc` | Bitcoin | [Bitcoin](/product-suite/swap/api/intents/approvals/bitcoin) |
+| `rgb_lock` | Bitcoin (RGB USDT) | [RGB USDT](/product-suite/swap/rgb#for-affiliates) |
 | `cosign` | Solana | [Solana](/product-suite/swap/api/intents/approvals/solana) |
 
 <Tabs>
@@ -104,6 +105,23 @@ The approval flow depends on the source chain and swap type. The value of `appro
     }
     ```
     `psbt` is Base64-encoded. `inputs` lists the input indexes the user must sign.
+  </Tab>
+  <Tab title="RGB lock (RGB USDT)">
+    ```json
+    {
+      "approval_mechanism": "rgb_lock",
+      "params_to_sign": {
+        "lock_address": "bc1p…",
+        "psbt": "cHNid…",
+        "witness_invoice": "wvout:…",
+        "inputs": [0, 1, 2],
+        "asset_id": "rgb:…",
+        "asset_amount": 100,
+        "lock_anchor_sat": 546
+      }
+    }
+    ```
+    The user pays `witness_invoice` to lock the RGB asset in the HTLC. See [RGB USDT in Utexo Swap](/product-suite/swap/rgb#for-affiliates).
   </Tab>
   <Tab title="Cosign (Solana)">
     ```json

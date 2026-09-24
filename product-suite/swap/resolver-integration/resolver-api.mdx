@@ -80,10 +80,13 @@ Utexo requests a PSBT for the user's Bitcoin deposit.
 | `x_only_public_key` | Taproot x-only key. |
 | `refund_control_block` | Control block for the timelock refund leaf. |
 | `fast_refund_control_block` | Control block for the fast refund leaf. |
+| `destination_script_hex` | RGB swaps only. Script of your `witness_receive` claim destination, where you will move the RGB allocation when you claim. Not the HTLC script. |
 
 <Note>
   `x_only_public_key`, `refund_control_block`, and `fast_refund_control_block` are only meaningful for `deposit_type=escrowed`.
 </Note>
+
+For RGB USDT swaps, the request does not include the asset or amount; load them from the quote. See [RGB USDT in Utexo Swap](/product-suite/swap/rgb#for-resolvers).
 
 ## Solana co-signed transaction callback
 
