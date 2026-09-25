@@ -33,7 +33,7 @@ End to end with `fetch` and [viem](https://viem.sh): quote, intent, Permit2 sign
 import { hexToBigInt, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-const BASE_URL = "https://api.swap.utexo.com/affiliate";
+const BASE_URL = "https://api-swap.utexo.com/affiliate";
 const API_KEY = process.env.UTEXO_SWAP_API_KEY!;
 const account = privateKeyToAccount(process.env.PRIVATE_KEY as Hex);
 const destinationAddress = process.env.DESTINATION_ADDRESS!;

@@ -78,7 +78,7 @@ GET /affiliate/v1/tokens
 ## Example
 
 ```ts
-const BASE_URL = "https://api.swap.utexo.com/affiliate";
+const BASE_URL = "https://api-swap.utexo.com/affiliate";
 const headers = { "X-API-Key": process.env.UTEXO_SWAP_API_KEY! };
 
 const networks = await fetch(`${BASE_URL}/v1/networks`, { headers }).then((r) => r.json());

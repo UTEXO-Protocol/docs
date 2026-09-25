@@ -51,7 +51,7 @@ Then submit the signed PSBT from your backend, where the API key lives:
 
 ```ts
 // Server: attach the approval to the intent
-await fetch(`https://api.swap.utexo.com/affiliate/v1/intents/${intentId}/approvals`, {
+await fetch(`https://api-swap.utexo.com/affiliate/v1/intents/${intentId}/approvals`, {
   method: "POST",
   headers: {
     "Content-Type": "application/json",

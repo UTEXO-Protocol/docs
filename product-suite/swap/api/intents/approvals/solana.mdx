@@ -22,7 +22,7 @@ When `approval_mechanism` is `cosign`, `params_to_sign.transaction` is a hex-enc
 import { Keypair, VersionedTransaction } from "@solana/web3.js";
 import bs58 from "bs58";
 
-const BASE_URL = "https://api.swap.utexo.com/affiliate";
+const BASE_URL = "https://api-swap.utexo.com/affiliate";
 const API_KEY = process.env.UTEXO_SWAP_API_KEY!;
 const keypair = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
 const destinationAddress = process.env.DESTINATION_ADDRESS!;

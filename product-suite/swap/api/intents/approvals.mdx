@@ -54,7 +54,7 @@ The body depends on the approval mechanism returned when the intent was created.
 ## Example
 
 ```ts
-const BASE_URL = "https://api.swap.utexo.com/affiliate";
+const BASE_URL = "https://api-swap.utexo.com/affiliate";
 
 async function addApproval(intentId: string, approval: object): Promise<void> {
   const response = await fetch(`${BASE_URL}/v1/intents/${intentId}/approvals`, {
