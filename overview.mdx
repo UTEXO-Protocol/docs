@@ -73,7 +73,7 @@ In either model, the RLN integration covers both on-chain and Lightning function
 
 ## Signing and trust boundaries
 
-- **RLN** maintains security-sensitive wallet and Lightning state and performs signing operations. Remote external-signer support is experimental and must be validated for each deployment.
+- **RLN** maintains security-sensitive wallet and Lightning state and performs signing operations. RLN can also run in external-signer mode, where a VLS-backed signer holds the keys and the node holds none; see [Remote Signer](/security/rln-remote-signer).
 - **Self-hosted operators** are responsible for API authentication, TLS or private networking, data protection, backups, dependency security, and incident recovery.
 - **Utexo Cloud** adds a separate control-plane trust boundary. Cloud API tokens and RLN runtime credentials serve different purposes and must be managed independently.
 
@@ -93,5 +93,7 @@ Utexo Cloud may manage some of these infrastructure concerns, but it does not ch
 
 - Read [Self-Hosted RGB Lightning Node](/rgb-lightning-node/self-hosted-rgb-lightning-node) to install and operate RLN on your own infrastructure.
 - Use the [RGB Lightning Node API](/rgb-lightning-node/rgb-lightning-node-api) for the runtime REST endpoints.
-- Review [Remote Signer](/security/rln-remote-signer) before evaluating an external signing architecture.
+- Follow the [RLN Quick Start](/rgb-lightning-node/quickstart) to launch a node and move RGB USDT end to end.
+- Read [Getting Started with RGB](/getting-started/rgb-concepts) if RGB invoices, colored UTXOs, and consignments are new to you.
+- Review [Remote Signer](/security/rln-remote-signer) to keep keys outside the node.
 - Use **Utexo Cloud → Node Management** and **Access Token Authorization** for managed RLN lifecycle operations.

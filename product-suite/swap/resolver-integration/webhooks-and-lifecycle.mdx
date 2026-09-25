@@ -31,7 +31,7 @@ Verify the signature over the concatenation `timestamp_bytes + raw_body_bytes` u
 <Warning>
   - Verify against the **raw request bytes** before JSON parsing. Re-serialization changes the signed payload.
   - Reject any request with an invalid signature.
-  - Enforce a timestamp freshness and replay window. The acceptable window is not documented in the source; confirm the exact policy with Utexo.
+  - Enforce a timestamp freshness and replay window. Confirm the exact policy with Utexo.
   - Use the event type and intent identifier (`id` or `intent_id`, depending on the event) as the idempotency key, and persist processed lifecycle transitions.
 </Warning>
 

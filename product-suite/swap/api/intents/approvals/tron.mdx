@@ -1,0 +1,95 @@
+---
+title: "Signing an Intent for Tron"
+description: "Build and sign the Permit2 typed-data approval for a Tron source chain with TronWeb."
+sidebarTitle: "Tron"
+---
+
+Permit2 on Tron lets the user lock tokens and produce a signature that authorizes the swap. Tokens remain secure until the resolver executes the swap, on Tron or across chains, using the signature to move funds into escrow.
+
+The typed data is built exactly as for [EVM](/product-suite/swap/api/intents/approvals/evm#how-the-signature-is-built); on Tron the user signs it with TronWeb.
+
+<Note>
+  The user must have granted the Permit2 contract an allowance on the source token first. See [Approve for Permit2](/product-suite/swap/on-chain-helpers/approve-for-permit2).
+</Note>
+
+## Example
+
+```ts
+import { TronWeb } from "tronweb";
+
+const BASE_URL = "https://api-swap.utexo.com/affiliate";
+const API_KEY = process.env.UTEXO_SWAP_API_KEY!;
+const privateKey = process.env.PRIVATE_KEY!;
+const destinationAddress = process.env.DESTINATION_ADDRESS!;
+
+const tronWeb = new TronWeb({ fullHost: "https://api.trongrid.io", privateKey });
+
+async function api<T>(path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`${path} failed: ${response.status} ${text}`);
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+const userAddress = tronWeb.address.fromPrivateKey(privateKey);
+if (!userAddress) throw new Error("The private key does not produce a valid Tron address");
+
+// 1. Quote: USDT on Tron -> WETH on Ethereum
+const quote = await api<any>("/v1/quotes/best", {
+  source_chain: 2,
+  source_token: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+  dest_chain: 1,
+  dest_token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  amount: 2,
+  slippage_bps: "50",
+  swap_type: "standard",
+  deposit_type: "escrowed",
+  retail_user_id: null,
+  user_meta: null,
+  affiliate_fees: null,
+});
+
+// 2. Intent
+const intent = await api<any>("/v1/intents", {
+  quote_id: quote.id,
+  user_source_address: userAddress,
+  user_destination_address: destinationAddress,
+  refund_address: userAddress,
+  user_source_public_key: null,
+});
+
+// 3. Build the Permit2 typed data (same rules as EVM)
+const params = intent.params_to_sign;
+const data = params.additional_data;
+const toDecimal = (hex?: string) => (hex ? BigInt(hex).toString() : undefined);
+
+const domain = {
+  name: data.domain.name,
+  chainId: data.domain.chainId,
+  verifyingContract: data.domain.verifyingContract,
+};
+const message = {
+  permitted: { token: quote.source_token, amount: quote.source_amount_lots },
+  spender: params.escrow_contract_address,
+  nonce: params.nonce,
+  deadline: intent.deadline_secs,
+  witness: {
+    ...data.witness,
+    ...(data.witness.minAmountOut ? { minAmountOut: toDecimal(data.witness.minAmountOut) } : {}),
+    ...(data.witness.maxAmountOut ? { maxAmountOut: toDecimal(data.witness.maxAmountOut) } : {}),
+    ...(data.witness.deadline ? { deadline: toDecimal(data.witness.deadline) } : {}),
+  },
+};
+
+const signature = tronWeb.trx.signTypedData(domain, data.types, message, privateKey);
+
+// 4. Approval
+await api(`/v1/intents/${intent.intent_id}/approvals`, {
+  type: "permit2",
+  signed_data: signature,
+});
+```

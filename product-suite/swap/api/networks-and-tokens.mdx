@@ -1,76 +1,86 @@
 ---
 title: "Networks and Tokens"
-description: "Discover Utexo Swap availability, supported networks, and supported tokens."
+description: "List the networks and tokens supported by Utexo Swap."
 sidebarTitle: "Networks and Tokens"
 ---
 
-## Overview
+## List networks
 
-Use these endpoints before requesting a quote. Network and token availability can differ by environment.
+Retrieve all blockchain networks supported by Utexo Swap.
 
-### `GET /healthcheck`
-
-Checks whether the Utexo API can accept requests.
-
-**Authentication:** `X-API-Key`
-
-The endpoint accepts no path, query, or body parameters and does not support pagination.
-
-```bash
-curl -X GET \
-  'BASE_URL_PLACEHOLDER/healthcheck' \
-  -H 'accept: application/json' \
-  -H 'X-API-Key: API_KEY_PLACEHOLDER'
+```http
+GET /affiliate/v1/networks
 ```
 
-A successful request returns `200 OK` with an empty body. A `503 Service Unavailable` response can return:
+**Response example**
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Ethereum",
+    "type": "EVM",
+    "supports_optimized_swap": false,
+    "icon_url": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png",
+    "supports_custom_tokens": false
+  }
+]
+```
+
+<Info>
+  If `supports_custom_tokens` is `true` for a network, users can swap custom tokens on that network. In that case the tokens returned for the network are popular tokens, not a complete list of supported tokens.
+</Info>
+
+## List tokens
+
+Retrieve a paginated list of tokens supported across all networks. Supports pagination, filtering by network, and searching by token symbol, name, or contract address.
+
+```http
+GET /affiliate/v1/tokens
+```
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | integer | No | Maximum number of tokens to return |
+| `offset` | integer | No | Number of tokens to skip before returning results |
+| `q` | string | No | Search query for token symbol, token name, or contract address |
+| `network_id` | integer | No | Filter tokens by network |
+
+**Response example**
 
 ```json
 {
-  "code": 0,
-  "message": "string"
+  "data": [
+    {
+      "network_id": 1,
+      "name": "Tether USD",
+      "contract_address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "symbol": "USDT",
+      "icon_url": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png",
+      "wrapped_token_address": null
+    }
+  ],
+  "pagination": {
+    "limit": 10,
+    "offset": 0,
+    "pages": 10,
+    "total": 500
+  }
 }
 ```
 
-### `GET /networks`
+<Info>
+  If a token has a non-empty `wrapped_token_address`, it must be wrapped before use. See [Wrap Native Tokens](/product-suite/swap/on-chain-helpers/wrap-native-tokens).
+</Info>
 
-Returns the blockchain networks available through Utexo.
+## Example
 
-**Authentication:** `X-API-Key`
+```ts
+const BASE_URL = "https://api-swap.utexo.com/affiliate";
+const headers = { "X-API-Key": process.env.UTEXO_SWAP_API_KEY! };
 
-| Query parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `token` | string | No | Filters networks by token contract address. |
-
-```bash
-curl -X GET \
-  'BASE_URL_PLACEHOLDER/networks?token=0xdac17f958d2ee523a2206206994597c13d831ec7' \
-  -H 'accept: application/json' \
-  -H 'X-API-Key: API_KEY_PLACEHOLDER'
+const networks = await fetch(`${BASE_URL}/v1/networks`, { headers }).then((r) => r.json());
+const tokens = await fetch(`${BASE_URL}/v1/tokens?network_id=1&q=USDT&limit=10`, { headers }).then((r) => r.json());
 ```
-
-| Response field | Type | Description |
-| --- | --- | --- |
-| `networks` | array | Supported blockchain networks. |
-| `networks[].id` | integer | Network identifier. |
-| `networks[].name` | string | Network name. |
-| `networks[].type` | enum | `EVM`, `TRON`, `BITCOIN`, or `SOLANA`. |
-| `networks[].iconUrl` | string | Network icon URL. |
-| `networks[].features` | object | Network feature settings. |
-| `networks[].features.supportsCustomTokens` | boolean | Whether the network supports custom tokens. |
-| `networks[].features.supportsOptimizedSwap` | boolean | Whether the network supports optimized swaps. |
-
-### `GET /tokens`
-
-Returns a paginated list of tokens available for swaps.
-
-**Authentication:** `X-API-Key`
-
-| Query parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `limit` | integer | No | Maximum number of results to return. |
-| `offset` | integer | No | Number of results to skip. |
-| `q` | string | No | Searches by token symbol or contract address. |
-| `network-id` | integer | No | Filters tokens by network ID. |
-
-For example, request the second page of 20 results with `limit=20&offset=20`.

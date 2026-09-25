@@ -1,0 +1,26 @@
+---
+title: "Intents"
+description: "What an intent is and how it moves from creation to settlement."
+sidebarTitle: "Overview"
+---
+
+An intent represents a user's request to perform a swap. It can only be created from a quote, to which it is attached. The intent defines **what** the user wants to do; the protocol handles **how** it is executed.
+
+Intents are chain-agnostic and support multiple blockchains and approval mechanisms.
+
+## Intent lifecycle
+
+<Steps>
+  <Step title="Creation">
+    The client [creates an intent](/product-suite/swap/api/intents/creation) from a quote with the user's addresses.
+  </Step>
+  <Step title="Approval">
+    The user authorizes use of their funds with the chain-specific [approval mechanism](/product-suite/swap/api/intents/approvals): Permit2 on EVM and Tron, a PSBT on Bitcoin, or a cosigned transaction on Solana.
+  </Step>
+  <Step title="Execution">
+    Once approved, the resolver processes the intent and executes the swap.
+  </Step>
+  <Step title="Status tracking">
+    The client can [query the intent status](/product-suite/swap/api/intents/status) at any time to track progress or the final outcome.
+  </Step>
+</Steps>

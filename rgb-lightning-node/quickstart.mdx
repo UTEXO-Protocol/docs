@@ -1,0 +1,400 @@
+---
+title: "RLN Quick Start"
+description: "Launch two RGB Lightning Nodes, fund them, issue an RGB asset, transfer it, and try RGB over Lightning on testnet."
+sidebarTitle: "Quick Start"
+---
+
+This guide takes a new integrator from zero to a working RGB transfer with two [RGB Lightning Nodes (RLN)](/overview): launch the receiver, top it up, launch a sender, issue an asset, send a small blinded transfer, then create and pay another invoice. The on-chain path is the one available on mainnet today; the Lightning path runs on testnet.
+
+<Warning>
+  This guide uses testnet3 and disables authentication to keep the steps short. Never use `--disable-authentication` in production, and never use mainnet keys or real funds while following this guide.
+</Warning>
+
+<Info>
+  New to RGB? Read [Getting Started with RGB](/getting-started/rgb-concepts) first — it explains invoices, colored UTXOs, and consignments used below. Request and response schemas for every call are in the [API reference](https://utexo-protocol.github.io/rgb-lightning-node).
+</Info>
+
+## 1. Launch the node
+
+Build RLN (see [Self-Hosted RGB Lightning Node](/rgb-lightning-node/self-hosted-rgb-lightning-node#installation) for Docker and other options):
+
+```bash
+git clone https://github.com/UTEXO-Protocol/rgb-lightning-node --recurse-submodules --shallow-submodules
+cd rgb-lightning-node
+cargo install --locked --path .
+```
+
+Start the receiving node on testnet3:
+
+```bash
+rgb-lightning-node dataldk0/ \
+  --daemon-listening-port 3001 \
+  --ldk-peer-listening-port 9735 \
+  --network testnet \
+  --disable-authentication
+```
+
+Initialise the node once. The response contains the mnemonic — store it securely; it is the only way to recover the wallet.
+
+```bash
+curl -X POST http://localhost:3001/init \
+  -H "Content-Type: application/json" \
+  -d '{"password": "nodepassword"}'
+```
+
+Unlock it (required after every start), using the public testnet3 services:
+
+```bash
+curl -X POST http://localhost:3001/unlock \
+  -H "Content-Type: application/json" \
+  -d '{
+    "password": "nodepassword",
+    "ldk_chain_sync": {
+      "mode": "BlockSync",
+      "config": {
+        "bitcoind_rpc_username": "user",
+        "bitcoind_rpc_password": "password",
+        "bitcoind_rpc_host": "electrum.iriswallet.com",
+        "bitcoind_rpc_port": 18332
+      }
+    },
+    "indexer_url": "ssl://electrum.iriswallet.com:50013",
+    "proxy_endpoint": "rpcs://proxy.iriswallet.com/0.2/json-rpc",
+    "announce_addresses": []
+  }'
+```
+
+Check that the node is up:
+
+```bash
+curl http://localhost:3001/nodeinfo
+```
+
+## 2. Top up
+
+Get a Bitcoin address and send testnet3 BTC to it. The Bitcoin Wiki keeps a list of [testnet faucets](https://en.bitcoin.it/wiki/Testnet#Testnet_Faucets); make sure the faucet supports testnet3 before using the address.
+
+```bash
+curl -X POST http://localhost:3001/address
+```
+
+Check the balance once the transaction confirms. `vanilla` is spendable BTC; `colored` holds the UTXOs that carry RGB assets.
+
+```bash
+curl -X POST http://localhost:3001/btcbalance \
+  -H "Content-Type: application/json" \
+  -d '{"skip_sync": false}'
+```
+
+Create colored UTXOs. RGB allocations are bound to Bitcoin UTXOs, so the node needs some before it can receive or hold assets:
+
+```bash
+curl -X POST http://localhost:3001/createutxos \
+  -H "Content-Type: application/json" \
+  -d '{"up_to": false, "num": 4, "size": 32500, "fee_rate": 5, "skip_sync": false}'
+```
+
+## 3. Launch and top up a sender node
+
+Open a second terminal and start another node on different ports. This node will issue and send the test asset.
+
+```bash
+rgb-lightning-node dataldk1/ \
+  --daemon-listening-port 3003 \
+  --ldk-peer-listening-port 9736 \
+  --network testnet \
+  --disable-authentication
+```
+
+Initialise and unlock the sender with the same testnet3 services:
+
+```bash
+curl -X POST http://localhost:3003/init \
+  -H "Content-Type: application/json" \
+  -d '{"password": "nodepassword"}'
+
+curl -X POST http://localhost:3003/unlock \
+  -H "Content-Type: application/json" \
+  -d '{
+    "password": "nodepassword",
+    "ldk_chain_sync": {
+      "mode": "BlockSync",
+      "config": {
+        "bitcoind_rpc_username": "user",
+        "bitcoind_rpc_password": "password",
+        "bitcoind_rpc_host": "electrum.iriswallet.com",
+        "bitcoind_rpc_port": 18332
+      }
+    },
+    "indexer_url": "ssl://electrum.iriswallet.com:50013",
+    "proxy_endpoint": "rpcs://proxy.iriswallet.com/0.2/json-rpc",
+    "announce_addresses": []
+  }'
+```
+
+Repeat the top-up steps from the previous section for the sender: request a Bitcoin address, fund it with testnet3 BTC, check the BTC balance, and create colored UTXOs.
+
+```bash
+curl -X POST http://localhost:3003/address
+
+curl -X POST http://localhost:3003/btcbalance \
+  -H "Content-Type: application/json" \
+  -d '{"skip_sync": false}'
+
+curl -X POST http://localhost:3003/createutxos \
+  -H "Content-Type: application/json" \
+  -d '{"up_to": false, "num": 4, "size": 32500, "fee_rate": 5, "skip_sync": false}'
+```
+
+## 4. Issue an asset on the sender
+
+Issue a test NIA asset from the sender node:
+
+```bash
+curl -X POST http://localhost:3003/issueassetnia \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amounts": [500, 400],
+    "ticker": "TESTC",
+    "name": "TestCoin",
+    "precision": 0
+  }'
+```
+
+The response contains the asset ID. Confirm that the sender can list the new asset:
+
+```bash
+curl -X POST http://localhost:3003/listassets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filter_asset_schemas": [
+      "Nia",
+      "Uda",
+      "Cfa",
+      "Ifa"
+    ]
+  }'
+```
+
+Use this value as `rgb:<ASSET_ID>` when the sender selects which asset to transfer.
+
+## 5. Send a first blinded transfer to the receiver
+
+Create a blinded RGB invoice on the receiver. Do not include `asset_id` here: the receiver does not know the contract yet, and the sender will choose the asset when it pays the invoice.
+
+```bash
+curl -X POST http://localhost:3001/rgbinvoice \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assignment": {"type": "Fungible", "value": 1},
+    "min_confirmations": 1,
+    "witness": false,
+    "transport_endpoints": ["rpcs://proxy.iriswallet.com/0.2/json-rpc"]
+  }'
+```
+
+The response contains an `invoice` string and a `recipient_id`. Send 1 base unit of `rgb:<ASSET_ID>` from the sender to that blinded invoice. This first transfer makes the receiver aware of the asset before it creates later invoices for the same contract.
+
+```bash
+curl -X POST http://localhost:3003/sendrgb \
+  -H "Content-Type: application/json" \
+  -d '{
+    "donation": false,
+    "fee_rate": 5,
+    "min_confirmations": 1,
+    "recipient_map": {
+      "rgb:<ASSET_ID>": [
+        {
+          "recipient_id": "<RECIPIENT_ID>",
+          "assignment": {"type": "Fungible", "value": 1},
+          "transport_endpoints": ["rpcs://proxy.iriswallet.com/0.2/json-rpc"]
+        }
+      ]
+    }
+  }'
+```
+
+Refresh the receiver, then verify that it now lists the asset:
+
+```bash
+curl -X POST http://localhost:3001/refreshtransfers \
+  -H "Content-Type: application/json" \
+  -d '{"filter": [], "skip_sync": false}'
+
+curl -X POST http://localhost:3001/listassets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filter_asset_schemas": [
+      "Nia",
+      "Uda",
+      "Cfa",
+      "Ifa"
+    ]
+  }'
+```
+
+<Info>
+  The examples above use blinded RGB invoices (`"witness": false`). For non-blinded witness invoices, both the receiver and the sender should already know the asset because the invoice exposes the asset being requested.
+</Info>
+
+## 6. Create an invoice
+
+On the **receiving** node, create a new RGB invoice for the asset and amount you expect. The receiver can now use the asset ID from its own `POST /listassets` response.
+
+```bash
+curl -X POST http://localhost:3001/rgbinvoice \
+  -H "Content-Type: application/json" \
+  -d '{
+    "asset_id": "rgb:<ASSET_ID>",
+    "assignment": {"type": "Fungible", "value": 100},
+    "min_confirmations": 1,
+    "witness": false,
+    "transport_endpoints": ["rpcs://proxy.iriswallet.com/0.2/json-rpc"]
+  }'
+```
+
+The response contains the `invoice` string to share with the sender and its `recipient_id`.
+
+<Tip>
+  Amounts are integer base units. One displayed unit is `10 ** precision` base units.
+</Tip>
+
+## 7. Pay the invoice
+
+On the **sending** node, pay the invoice with `POST /sendrgb`, using the `recipient_id` from the invoice:
+
+```bash
+curl -X POST http://localhost:3003/sendrgb \
+  -H "Content-Type: application/json" \
+  -d '{
+    "donation": false,
+    "fee_rate": 5,
+    "min_confirmations": 1,
+    "recipient_map": {
+      "rgb:<ASSET_ID>": [
+        {
+          "recipient_id": "<RECIPIENT_ID>",
+          "assignment": {"type": "Fungible", "value": 100},
+          "transport_endpoints": ["rpcs://proxy.iriswallet.com/0.2/json-rpc"]
+        }
+      ]
+    }
+  }'
+```
+
+Use `POST /decodergbinvoice` to read the `recipient_id`, asset, amount, and transport endpoints from an invoice string.
+
+## 8. Confirm settlement
+
+Both nodes refresh their transfers while the transfer moves through the RGB and Bitcoin confirmation flow:
+
+```bash
+curl -X POST http://localhost:3001/refreshtransfers \
+  -H "Content-Type: application/json" \
+  -d '{"filter": [], "skip_sync": false}'
+```
+
+Then check the receiver's balance:
+
+```bash
+curl -X POST http://localhost:3001/assetbalance \
+  -H "Content-Type: application/json" \
+  -d '{"asset_id": "rgb:<ASSET_ID>"}'
+```
+
+`settled` shows confirmed balance; `future` includes pending incoming transfers. Use `POST /listtransfers` to inspect individual transfers.
+
+## 9. Try RGB over Lightning (testnet only)
+
+The same node also handles RGB-enabled Lightning payments. On testnet:
+
+1. `POST /connectpeer` with `peer_pubkey_and_addr` (`<pubkey>@<host>:<port>`).
+
+```bash
+curl -X POST http://localhost:3003/connectpeer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "peer_pubkey_and_addr": "<RECEIVER_PUBKEY>@127.0.0.1:9735"
+  }'
+```
+
+Use `GET /nodeinfo` on the receiver to get `<RECEIVER_PUBKEY>`:
+
+```bash
+curl http://localhost:3001/nodeinfo
+```
+
+2. `POST /openchannel` with the peer, `capacity_sat`, `asset_id`, and `asset_amount` to open an RGB channel. RGB channels require anchor outputs, so set `with_anchors` to `true`.
+
+Make sure the sender still has available UTXOs before opening the channel. If `POST /openchannel` returns `NoAvailableUtxos`, create more UTXOs on the sender and retry after they confirm:
+
+```bash
+curl -X POST http://localhost:3003/createutxos \
+  -H "Content-Type: application/json" \
+  -d '{"up_to": false, "num": 4, "size": 32500, "fee_rate": 5, "skip_sync": false}'
+```
+
+```bash
+curl -X POST http://localhost:3003/openchannel \
+  -H "Content-Type: application/json" \
+  -d '{
+    "peer_pubkey_and_opt_addr": "<RECEIVER_PUBKEY>@127.0.0.1:9735",
+    "capacity_sat": 100000,
+    "push_msat": 0,
+    "public": true,
+    "with_anchors": true,
+    "asset_id": "rgb:<ASSET_ID>",
+    "asset_amount": 100
+  }'
+```
+
+Do not continue if `POST /openchannel` returns an error. A successful response means the funding transaction was submitted; keep both nodes running and wait for the funding transaction to confirm on testnet.
+
+Check `GET /listchannels` on both nodes until the channel appears and is usable:
+
+```bash
+curl http://localhost:3003/listchannels
+curl http://localhost:3001/listchannels
+```
+
+You can also check the sender's node info while waiting:
+
+```bash
+curl http://localhost:3003/nodeinfo
+```
+
+If both nodes keep returning `{"channels":[]}`, the channel has not been opened or persisted yet. Re-check the `POST /openchannel` response first, then wait for the funding transaction confirmation before retrying `GET /listchannels`.
+
+3. On the receiver, `POST /lninvoice` with `amt_msat`, `expiry_sec`, `asset_id`, and `asset_amount`. For RGB asset payments, `amt_msat` must be at least `3000000`. This is the node's default minimum, reported as `rgb_htlc_min_msat` by `GET /nodeinfo`.
+
+```bash
+curl -X POST http://localhost:3001/lninvoice \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amt_msat": 3000000,
+    "expiry_sec": 3600,
+    "asset_id": "rgb:<ASSET_ID>",
+    "asset_amount": 10
+  }'
+```
+
+4. On the sender, `POST /sendpayment` with the `invoice` from the receiver.
+
+```bash
+curl -X POST http://localhost:3003/sendpayment \
+  -H "Content-Type: application/json" \
+  -d '{
+    "invoice": "<LN_INVOICE>"
+  }'
+```
+
+<Note>
+  Lightning on mainnet is not supported yet. Integrations built on the on-chain path keep working unchanged when Lightning reaches mainnet.
+</Note>
+
+## Next steps
+
+- [Self-Hosted RGB Lightning Node](/rgb-lightning-node/self-hosted-rgb-lightning-node) — authentication, sync modes, and the production checklist.
+- [RGB Lightning Node API](/rgb-lightning-node/rgb-lightning-node-api) — the full endpoint list.
+- [Remote Signer](/security/rln-remote-signer) — keep keys outside the node.
+- [Utexo Cloud](/product-suite/RLN-overview) — run RLN without managing servers.

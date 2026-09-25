@@ -1,0 +1,72 @@
+---
+title: "Swap History"
+description: "List swaps for wallet addresses or a retail user, with status and metadata."
+sidebarTitle: "Swap History"
+---
+
+Retrieve the swap history for specific wallet addresses or a retail user. Returns a paginated list of swaps with their current status and metadata.
+
+```http
+GET /affiliate/v1/swaps/history
+```
+
+## Query parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | integer | No | Maximum number of swaps to return |
+| `offset` | integer | No | Number of swaps to skip before returning results |
+| `wallet` | string[] | No | Wallets to query history for, for example `wallet=1&wallet=2` |
+| `retail_id` | string | No | Retail user ID to query history for |
+| `status` | string | No | One of `Submitted`, `Failed`, `Executing`, `Completed`, `Refunding`, `Refunded`, `Expired` |
+| `network` | integer | No | Network ID to filter for |
+| `from` | integer | No | Start timestamp in milliseconds |
+| `to` | integer | No | End timestamp in milliseconds |
+| `token` | string | No | Token name, symbol, or contract address |
+
+<Info>
+  Either `wallet` or `retail_id` must be specified. Omitting both returns a client error.
+</Info>
+
+## Response
+
+A paginated list of swaps. Each item includes the intent status, transaction metadata, and swap details.
+
+```json
+{
+  "items": [
+    {
+      "intent_id": "ad663b54-8fc3-4ab9-992f-00705fc83643",
+      "status": "Fulfilled",
+      "swap_metadata": {
+        "id": "ad663b54-8fc3-4ab9-992f-00705fc83643",
+        "proxy_address": "EJdcVPNgyKUMgsFX1Kcy7TTXuvQoxtp7oLtYtfG2jMfg",
+        "user_deposit_tx": "3QySyu7ByMymZigUT7buk5R794BHoMEdqqvJPKud8UDwHLA6y4wXqBdWQakDkkLbBAwupGHgiRiL1JVDvecxN8fY",
+        "fulfill_tx": "xHcL5Ley44CJWWKzWAhSvfG7YYExRTNsR4Tgx45MXjnvRDXpb5K9X2EE6QRd6SYLytWz9CvEBPa1RiXjSxxdL8V",
+        "swap_tx": null,
+        "created_at": "2026-03-24T09:41:24.698253Z",
+        "user_deposited_at": "2026-03-24T09:41:51.869018Z",
+        "fulfilled_at": "2026-03-24T09:42:21.184734Z",
+        "swapped_at": null,
+        "refunded_at": null,
+        "refund_requested_at": null
+      },
+      "source_amount_decimals": 6,
+      "source_amount_lots": "1000000",
+      "source_chain": 4,
+      "source_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "dest_amount_decimals": 9,
+      "dest_chain": 4,
+      "dest_token": "So11111111111111111111111111111111111111112",
+      "min_dest_amount_lots": "10823996",
+      "max_dest_amount_lots": "10878388",
+      "user_source_address": "F8ZRdxvWEczGyxEBPiYraWCcMjv2sQZxuhh7BGETTDFg",
+      "user_dest_address": "F8ZRdxvWEczGyxEBPiYraWCcMjv2sQZxuhh7BGETTDFg"
+    }
+  ],
+  "limit": 20,
+  "offset": 0,
+  "total": 1,
+  "pages": 1
+}
+```

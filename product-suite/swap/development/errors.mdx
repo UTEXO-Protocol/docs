@@ -1,0 +1,78 @@
+---
+title: "Errors"
+description: "Error response format and error codes returned by the Utexo Swap API."
+sidebarTitle: "Errors"
+---
+
+The API returns errors in a consistent JSON format. Each error includes a numeric code, a short message, and the related entity.
+
+## Error response format
+
+```json
+{
+  "code": 1,
+  "message": "Internal server error",
+  "entity": "Intent"
+}
+```
+
+## Error codes
+
+| Code | Message | Description / Notes |
+| --- | --- | --- |
+| 1 | Internal server error | Database error |
+| 2 | Unexpected swap status | Swap state is not what the service expected |
+| 3 | De/serialization failed | JSON serialization or parsing failed |
+| 4 | Messaging error | Internal messaging/publish step failed |
+| 5 | Error handling event | Event processing failed |
+| 6 | Could not process base58 data | Affiliate API key ID could not be decoded |
+| 7 | The requested resource was not found | Entity or resource was not found |
+| 8 | Failed to process hex data | Hex decoding failed |
+| 9 | Internal server error | Key handling failed |
+| 10 | Malformed approval received | Approval payload is invalid |
+| 11 | Permit2 error | Permit2 processing failed |
+| 12 | Unexpected intent status | Intent is in the wrong state |
+| 13 | Internal server error | Application context is missing |
+| 14 | Malformed header | Required header is missing or invalid |
+| 15 | Unprocessable entity | Server-side serde failed |
+| 16 | Token is unsupported | Token is not supported for the request |
+| 17 | No deposit addresses registered for resolver | Resolver deposit addresses are missing for the network |
+| 18 | Internal server error | Webhook processing failed |
+| 19 | Internal server error | Failed to create fulfillment request hash |
+| 20 | Internal server error | Failed to sign fulfillment request hash |
+| 21 | Internal server error | Keystore operation failed |
+| 22 | Incorrect swap type selected for the chosen chain combination | Swap type is not valid for the selected chains |
+| 23 | Optimized swap on this chain is not supported | Optimized swap is not available for that network |
+| 24 | Internal server error | Provider access failed |
+| 25 | Insufficient balance / Insufficient allowance | Balance or allowance is too low |
+| 26 | Invalid address provided | Address validation failed |
+| 27 | Invalid slippage provided | Slippage value is invalid |
+| 28 | Invalid signature length | Signature length is invalid |
+| 29 | Failed to process withdrawToUser | User withdraw task failed |
+| 31 | Public key is required | Resolver deposit public key is missing |
+| 32 | Invalid public key | Public key is invalid |
+| 33 | Internal server error | BTC transaction builder failed |
+| 34 | Internal server error | The backend could not complete communication with the resolver or could not process the resolver response. |
+| 35 | Forbidden operation | Network pair is forbidden |
+| 36 | Internal server error | Bincode serialization/deserialization failed |
+| 37 | Invalid amount provided | Amount is invalid |
+| 38 | Invalid pair provided | Token pair is invalid |
+| 39 | Invalid swap type provided | Swap type is invalid |
+| 40 | Swap amount is too small | Resolver quoted an amount below minimum |
+| 41 | Swap amount is too large | Resolver quoted an amount above maximum |
+| 42 | Missing required query parameters | Required query parameters were omitted |
+| 43 | Native tokens cannot be used as a source token. Wrapped token should be used instead | Source token is invalid for the request |
+| 44 | Direct deposit (escrow as a feature) is not supported by any resolver | Direct deposit is not supported |
+| 45 | Internal server error | Signature creation failed |
+| 46 | The requested pair cannot be quoted | No quote is available for the requested pair |
+| 47 | Invalid fulfillment submission signature | Fulfillment signature validation failed |
+| 48 | Intent for this quote already exists | Quote has already been used for this intent |
+| 53 | Inactive API key | Affiliate API key is inactive |
+| 57 | Affiliate fee key is reserved | Affiliate tried to use a reserved fee key |
+| 59 | Invalid fee bps provided | Fee basis points are invalid |
+| 60 | Resolver API error | The resolver failed while processing the quote request. |
+| 61 | Call to the resolver API timed out | The resolver did not respond within the allowed time window. The quote request may be retried later. |
+
+<Note>
+  Code **25** during approval submission usually means the user has not yet approved Permit2 for the source token. See [Approve for Permit2](/product-suite/swap/on-chain-helpers/approve-for-permit2). Code **43** means a native token was used as the source; wrap it first, see [Wrap Native Tokens](/product-suite/swap/on-chain-helpers/wrap-native-tokens).
+</Note>

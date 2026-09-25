@@ -27,6 +27,34 @@
     {
       "source": "/cloud/rgb-lightning-node-api",
       "destination": "/rgb-lightning-node/rgb-lightning-node-api"
+    },
+    {
+      "source": "/product-suite/swap/integration/overview",
+      "destination": "/product-suite/swap/development/user-flow"
+    },
+    {
+      "source": "/product-suite/swap/integration/user-flow",
+      "destination": "/product-suite/swap/development/user-flow"
+    },
+    {
+      "source": "/product-suite/swap/integration/authorization",
+      "destination": "/product-suite/swap/development/authorization"
+    },
+    {
+      "source": "/product-suite/swap/api/intents-and-approvals",
+      "destination": "/product-suite/swap/api/intents"
+    },
+    {
+      "source": "/product-suite/swap/api/swaps",
+      "destination": "/product-suite/swap/api/swap-history"
+    },
+    {
+      "source": "/product-suite/swap/api/affiliates",
+      "destination": "/product-suite/swap/api/quotes"
+    },
+    {
+      "source": "/product-suite/swap/resolver-integration/validation-gaps",
+      "destination": "/product-suite/swap/resolver-integration/overview"
     }
   ],
   "navigation": {
@@ -51,6 +79,7 @@
               "getting-started/quickstart/web"
             ]
           },
+          "getting-started/rgb-concepts",
           "getting-started/glossary"
         ]
       },
@@ -80,15 +109,49 @@
               "product-suite/swap",
               "product-suite/swap/security-model",
               {
-                "group": "API Reference",
+                "group": "Development",
                 "pages": [
-                  "product-suite/swap/api/affiliates",
-                  "product-suite/swap/api/networks-and-tokens",
-                  "product-suite/swap/api/quotes",
-                  "product-suite/swap/api/intents-and-approvals",
-                  "product-suite/swap/api/swaps"
+                  "product-suite/swap/development/user-flow",
+                  "product-suite/swap/development/authorization",
+                  "product-suite/swap/development/errors",
+                  "product-suite/swap/development/resources"
                 ]
               },
+              {
+                "group": "API Reference",
+                "pages": [
+                  "product-suite/swap/api/networks-and-tokens",
+                  "product-suite/swap/api/quotes",
+                  {
+                    "group": "Intents",
+                    "pages": [
+                      "product-suite/swap/api/intents",
+                      "product-suite/swap/api/intents/creation",
+                      {
+                        "group": "Approvals",
+                        "pages": [
+                          "product-suite/swap/api/intents/approvals",
+                          "product-suite/swap/api/intents/approvals/evm",
+                          "product-suite/swap/api/intents/approvals/tron",
+                          "product-suite/swap/api/intents/approvals/solana",
+                          "product-suite/swap/api/intents/approvals/bitcoin"
+                        ]
+                      },
+                      "product-suite/swap/api/intents/status"
+                    ]
+                  },
+                  "product-suite/swap/api/swap-history",
+                  "product-suite/swap/api/system-health-check"
+                ]
+              },
+              {
+                "group": "On-chain Helpers",
+                "pages": [
+                  "product-suite/swap/on-chain-helpers/wrap-native-tokens",
+                  "product-suite/swap/on-chain-helpers/approve-for-permit2"
+                ]
+              },
+              "product-suite/swap/rgb",
               {
                 "group": "Resolver Integration",
                 "pages": [
@@ -98,23 +161,7 @@
                   "product-suite/swap/resolver-integration/webhooks-and-lifecycle",
                   "product-suite/swap/resolver-integration/evm-tron-settlement",
                   "product-suite/swap/resolver-integration/solana-settlement",
-                  "product-suite/swap/resolver-integration/bitcoin-settlement",
-                  "product-suite/swap/resolver-integration/validation-gaps"
-                ]
-              },
-              {
-                "group": "Integration",
-                "pages": [
-                  "product-suite/swap/integration/overview",
-                  "product-suite/swap/integration/authorization",
-                  "product-suite/swap/integration/user-flow"
-                ]
-              },
-              {
-                "group": "On-chain Helpers",
-                "pages": [
-                  "product-suite/swap/on-chain-helpers/wrap-native-tokens",
-                  "product-suite/swap/on-chain-helpers/approve-for-permit2"
+                  "product-suite/swap/resolver-integration/bitcoin-settlement"
                 ]
               }
             ]
@@ -126,6 +173,7 @@
               {
                 "group": "RGB Lightning Node",
                 "pages": [
+                  "rgb-lightning-node/quickstart",
                   "rgb-lightning-node/self-hosted-rgb-lightning-node",
                   "rgb-lightning-node/rgb-lightning-node-api",
                   {

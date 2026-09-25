@@ -13,7 +13,7 @@ By grouping these components under a common execution model, Utexo reduces the n
     REST API and client library for native USDT transfers and RGB asset operations on Bitcoin.
   </Card>
 
-  <Card title="Cloud" icon="cloud" href="/product-suite/cloud">
+  <Card title="Cloud" icon="cloud" href="/product-suite/RLN-overview">
     Managed infrastructure for running RGB-enabled Lightning nodes without self-hosting.
   </Card>
 
@@ -22,7 +22,7 @@ By grouping these components under a common execution model, Utexo reduces the n
   </Card>
 
   <Card title="Swap" icon="arrows-rotate" href="/product-suite/swap">
-    Non-custodial BTC ↔ USDT swaps with instant finality and LP functionality.
+    Non-custodial, intent-based cross-chain swaps across Bitcoin, Ethereum, Tron, and Solana.
   </Card>
 </CardGroup>
 
@@ -54,7 +54,7 @@ Capabilities include:
 - **VSS integration** — Verifiable Secret Sharing for non-custodial cloud key management
 
 <Info>
-  See the [Cloud documentation](/product-suite/cloud) for setup and configuration.
+  See the [Cloud documentation](/product-suite/RLN-overview) for setup and configuration.
 </Info>
 
 ## Mint
@@ -70,22 +70,22 @@ Key properties:
 - **Native RGB output** — minted assets are immediately usable in Utexo payment and swap flows
 
 <Info>
-  See the [Mint documentation](/product-suite/mint-getting-started) for supported networks and integration steps.
+  See the [Mint documentation](/mint/getting-started) for supported networks and integration steps.
 </Info>
 
 ## Swap
 
-The Utexo Swap DEX provides non-custodial BTC ↔ USDT exchange on Bitcoin with instant finality. It enables operators and users to rebalance between BTC and stablecoin positions without leaving the RGB/Lightning stack.
+Utexo Swap is an intent-based liquidity layer for cross-chain swaps across Bitcoin, Ethereum, Tron, and Solana, exposed through a single REST API for wallets, exchanges, and other integration partners.
 
 Key properties:
 
-- **Native BTC ↔ USDT swaps** — settled directly on the RGB protocol with Lightning execution
-- **Privacy-preserving** — swap activity uses the same client-side validation model as standard RGB transfers
-- **LP functionality** — liquidity providers can supply RGB-native assets and earn fees
-- **Instant finality** — trades settle without waiting for on-chain confirmations
+- **Competitive pricing** — resolvers compete through request-for-quote (RFQ) to price and fulfill each swap
+- **Non-custodial** — each swap settles through a dedicated escrow on the source chain; it completes in full or refunds
+- **One integration** — quotes, intents, chain-specific approvals, and status tracking through one API
+- **USDT on Bitcoin** — see [RGB USDT in Utexo Swap](/product-suite/swap/rgb) for what platforms and resolvers need
 
 <Info>
-  See the [Swap documentation](/product-suite/swap) for trading and liquidity provider guides.
+  See the [Swap documentation](/product-suite/swap) for the API reference and integration guides.
 </Info>
 
 ## Further Reading

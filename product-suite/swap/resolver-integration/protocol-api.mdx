@@ -6,6 +6,8 @@ sidebarTitle: "Protocol API"
 
 The Protocol API is the direction resolvers call **on Utexo**. Callbacks Utexo makes on the resolver are documented in the [Resolver API](/product-suite/swap/resolver-integration/resolver-api).
 
+The interactive reference for these endpoints is the [Resolver API Swagger](https://docs-swap.utexo.com/docs/).
+
 ## Authentication
 
 Every request must include your resolver API key:
@@ -130,11 +132,11 @@ Resolvers must report each on-chain step. For standard swaps, report in order: *
 Batched withdrawal reporting.
 
 <Warning>
-  The source does not document the request or response schema for this endpoint. Confirm the payload with Utexo before implementing.
+  Confirm the request and response payload for this endpoint with Utexo before implementing.
 </Warning>
 
 <Note>
-  Optimized swaps report only the `Swap` step, but the source does not document the optimized swap reporting endpoint. See [Validation Gaps](/product-suite/swap/resolver-integration/validation-gaps).
+  Optimized swaps report only the `Swap` step. Confirm the reporting endpoint for optimized swaps with Utexo during onboarding.
 </Note>
 
 ## Secret retrieval
