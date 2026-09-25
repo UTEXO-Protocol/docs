@@ -18,15 +18,15 @@ To support RGB USDT, the user needs an RGB-capable wallet. See [Getting Started 
   <Step title="Quote and intent">
     Quote and create the intent as for any swap, with `deposit_type: "escrowed"`. `user_source_public_key` is required, as for other Bitcoin sources.
   </Step>
-  <Step title="Read the rgb_lock approval">
-    The intent response returns `approval_mechanism: "rgb_lock"`:
+  <Step title="Read the rgblock approval">
+    The intent response returns `approval_mechanism: "rgblock"`:
 
     ```json
     {
       "intent_id": "8a2d3f92-2a2b-4e4c-9d8a-3c9f92e4a111",
       "deadline_secs": 1761545456,
       "secret_hash": "0x…",
-      "approval_mechanism": "rgb_lock",
+      "approval_mechanism": "rgblock",
       "params_to_sign": {
         "lock_address": "bc1p…",
         "psbt": "cHNid…",

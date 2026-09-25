@@ -65,7 +65,7 @@ The approval flow depends on the source chain and swap type. The value of `appro
 | --- | --- | --- |
 | `permit2` | EVM, Tron | [EVM](/product-suite/swap/api/intents/approvals/evm), [Tron](/product-suite/swap/api/intents/approvals/tron) |
 | `htlc` | Bitcoin | [Bitcoin](/product-suite/swap/api/intents/approvals/bitcoin) |
-| `rgb_lock` | Bitcoin (RGB USDT) | [RGB USDT](/product-suite/swap/rgb#for-affiliates) |
+| `rgblock` | Bitcoin (RGB USDT) | [RGB USDT](/product-suite/swap/rgb#for-affiliates) |
 | `cosign` | Solana | [Solana](/product-suite/swap/api/intents/approvals/solana) |
 
 <Tabs>
@@ -109,7 +109,7 @@ The approval flow depends on the source chain and swap type. The value of `appro
   <Tab title="RGB lock (RGB USDT)">
     ```json
     {
-      "approval_mechanism": "rgb_lock",
+      "approval_mechanism": "rgblock",
       "params_to_sign": {
         "lock_address": "bc1p…",
         "psbt": "cHNid…",
