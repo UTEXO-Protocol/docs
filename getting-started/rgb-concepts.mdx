@@ -42,6 +42,8 @@ To receive, the receiver creates an **RGB invoice** containing the asset, the am
 | **Blinded** | Refers to one of the receiver's UTXOs in blinded form, hiding it from the sender. | Default for app-to-app transfers. More private. |
 | **Witness** | The sender creates the receiving output in the transfer transaction, so the sender provides witness data (at least the BTC amount for that output). | The integration needs witness-bound receive semantics. Less private than a blinded invoice. |
 
+An invoice that names an asset only works if the receiving wallet already knows that asset. To receive an asset for the first time, create a blinded invoice without an asset ID; the sender chooses the asset when paying. After that first transfer, the receiver can create invoices for that asset.
+
 Invoices expire. Create a new one for each payment.
 
 ## Consignments and transport
