@@ -70,7 +70,7 @@ The BTC Relay (`btc-relayer`) streams Bitcoin block headers to the signer enclav
 ### Burn: USDT on Bitcoin → USDT0
 
 1. The user burns RGB USDT from an RGB wallet, naming the EVM recipient. The recipient and amount are committed in the burn and cannot be changed afterwards.
-2. The user submits the burn consignment to Utexo. The release waits until the Bitcoin transaction anchoring the burn has the required confirmations.
+2. The user submits the burn consignment to Utexo. The release waits until the Bitcoin transaction anchoring the burn has **3 confirmations**.
 3. Each release signer enclave validates the burn, the full RGB history, the EVM deposit behind every earlier mint, and the Bitcoin inclusion proofs, then signs the release.
 4. With an M-of-N quorum of signatures, `MultisigProxy` calls the bridge's `fundsOut`. The bridge checks the burn identifier, liquidity, rate limits, and the Bitcoin relay proof, then releases USDT0 to the recipient on Arbitrum, or routes it through USDT0 / LayerZero to another supported network.
 
