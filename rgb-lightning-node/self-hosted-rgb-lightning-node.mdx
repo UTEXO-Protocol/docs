@@ -7,7 +7,7 @@ description: "Run one self-hosted RGB Lightning Node for on-chain RGB operations
 The RGB Lightning Node (RLN) is Utexo's self-hosted runtime for both direct, on-chain RGB operations and RGB-enabled Lightning payments. A single RLN daemon and REST API provides both paths, so integrators do not need a second on-chain node service.
 
 <Warning>
-  Utexo supports on-chain RGB operations on mainnet. Lightning functionality is beta and testnet-only for now. Test your deployment on regtest or testnet before handling mainnet funds. The maintainers take no responsibility for loss of funds.
+  Utexo supports on-chain RGB operations on mainnet. Lightning functionality is beta and testnet-only for now; from the next release after `v0.13.0-beta.3`, a mainnet node rejects Lightning API calls with `403 LightningUnsupportedOnMainnet`. Test your deployment on regtest or testnet before handling mainnet funds. The maintainers take no responsibility for loss of funds.
 </Warning>
 
 <Info>

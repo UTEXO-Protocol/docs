@@ -7,6 +7,8 @@ Key terms used throughout the Utexo documentation.
 
 ## B
 
+**BFA** The RGB asset schema used for USDT on Bitcoin issued through the Utexo Mint. New supply is created by a bridge operation that must be backed by a finalized USDT0 deposit on Arbitrum, and a burn operation removes supply so the equivalent USDT0 can be released. Every recipient validates the EVM deposit behind each mint in the asset's history.
+
 **Bitcoin** The base settlement layer used by Utexo. All RGB asset state is ultimately anchored to Bitcoin UTXOs, and Bitcoin provides double-spending prevention and final settlement guarantees.
 
 **BIP-39** Bitcoin Improvement Proposal 39. The standard for generating human-readable mnemonic seed phrases (12 or 24 words) that can be used to derive all wallet keys. The Utexo SDK uses BIP-39 mnemonics for wallet initialisation and recovery.
@@ -57,7 +59,7 @@ Key terms used throughout the Utexo documentation.
 
 ## N
 
-**NIA (Non-Inflationary Asset)** An RGB asset type with a fixed total supply that cannot be inflated after issuance. USDT issued via Utexo is an NIA asset. Issued via `wallet.issueAssetNia()`.
+**NIA (Non-Inflationary Asset)** An RGB asset type with a fixed total supply that cannot be inflated after issuance. Issued via `wallet.issueAssetNia()`.
 
 ## P
 

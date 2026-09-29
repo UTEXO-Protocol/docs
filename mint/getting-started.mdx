@@ -12,7 +12,7 @@ This guide walks you through both directions of a mint transfer: depositing USDT
 For now, the only tested and available route is Arbitrum (mainnet) to Bitcoin (Utexo signet). Bitcoin mainnet is not available yet.
 
 <Info>
-  Signing authority is distributed across three independent Federated Signer Nodes, each running inside an AWS Nitro Enclave, using a threshold scheme — no single node can produce a valid signature unilaterally.
+  Minting is signed by the mint signer, an AWS Nitro Enclave that holds the RGB mint rights, only after it verifies your USDT0 deposit on Arbitrum. Withdrawals back to EVM require an M-of-N quorum of independent signer enclaves.
 </Info>
 
 ## Prerequisites
