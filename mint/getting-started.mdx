@@ -12,7 +12,7 @@ This guide walks you through both directions of a mint transfer: depositing USDT
 For now, the only tested and available route is Arbitrum (mainnet) to Bitcoin (Utexo signet). Bitcoin mainnet is not available yet.
 
 <Info>
-  Signing authority is distributed across three independent Federated Signer Nodes, each running inside an AWS Nitro Enclave, using a threshold scheme — no single node can produce a valid signature unilaterally.
+  Minting is signed by the mint signer, an AWS Nitro Enclave that holds the RGB mint rights, only after it verifies your USDT0 deposit on Arbitrum. Withdrawals back to EVM require an M-of-N quorum of independent signer enclaves.
 </Info>
 
 ## Prerequisites
@@ -111,7 +111,7 @@ The Mint generates an RGB invoice displayed as a popup with a QR code. Open Utex
 
 After sending, the transaction appears in Utexo SDK Wallet with the status **WAITING\_COUNTERPARTY**.
 
-Refresh your wallet (tap the refresh icon). Once the Bitcoin network picks up the transaction, the status changes to **WAITING\_CONFIRMATIONS**. When confirmations are complete, the USDT is released to your EVM address.
+Refresh your wallet (tap the refresh icon). Once the Bitcoin network picks up the transaction, the status changes to **WAITING\_CONFIRMATIONS**. After **3 Bitcoin confirmations**, the USDT is released to your EVM address.
 
 <Tip>
   In Utexo SDK Wallet, a completed Bitcoin → Ethereum transfer is highlighted in **red** (asset deduction from the RGB layer).
@@ -163,7 +163,7 @@ The Mint generates an RGB invoice displayed as a popup with a QR code. Open Utex
 
 After sending, the transaction appears in Utexo SDK Wallet with the status **WAITING\_COUNTERPARTY**.
 
-Refresh your wallet (tap the refresh icon). Once the Bitcoin network picks up the transaction, the status changes to **WAITING\_CONFIRMATIONS**. When confirmations are complete, the USDT is released to your EVM address.
+Refresh your wallet (tap the refresh icon). Once the Bitcoin network picks up the transaction, the status changes to **WAITING\_CONFIRMATIONS**. After **3 Bitcoin confirmations**, the USDT is released to your EVM address.
 
 <Tip>
   In Utexo SDK Wallet, a completed Bitcoin → Ethereum transfer is highlighted in **red** (asset deduction from the RGB layer).
