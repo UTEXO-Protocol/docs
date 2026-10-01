@@ -34,7 +34,7 @@ Each supported chain has a dedicated Connector, a stateless gRPC service that wa
 
 ### Mint signer
 
-Minting RGB USDT is authorized by a single mint signer. Its AWS Nitro Enclave holds the keys that control the RGB mint rights. Before signing, the enclave independently verifies the finalized USDT0 deposit on Arbitrum, the deposit's binding to the RGB mint operation, the consignment, and the PSBT.
+Minting RGB USDT is authorized by a single mint signer. Its AWS Nitro Enclave holds the keys that control the RGB mint rights. Before signing, the mint signer waits until the USDT0 deposit on Arbitrum is final, and its enclave independently verifies the deposit, the deposit's binding to the RGB mint operation, the consignment, and the PSBT.
 
 Every mint is also verifiable by anyone who later receives the asset: RGB validation checks that each mint in the asset's history is backed by a matching, successful, and finalized deposit on the configured Arbitrum bridge contract. A mint without that backing is not valid RGB USDT.
 
@@ -42,20 +42,20 @@ Every mint is also verifiable by anyone who later receives the asset: RGB valida
 
 Releasing USDT0 after an RGB burn requires an **M-of-N quorum** of independent signer nodes, each in its own AWS Nitro Enclave. The `MultisigProxy` contract on Arbitrum verifies the quorum before the bridge releases funds. No single node can authorize a release.
 
-Key properties of both signers:
+Key properties of the signer enclaves:
 
 - **Keys never leave the TEE.** Key generation and all signing happen inside the enclave, with no persistent storage or shell access.
 - **In-enclave RGB validation.** RGB consignments are validated inside the enclave before signing.
-- **In-enclave SPV verification.** Bitcoin block headers are relayed into the enclave by the BTC Relay, so the enclave verifies transaction inclusion and confirmation depth itself.
+- **In-enclave SPV verification.** Release signer enclaves receive Bitcoin block headers from the BTC Relay and verify the burn's transaction inclusion and confirmation depth themselves.
 - **Memory safety.** Secrets are zeroized on drop; the codebase enforces `#![deny(unsafe_code)]`.
 
 ### Enclave Signer
 
-The Enclave Signer (`utexo-mint-enclave-signer`) is the base cryptographic microservice that the mint signer and the release signer nodes are built on. It runs inside an **AWS Nitro Enclave** — an isolated compute environment with no persistent storage, no shell access and network access limited to a vsock proxy allowlisted to an Esplora indexer and the BTC Relay.
+The Enclave Signer (`utexo-mint-enclave-signer`) is the base cryptographic microservice the signer nodes are built on. It runs inside an **AWS Nitro Enclave** — an isolated compute environment with no persistent storage, no shell access and network access limited to a vsock proxy allowlisted to an Esplora indexer and the BTC Relay.
 
 ### BTC Relay
 
-The BTC Relay (`btc-relayer`) streams Bitcoin block headers to the signer enclaves. Inside each enclave, headers are validated against a hardcoded checkpoint block and the signet challenge script, both baked in at compile time and bound to the enclave's PCR0 attestation measurement. This allows the TEE to perform SPV proofs without relying on any external indexer for header data.
+The BTC Relay (`btc-relayer`) streams Bitcoin block headers to the release signer enclaves. Inside each enclave, headers are validated against a hardcoded checkpoint block and the signet challenge script, both baked in at compile time and bound to the enclave's PCR0 attestation measurement. This allows the TEE to perform SPV proofs without relying on any external indexer for header data.
 
 ## Transfer Flow
 
@@ -105,7 +105,7 @@ The current fee rate is **0.03%** across supported networks.
 
 The Utexo Mint performs all signing inside hardware-isolated Trusted Execution Environments (TEEs) and binds every mint and every release to independently verifiable evidence on the other chain.
 
-**Verifiable mints.** The mint signer signs only after verifying a finalized USDT0 deposit, and every RGB recipient re-validates the deposit behind each mint in the asset's history. Supply on Bitcoin cannot validly exceed what is locked on Arbitrum.
+**Verifiable mints.** The mint signer signs only after the USDT0 deposit is final and verified, and every RGB recipient re-validates the deposit behind each mint in the asset's history.
 
 **Quorum-authorized releases.** Every EVM release requires an M-of-N quorum of independent release signer enclaves, verified on-chain by `MultisigProxy`. No single node can release funds.
 
