@@ -4,10 +4,10 @@ description: "Transfer USDT between Ethereum and the Bitcoin RGB layer using the
 ---
 
 <Info>
-  This guide is a **UI walkthrough** for using the Utexo Mint interface. If you want to initiate a mint programmatically using the SDK or REST API, see the [Mint API Reference](/product-suite/mint-api-reference) instead.
+  This guide is a **UI walkthrough** for using the Utexo Mint interface. If you want to initiate a mint programmatically, see the [Mint API Reference](/product-suite/mint-api-reference) instead.
 </Info>
 
-This guide walks you through both directions of a mint transfer: depositing USDT from an EVM wallet onto the Bitcoin RGB layer and withdrawing it back. USDT from EVM, Tron, and Solana is supported — under the hood, it is routed through the USDT0 / LayerZero protocol to Arbitrum before being locked and minted as RGB USDT on Bitcoin. This routing is handled transparently; from your wallet, the experience is the same regardless of which network you connect from.
+This guide walks you through both directions of a mint transfer: locking USDT from an EVM wallet and minting it on the Bitcoin RGB layer, and burning it to unlock it again. USDT from Ethereum, Polygon PoS, Plasma and Tron is supported — under the hood, it is routed through the USDT0 / LayerZero protocol to Arbitrum before being locked and minted as RGB USDT on Bitcoin. This routing is handled transparently; from your wallet, the experience is the same regardless of which network you connect from.
 
 For now, the only tested and available route is Arbitrum (mainnet) to Bitcoin (Utexo signet). Bitcoin mainnet is not available yet.
 
@@ -24,34 +24,27 @@ Before initiating a transfer, ensure you have the following ready.
 - ETH balance to cover Arbitrum gas fees.
 - USDT balance for the amount you want to mint.
 
-**Utexo SDK** powered Wallets
+**RGB wallet**
 
+- A wallet built on an `rgb-lib` version that supports the BFA asset schema used by USDT on Bitcoin, for example [RGB Lightning Node](/rgb-lightning-node/quickstart) `v0.15.0-beta.3` or later.
 - BTC balance to cover the RGB transaction fee on the Bitcoin side.
-- Your Utexo Wallet connected to the Mint. You can connect it in two ways:
-  - Click **CONNECT RGB WALLET** at the bottom of the Mint form.
-  - Open the wallet list in the top-right corner of the mint page and click the power button next to **RGBWallet**.
 
 ---
 
-## Ethereum → Bitcoin (RGB)
+## Ethereum → Bitcoin (RGB): lock and mint
 
-This direction moves USDT from your EVM wallet to the Bitcoin RGB layer, where you receive an equivalent RGB USDT token.
+This direction locks USDT0 on Arbitrum and mints the same amount of RGB USDT to your RGB wallet.
 
 ### Step 1 — Enter the transfer details
 
 On [transfer.stage.utexo.com](https://transfer.stage.utexo.com), set:
 
-- **Send:** Blockchain – Ethereum (or Tron / Solana), Token – USDT.
+- **Send:** Blockchain – Ethereum (or Polygon PoS, Plasma or Tron), Token – USDT.
 - **Receive:** Blockchain – Bitcoin (RGB), Token – USDT.
 
 In the **Amount** field, enter the number of USDT tokens to transfer.
 
-In the **Destination** field, paste an RGB invoice generated in Utexo SDK Wallet:
-
-1. Open Utexo SDK Wallet and ensure your BTC balance can cover the network fee.
-2. Select **Receive assets**.
-3. Generate an invoice for the USDT asset and copy it.
-4. Paste the invoice into the **Destination** field on the Mint protocol.
+In the **Destination** field, paste an RGB invoice for the USDT asset, created in your RGB wallet. Make sure the wallet's BTC balance can cover the network fee.
 
 ### Step 2 — Review and confirm
 
@@ -61,61 +54,47 @@ After filling in the form, a **Transaction Preview** appears with:
 - **Estimated gas fee** — live Arbitrum network gas cost.
 - **Mint commission** — fixed percentage fee charged by Utexo.
 
-Click **Transfer**. EVM wallet will prompt you through two confirmation steps:
+Click **Transfer**. The Mint prepares the mint for your invoice, then your EVM wallet prompts you through two confirmation steps:
 
 1. **Approve token spending** — Authorises the Mint contract to spend your USDT. Click **Confirm**.
-2. **Confirm the transaction** — Wait 2–10 seconds for the second MetaMask prompt. Review the details and click **Confirm** to submit.
+2. **Confirm the deposit** — Review the details and click **Confirm** to submit. Submit it before the prepared mint expires.
 
 ### Step 3 — Wait for USDT to arrive
 
-Open Utexo SDK Wallet and monitor your USDT balance. Settlement time depends on Bitcoin network congestion. During periods of high congestion, confirmation may take longer than usual.
-
-<Tip>
-  In Utexo SDK Wallets, a completed Ethereum → Bitcoin transfer is highlighted in **green** (asset credit).
-</Tip>
+The Mint tracks the mint until it completes. After your deposit is final on Arbitrum, the mint signer signs the mint and the Bitcoin transaction is broadcast. Once it confirms, the USDT appears in your RGB wallet. Settlement time depends on Bitcoin network congestion.
 
 ---
 
-## Bitcoin (RGB) → Ethereum
+## Bitcoin (RGB) → Ethereum: burn and unlock
 
-This direction burns USDT on the Bitcoin RGB layer and releases the equivalent USDT on Ethereum.
+This direction burns RGB USDT on Bitcoin and unlocks the same amount of USDT0, less fees, on the EVM side.
 
-### Step 1 — Enter the transfer details
+<Warning>
+  A burn cannot be undone. Check the amount the Mint can release before you burn, and name the EVM recipient carefully: it is committed in the burn and cannot be changed.
+</Warning>
+
+### Step 1 — Check what can be released
 
 On [transfer.stage.utexo.com](https://transfer.stage.utexo.com), set:
 
 - **Send:** Blockchain – Bitcoin (RGB), Token – USDT.
-- **Receive:** Blockchain – Ethereum (or Tron / Solana), Token – USDT.
+- **Receive:** Blockchain – Ethereum (or Polygon PoS, Plasma or Tron), Token – USDT.
 
-In the **Amount** field, enter the amount of USDT you want to withdraw.
+Enter the amount. The Mint shows how much it can release right now. Do not burn more than that.
 
-In the **Destination address** field, enter your EVM wallet address (for example, from MetaMask).
+### Step 2 — Burn USDT in your RGB wallet
 
-Review the **Transaction Preview**:
+Burn the amount in your RGB wallet and name your EVM address as the burn recipient. Then export the burn consignment, the file that proves the burn.
 
-- **You will receive** — estimated USDT amount after fees.
-- **Estimated gas fee** and **Commission**.
+With RGB Lightning Node, call `POST /burn` with `burn_recipient` set to your EVM address, left-padded with zeros to 32 bytes. Then call `POST /getconsignment` with the asset ID and the returned `txid`.
 
-Click **Transfer**.
+### Step 3 — Submit the burn consignment
 
-### Step 2 — Pay the RGB invoice
+Upload the burn consignment file in the Mint and click **Transfer**. You can submit it right after the burn: the release waits until the Bitcoin transaction anchoring the burn has **6 confirmations**. The amount and the recipient are read from the burn itself.
 
-The Mint generates an RGB invoice displayed as a popup with a QR code. Open Utexo SDK Wallet:
+### Step 4 — Receive USDT0
 
-1. Navigate to your **USDT** token.
-2. Tap **Send**.
-3. Tap the **QR scanner** icon and scan the QR code from the Mint popup.
-4. Review the transfer details and tap **Send** to confirm.
-
-### Step 3 — Monitor the transaction status
-
-After sending, the transaction appears in Utexo SDK Wallet with the status **WAITING\_COUNTERPARTY**.
-
-Refresh your wallet (tap the refresh icon). Once the Bitcoin network picks up the transaction, the status changes to **WAITING\_CONFIRMATIONS**. After **3 Bitcoin confirmations**, the USDT is released to your EVM address.
-
-<Tip>
-  In Utexo SDK Wallet, a completed Bitcoin → Ethereum transfer is highlighted in **red** (asset deduction from the RGB layer).
-</Tip>
+After the release signers approve the release, USDT0 is sent to the EVM address you named in the burn.
 
 ---
 
@@ -125,52 +104,4 @@ Refresh your wallet (tap the refresh icon). Once the Bitcoin network picks up th
 | --- | --- |
 | **Arbitrum gas fee** | Variable; priced at live market rates at the time of signing. |
 | **Mint commission** | Fixed percentage of the transferred amount, charged by Utexo. Shown in the Transaction Preview before you confirm. |
-| **Bitcoin RGB fee** | Small BTC amount deducted from your Utexo SDK Wallet to settle the RGB transaction on-chain. |
-
-**Utexo SDK** powered Wallets
-
-- BTC balance to cover the RGB transaction fee on the Bitcoin side.
-- Your Utexo SDK Wallet connected to the Mint. You can connect it in two ways:
-  - Click **CONNECT RGB WALLET** at the bottom of the mint form.
-  - Open the wallet list in the top-right corner of the Mint page and click the power button next to **RGBWallet**.
-
-This direction moves USDT from your EVM wallet to the Bitcoin RGB layer, where you receive an equivalent RGB USDT token.
-
-1. Open Utexo SDK Wallet and ensure your BTC balance can cover the network fee.
-2. Select **Receive assets**.
-3. Generate an invoice for the USDT asset and copy it.
-4. Paste the invoice into the **Destination** field on the Mint.
-
-- **You will receive** — estimated USDT amount after fees.
-- **Estimated gas fee** — live Arbitrum network gas cost.
-- **Mint commission** — fixed percentage fee charged by Utexo.
-
-1. **Approve token spending** — Authorises the Mint contract to spend your USDT. Click **Confirm**.
-2. **Confirm the transaction** — Wait 2–10 seconds for the second MetaMask prompt. Review the details and click **Confirm** to submit.
-
-<Tip>
-  In Utexo SDK Wallet, a completed Ethereum → Bitcoin transfer is highlighted in **green** (asset credit).
-</Tip>
-
-This direction burns USDT on the Bitcoin RGB layer and releases the equivalent USDT on Ethereum.
-
-The Mint generates an RGB invoice displayed as a popup with a QR code. Open Utexo SDK Wallet:
-
-1. Navigate to your **USDT** token.
-2. Tap **Send**.
-3. Tap the **QR scanner** icon and scan the QR code from the Mint popup.
-4. Review the transfer details and tap **Send** to confirm.
-
-After sending, the transaction appears in Utexo SDK Wallet with the status **WAITING\_COUNTERPARTY**.
-
-Refresh your wallet (tap the refresh icon). Once the Bitcoin network picks up the transaction, the status changes to **WAITING\_CONFIRMATIONS**. After **3 Bitcoin confirmations**, the USDT is released to your EVM address.
-
-<Tip>
-  In Utexo SDK Wallet, a completed Bitcoin → Ethereum transfer is highlighted in **red** (asset deduction from the RGB layer).
-</Tip>
-
-| Fee type | Description |
-| --- | --- |
-| **Arbitrum gas fee** | Variable; priced at live market rates at the time of signing. |
-| **Mint commission** | Fixed percentage of the transferred amount, charged by Utexo. Shown in the Transaction Preview before you confirm. |
-| **Bitcoin RGB fee** | Small BTC amount deducted from your Utexo SDK Wallet to settle the RGB transaction on-chain. |
+| **Bitcoin RGB fee** | Small BTC amount paid by your RGB wallet to settle the RGB transaction on-chain. |

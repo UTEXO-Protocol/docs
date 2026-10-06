@@ -34,7 +34,7 @@ RLN is an RGB-enabled Lightning daemon built on LDK. Its REST API combines:
 Applications use the relevant endpoints for the selected execution path. On mainnet, restrict the integration to the on-chain RGB endpoints. On testnet, the same integration can exercise both on-chain and Lightning flows.
 
 <Note>
-  From the next RLN release after `v0.13.0-beta.3`, a node configured for mainnet (`--network mainnet` or `--network bitcoin`) rejects Lightning API calls with HTTP `403` and the error name `LightningUnsupportedOnMainnet` ("RLN on mainnet currently supports only on-chain methods. Lightning APIs are not supported."). The same guard applies to the SDK bindings.
+  From RLN `v0.15.0-beta.3`, a node configured for mainnet (`--network mainnet` or `--network bitcoin`) rejects Lightning API calls with HTTP `403` and the error name `LightningUnsupportedOnMainnet` ("RLN on mainnet currently supports only on-chain methods. Lightning APIs are not supported."). The same guard applies to the SDK bindings.
 </Note>
 
 ## Deployment models
