@@ -60,7 +60,7 @@ From the responses, take:
       -d '{"asset_id": "<RGB_ASSET_ID>", "min_confirmations": 1, "witness": false}'
     ```
 
-    Use a new invoice for each mint. The Mint refuses an invoice it has already paid.
+    Use a new invoice for each mint. The Mint refuses an invoice it has already paid (`409`).
   </Step>
   <Step title="Prepare the mint">
     Send the invoice and the amount to mint. `amount` is the USDT that arrives on Bitcoin.
@@ -286,7 +286,16 @@ Errors have the shape `{"error": "...", "code": 4, "details": {...}}`. `details`
 | `429` | — | Rate limit | Back off and retry |
 | `500` | — | Validation, signing or submission failed | Contact the Utexo team with the `opId` or burn `txid` |
 
-On `/mint/op-id`, a `400` with `mint amount is below the bridge contract minimum` means the amount is too small, and `RGB recipient invoice was already fulfilled for this wallet` means the invoice was used before. Create a new invoice and try again.
+On `/mint/op-id`:
+
+| HTTP | When | What to do |
+| --- | --- | --- |
+| `400` | Invalid network, amount, invoice, asset or transport endpoint, or `mint amount is below the bridge contract minimum` | Fix the request |
+| `409` | The invoice was already used, or a transfer to it is in progress | Create a new invoice |
+| `501` | The selected network does not support mint preparation | Check `networkId` |
+| `503` | The connector is unavailable | Retry later |
+
+`GET /lock/{opId}/status` returns `404` when no mint exists for the `opId`.
 
 For codes 6, 7 and 8, nothing was sent to Arbitrum. Retrying the same request is safe.
 
