@@ -44,6 +44,7 @@ Because the keys never reach the node:
 | Operation | Behaviour |
 | --- | --- |
 | Asset issuance (NIA, CFA, IFA, UDA) and inflation | Not supported. Returns `UnsupportedInExternalSignerMode`. |
+| `POST /burn` (BFA burn, from `v0.15.0-beta.3`) | Not supported. Returns `UnsupportedInExternalSignerMode`. |
 | `POST /changepassword`, `POST /restore` | Not supported. Returns `UnsupportedInExternalSignerMode`. |
 | `POST /backup` | Not available. File backups are encrypted with the node password, and an external-signer node has none. Use [VSS cloud backup](https://github.com/UTEXO-Protocol/rgb-lightning-node#vss-cloud-backup-optional) instead; it supports external-signer mode. |
 | Authentication | Required. The node refuses to configure or unlock external-signer mode when started with `--disable-authentication` (`ExternalSignerRequiresAuthentication`). Use [Biscuit tokens](/rgb-lightning-node/self-hosted-rgb-lightning-node#authentication). |

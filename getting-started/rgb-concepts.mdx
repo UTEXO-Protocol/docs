@@ -29,7 +29,7 @@ Before a wallet can receive or issue RGB assets, it must create colored UTXOs fr
 
 ## Assets and amounts
 
-- Each asset has an **asset ID** of the form `rgb:...`. USDT issued via Utexo is a **NIA** (non-inflationary asset) with a fixed supply.
+- Each asset has an **asset ID** of the form `rgb:...`. USDT on Bitcoin issued through the [Utexo Mint](/product-suite/mint) uses the RGB **BFA** asset schema: supply increases only when USDT0 is locked on Arbitrum, and decreases when RGB USDT is burned to release it. Test assets you issue yourself (for example in the [RLN Quick Start](/rgb-lightning-node/quickstart)) are usually **NIA** (non-inflationary asset) with a fixed supply.
 - Amounts are **integer base units**. One displayed unit equals `10 ** precision` base units.
 - A wallet only knows about assets it has received or issued. Get the asset ID from the sender or an authoritative registry.
 

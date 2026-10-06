@@ -7,81 +7,71 @@ description: "Network-agnostic REST API for discovering supported networks, esti
 
 The **Utexo Mint API** is a network-agnostic REST interface for cross-network asset transfers. Clients must discover the networks currently connected to an environment with `GET /networks` instead of hardcoding network availability.
 
-USDT0 settles natively on Arbitrum, which acts as the hub; other EVM networks reach that hub through LayerZero. Bitcoin mainnet is not available yet.
+USDT0 settles natively on Arbitrum, which acts as the hub; Ethereum, Polygon PoS, Plasma and Tron reach that hub through USDT0 / LayerZero and the Utexo entrypoint contracts.
 
 <Info>
-  **Base URL (testnet / dev):** `https://transfer.gateway.dev.utexo.com/api/v0`
+  **Base URL (staging):** `https://transfer.gateway.stage.utexo.com/api/v0`
 
-  All paths in this reference are relative to the base URL. A mainnet base URL will be provided separately. Contact the Utexo team for production endpoint access.
+  All paths in this reference are relative to the base URL. Contact the Utexo team for production endpoint access and for an operator API key.
 
-  **Interactive API docs:** [https://transfer.gateway.dev.utexo.com/api/v0/docs/](https://transfer.gateway.dev.utexo.com/api/v0/docs/)
+  **Interactive API docs:** [https://transfer.gateway.stage.utexo.com/api/v0/docs/](https://transfer.gateway.stage.utexo.com/api/v0/docs/)
 </Info>
 
-The API is stateless and JSON-based. Most `GET` endpoints are public; `GET /transfers/history/{signature-hex}/{pub-key-hex}` is the exception and carries the signature and public key in the path. The `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction` endpoints need a signature in the request body (see [Authentication](#authentication)).
+The API is stateless and JSON-based. The network, token, estimate and unlock-capacity endpoints are public. The mint and burn endpoints (`/mint/op-id`, `/lock/{opId}/status` and `/unlock`) need an operator API key (see [Authentication](#authentication)).
 
 ---
 
 ## Transfer Flows
 
-Understanding the transfer direction is essential before making any API calls. The API supports two directions:
+The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT on Bitcoin) and **burn and unlock** (USDT on Bitcoin → USDT0 on EVM).
 
 <Info>
-  **RGB and Lightning destinations:** The RGB-side destination is selected by `networkId`. Use `36` (mainnet) or `91` (testnet) for plain RGB, and `94` (mainnet) or `95` (testnet) for RGB Lightning. The destination accepts an RGB invoice (`rgb:…`) for plain RGB or a Lightning invoice string for RGB Lightning. Network ID `96` identifies Utexo and is not a Lightning network ID.
+  **RGB network ID:** take the RGB-side network from `GET /networks`. On the current environment it is the `UTEXO` network (ID `96`). The RGB wallet must use an `rgb-lib` version that supports the BFA asset schema, for example [RGB Lightning Node](/rgb-lightning-node/quickstart) `v0.15.0-beta.3` or later.
 </Info>
 
 <Warning>
-  **RGB Lightning is work in progress.** The API surface is in place and documented throughout this reference, but Lightning destinations are not available for use yet. This section will be updated once they go live.
+  **RGB Lightning is work in progress.** RGB Lightning network IDs (`94` mainnet, `95` testnet) appear in the API, but Lightning destinations are not available yet. This section will be updated once they go live.
 </Warning>
 
-### EVM → RGB or RGB Lightning
-
-Move assets from an EVM network to a plain RGB or RGB Lightning destination.
+### Lock and mint: EVM → RGB
 
 <Steps>
   <Step title="Discover networks and tokens">
-    `GET /networks` — list all connected networks; take the `id` of your source and destination.
+    `GET /networks` — list the connected networks and take the `id` of the source network and of the RGB network.
 
-    `GET /networks/{network-id}/supported-tokens` — list tokens on that network and take the `id` of the one you want to bridge. USDT is the only token bridged today.
+    `GET /networks/{network-id}/supported-tokens` — take the token `id` on each side. USDT is the only token bridged today.
   </Step>
-  <Step title="Estimate transfer">
-    `GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}` — preview the transfer before committing: fees and the amount the recipient will receive.
+  <Step title="Estimate the transfer">
+    `GET /transfers/estimate/{sender-network}/{recipient-network}/{sender-token-id}/{recipient-token-id}/{amount}` — preview fees and the amount the recipient receives.
   </Step>
-  <Step title="Pre-register the transfer">
-    `POST /transfers/bridge-in-signature` — registers the transfer and returns the data needed to call `fundsIn()` on the EVM bridge contract: `transferId`, `token`, `amount`, `gasCommission`, `deadline`, `nonce` and the fee `estimation`. In this direction the `signature` field carries no signature and is returned as `0x`. If the route goes through the entrypoint contract, the response also includes an `entrypoint` object — call that contract with its `depositParams` instead.
+  <Step title="Create an RGB invoice">
+    The recipient's RGB wallet creates an invoice for the USDT asset.
   </Step>
-  <Step title="Send the on-chain transaction">
-    The user calls the contract identified in Step 3 — `fundsIn()` on the EVM bridge contract, or the entrypoint contract with its `depositParams`. This step happens **client-side** — the API does not broadcast this transaction.
+  <Step title="Prepare the mint">
+    `POST /mint/op-id` (operator key) — submit the invoice, the amount and the source network. The response contains the `opId`, the `settlementData` to pass to the deposit, and `ttlSeconds`. If the source network uses an entrypoint contract, the response also contains an `entrypoint` object.
   </Step>
-  <Step title="Confirm the transaction">
-    `POST /transfers/verify-bridge-in` — notify the mint with the on-chain tx hash to confirm the transfer.
+  <Step title="Lock USDT0">
+    Before `ttlSeconds` runs out, the user calls `fundsIn()` on the Arbitrum bridge contract and passes `settlementData` verbatim as the `settlementData` argument. On a network that uses an entrypoint contract, the user calls that contract with the returned `depositParams` instead. This step happens **client-side**; the API does not broadcast the transaction.
   </Step>
-  <Step title="Poll transfer status">
-    `GET /transfers/history/{signature-hex}/{pub-key-hex}` — poll history until the transfer reaches a terminal status (`FINISHED` or `FAILED`).
+  <Step title="Track the mint">
+    `GET /lock/{opId}/status` (operator key) — poll until the status is `completed` or `expired`.
   </Step>
 </Steps>
 
-### RGB or RGB Lightning → EVM
-
-Move assets from a plain RGB or RGB Lightning wallet to an EVM network.
+### Burn and unlock: RGB → EVM
 
 <Steps>
-  <Step title="Discover networks and tokens">
-    Same as EVM → RGB Step 1.
+  <Step title="Check the release capacity">
+    `GET /unlock/capacity/{srcNetworkId}/{networkId}/{tokenId}` — read `available`. A burn cannot be undone, so do not burn more than `available`.
   </Step>
-  <Step title="Estimate transfer">
-    Same as EVM → RGB Step 2.
+  <Step title="Burn USDT on Bitcoin">
+    Burn the amount in the RGB wallet and name the EVM recipient. The burn recipient is 32 bytes: 12 zero bytes followed by the 20-byte EVM address. With RGB Lightning Node, call `POST /burn` with `burn_recipient`, then get the burn consignment with `POST /getconsignment` (asset ID and the burn `txid`). It returns the consignment as hex; convert it to base64 for the next step.
   </Step>
-  <Step title="Pre-register the transfer">
-    `POST /transfers/bridge-in-signature` — returns the invoice for the selected RGB-side network in the `signature` field: an RGB invoice for plain RGB or a Lightning invoice for RGB Lightning. Keep the returned `transferId` — you need it in Step 5.
+  <Step title="Submit the burn consignment">
+    `POST /unlock` (operator key) — send the base64-encoded consignment. You can submit it before the burn has its Bitcoin confirmations: until it does, the API returns `409` with code `6`, `7` or `8`, and you retry the same request later.
   </Step>
-  <Step title="Send RGB assets">
-    The user pays the invoice string returned in Step 3 with the wallet appropriate for the selected RGB or RGB Lightning network.
-  </Step>
-  <Step title="Confirm the transfer">
-    `POST /transfers/verify-bridge-in` — notify the mint that the RGB or Lightning invoice payment has been completed.
-  </Step>
-  <Step title="Retrieve the invoice again (optional)">
-    `GET /transfers/invoice/{tx-id}/{network-id}` — returns the invoice the bridge issued in Step 3, in case the user lost it before paying.
+  <Step title="Confirm the release">
+    The response contains the `evmTxHash` of the submitted release and the `recipient` read from the burn. The release confirms on the EVM network asynchronously.
   </Step>
 </Steps>
 
@@ -89,9 +79,20 @@ Move assets from a plain RGB or RGB Lightning wallet to an EVM network.
 
 ## Authentication
 
-Most `GET` endpoints and `POST /transfers/bridge-in-signature` require no authentication.
+### Operator API key
 
-Three endpoints authenticate the caller the same way, differing only in where the signature travels — in the path for `GET /transfers/history/{signature-hex}/{pub-key-hex}`, in the request body for `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction`:
+`POST /mint/op-id`, `GET /lock/{opId}/status` and `POST /unlock` need the operator API key in the `X-API-Key` header. A missing or invalid key returns `401`. Keep the key on a trusted backend: do not embed it in a browser app or an untrusted wallet. Contact the Utexo team to get a key.
+
+```bash
+curl -X POST https://transfer.gateway.stage.utexo.com/api/v0/mint/op-id \
+  -H "X-API-Key: <OPERATOR_API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"networkId": 96, "sourceNetworkId": 42161, "invoice": "rgb:...", "amount": 1000000}'
+```
+
+### Signature authentication
+
+The other endpoints need no API key. Three of them authenticate the caller with a signature, differing only in where the signature travels — in the path for `GET /transfers/history/{signature-hex}/{pub-key-hex}`, in the request body for `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction`:
 
 | Field | Description |
 | --- | --- |
@@ -195,19 +196,183 @@ Balance as a human-readable decimal string in token units (e.g., `"100.50"`).
 
 ---
 
+### Mint and burn
+
+#### `POST /mint/op-id` — Prepare a Mint
+
+Prepares the RGB side of a lock-and-mint transfer and returns the data the deposit must carry. It does not move tokens or submit the EVM transaction. Requires the operator API key.
+
+**Request Body**
+
+```json
+{
+  "networkId": 96,
+  "sourceNetworkId": 42161,
+  "sourceAddress": "0xYourEvmAddress",
+  "invoice": "rgb:...",
+  "amount": 1000000
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `networkId` | `integer` | Yes | RGB network ID (not the EVM source chain) |
+| `sourceNetworkId` | `integer` | Yes | EVM network the deposit is sent from |
+| `sourceAddress` | `string` | No | Address that sends the deposit. Required when the source network uses an entrypoint contract |
+| `tokenId` | `integer` | No | Token ID on the source network. Required when the source network uses an entrypoint contract |
+| `assetId` | `string` | No | RGB asset ID. Omit to use the standard USDT asset |
+| `invoice` | `string` | Yes | Invoice created by the recipient's RGB wallet |
+| `amount` | `integer` | Yes | Amount the user deposits, in token base units. For a 6-decimal token, `1000000` is 1 USDT |
+
+**Response `200`**
+
+```json
+{
+  "opId": "9f2c...e41a",
+  "ttlSeconds": 1800,
+  "settlementData": "0x9f2c...e41a",
+  "depositAmount": "1000000",
+  "mintAmount": "1000000"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `opId` | RGB operation ID of the mint. Use it to track the mint |
+| `ttlSeconds` | Time available to submit the matching deposit |
+| `settlementData` | ABI-encoded `opId`. Pass it verbatim as the `settlementData` argument of `fundsIn()`; do not pass `opId` directly |
+| `depositAmount` | Amount to deposit on the source network, in base units |
+| `mintAmount` | Amount minted on Bitcoin, in base units. On an entrypoint route it is the amount quoted to arrive on Arbitrum |
+| `entrypoint` | Present only when the source network uses an entrypoint contract: `contractAddress`, `depositParams` (`amountLD`, `minAmountLD`, `extraOptions`, `payload`, `refundTo`, `expectedComposeValue`), `networkFee`, `nativeFee` and `totalNativeRequired` |
+
+---
+
+#### `GET /lock/{opId}/status` — Get Mint Status
+
+Returns the state of a prepared mint. Poll it after the deposit is submitted. Requires the operator API key.
+
+**Response `200`**
+
+```json
+{
+  "opId": "9f2c...e41a",
+  "status": "broadcast",
+  "expiresAt": "2026-10-06T12:30:00Z",
+  "evmTxHash": "0xabc..."
+}
+```
+
+| Status | Description |
+| --- | --- |
+| `awaiting_funds_in` | Waiting for the deposit. The mint expires at `expiresAt` if no deposit arrives |
+| `funds_in_confirmed` | The deposit was detected and matched to the mint |
+| `bridge_signed` | The mint signer signed the mint |
+| `broadcast` | The Bitcoin transaction anchoring the mint was broadcast |
+| `completed` | The Bitcoin transaction has the required confirmations; the mint is complete |
+| `expired` | No matching deposit arrived in time |
+
+`evmTxHash` is the detected deposit transaction on the EVM network. It is omitted until the deposit is detected.
+
+---
+
+#### `GET /unlock/capacity/{srcNetworkId}/{networkId}/{tokenId}` — Get Release Capacity
+
+Returns how much can be released right now for a burn. Call it before you burn. No authentication.
+
+**Path Parameters**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `srcNetworkId` | `integer` | RGB network where the USDT is burned |
+| `networkId` | `integer` | EVM network where USDT0 is released |
+| `tokenId` | `integer` | Token ID on the EVM network |
+
+**Response `200`**
+
+```json
+{
+  "srcNetworkId": 96,
+  "networkId": 42161,
+  "tokenId": 2,
+  "poolBalance": "1354199",
+  "pendingReleases": "0",
+  "availableOutflow": "135419",
+  "available": "135419"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `poolBalance` | USDT0 locked in the bridge, in base units |
+| `pendingReleases` | Amount reserved by releases still in progress |
+| `availableOutflow` | Remaining outflow allowance; omitted when no limit applies |
+| `available` | Maximum amount that can be burned and released now |
+
+---
+
+#### `POST /unlock` — Release After a Burn
+
+Validates a burn consignment, gets the release signatures and submits the EVM release. The amount and the recipient are read from the burn itself; the request cannot change them. Requires the operator API key.
+
+**Request Body**
+
+```json
+{
+  "consignment": "<base64-encoded burn consignment>",
+  "srcNetworkId": 96,
+  "destinationNetworkId": 42161,
+  "tokenId": 2
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `consignment` | `string` | Yes | Complete burn consignment, standard base64 |
+| `srcNetworkId` | `integer` | No | RGB network of the burn. Optional when the bridge serves one RGB network |
+| `destinationNetworkId` | `integer` | No | EVM network of the release. Optional when the bridge serves one EVM network |
+| `tokenId` | `integer` | No | Token ID on the EVM network |
+| `maxFeeRate` | `string` | No | Cap on the EVM gas price in wei |
+
+**Response `200`**
+
+```json
+{
+  "evmTxHash": "0xabc...",
+  "status": "submitted",
+  "recipient": "0xYourEvmAddress"
+}
+```
+
+**Error Responses**
+
+| Status | Meaning |
+| --- | --- |
+| `400` | Invalid input, or the release exceeds the current outflow allowance (code `4`). The burn stays redeemable; retry later |
+| `401` | `X-API-Key` is missing or invalid |
+| `409` | The burn cannot be released yet (codes `6`, `7`, `8`; retry the same request later) or was already released |
+| `429` | Rate limit exceeded |
+| `500` | Burn validation, signing or EVM submission failed |
+
+---
+
 ### Transfers
 
-#### `GET /transfers/estimate/{sender-network}/{recipient-network}/{token-id}/{amount}` — Estimate Transfer Fees
+<Note>
+  The pre-registration endpoints in this group (`bridge-in-signature`, `verify-bridge-in`, `submit-transaction` and `invoice`) belong to the earlier transfer flow. Transfers between USDT0 and USDT on Bitcoin use the [mint and burn](#mint-and-burn) endpoints.
+</Note>
 
-Returns a fee and confirmation time estimate for a proposed transfer. Call this before pre-registering to give users a cost preview.
+#### `GET /transfers/estimate/{sender-network}/{recipient-network}/{sender-token-id}/{recipient-token-id}/{amount}` — Estimate Transfer Fees
+
+Returns a fee and confirmation time estimate for a proposed transfer. Call it before you prepare the mint to show the user a cost preview.
 
 **Path Parameters**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `sender-network` | `string` | Yes | Sender network name (e.g., `ARBITRUM-ONE`, `RGB`) |
+| `sender-network` | `string` | Yes | Sender network name (e.g., `ARBITRUM-ONE`, `UTEXO`) |
 | `recipient-network` | `string` | Yes | Recipient network name |
-| `token-id` | `integer` | Yes | Token ID — the same token is bridged on both sides |
+| `sender-token-id` | `integer` | Yes | Token ID on the sender network |
+| `recipient-token-id` | `integer` | Yes | Token ID on the recipient network |
 | `amount` | `string` | Yes | Human-readable amount (e.g., `100.5`) |
 
 **Query Parameters**
@@ -249,6 +414,8 @@ Returns a fee and confirmation time estimate for a proposed transfer. Call this 
 | `nativeTokenSymbol` | Symbol of the native token used for commissions |
 | `swapResultAmount` | Human-readable result amount in recipient token units |
 | `effectiveAvailableOutflow` | Remaining destination outflow allowance; omitted when no limit applies |
+| `screening` | Present when AML screening is active: `cleared`, or `unavailable` (the transfer must not be started) |
+| `clearance` | AML clearance `token` and its `expiresAt`, when screening issued one |
 
 ---
 
@@ -299,7 +466,7 @@ Pre-registers a transfer and returns the data needed for the user to initiate th
   "nonce": 7,
   "transferId": 1024,
   "signature": "0x",
-  "transferType": "LP",
+  "transferType": "WU",
   "estimation": { ... },
   "totalCommission": "600000"
 }
@@ -315,7 +482,7 @@ Pre-registers a transfer and returns the data needed for the user to initiate th
 | `nonce` | Nonce for the EVM bridge contract call |
 | `transferId` | Internal transfer ID — store this for use in `verify-bridge-in` |
 | `signature` | EVM → RGB/RGB Lightning: `"0x"` (empty). RGB/RGB Lightning → EVM: RGB or Lightning invoice string selected by destination network ID |
-| `transferType` | Transfer routing type — see [Transfer Types](#transfer-types) |
+| `transferType` | Transfer model. Always `WU` (lock and mint, burn and unlock) — see [Transfer Types](#transfer-types) |
 | `estimation` | Fee and result-amount estimation using the same fields as the estimate endpoint |
 | `entrypoint` | Ready-to-call entrypoint contract data; present only when the selected route uses the entrypoint contract |
 | `totalCommission` | Total commission in smallest token units |
@@ -465,15 +632,13 @@ For an RGB Lightning network ID, `invoice` contains the Lightning invoice string
 
 ## Transfer Types
 
-The `transferType` field in `BridgeInSignatureData` indicates the internal routing mechanism selected for the transfer. Known values:
+The `transferType` field in `BridgeInSignatureData` names the transfer model the bridge uses. The Mint uses a single model, returned as `WU`:
 
 | Value | Description |
 | --- | --- |
-| `LP` | Liquidity pool route |
-| `WU` | Wrap/unwrap route |
-| `NTV` | Native token transfer |
+| `WU` | Lock and mint: USDT0 is locked on Arbitrum and USDT is minted on Bitcoin. Burn and unlock: USDT on Bitcoin is burned and USDT0 is unlocked on Arbitrum. |
 
-The bridge selects the routing classification. Clients should treat this field as informational unless a transfer flow explicitly requires route-specific handling.
+Clients can treat this field as informational.
 
 ---
 
@@ -494,9 +659,15 @@ All endpoints return a consistent error envelope on failure.
 | --- | --- |
 | `1` | RGB protocol error |
 | `2` | User balance error (insufficient funds) |
-| `3` | System balance error (bridge liquidity issue) |
-| `4` | Destination outflow limit exceeded |
+| `3` | System balance error (the bridge cannot cover the transfer) |
+| `4` | Destination outflow limit exceeded. Retry after capacity recovers |
+| `5` | AML policy or clearance failure |
+| `6` | Release wait: the Bitcoin relay has not reached the burn block yet |
+| `7` | Release wait: the burn does not have enough Bitcoin confirmations yet |
+| `8` | Release wait: the on-chain verifier refused the relay depth or freshness |
 | `65535` | Other / unclassified error |
+
+Codes `6`, `7` and `8` come with HTTP `409` from `POST /unlock`, and a `details` object with the numbers behind the wait (for example `confirmations` and `requiredConfirmations` for code `7`). Nothing is sent to the EVM network, and the burn stays redeemable.
 
 ---
 
@@ -554,7 +725,10 @@ All endpoints return a consistent error envelope on failure.
 | **EVM** | Ethereum Virtual Machine — the execution environment used by Arbitrum and other compatible chains. |
 | **Bridge Contract** | The EVM smart contract that locks or releases assets on the EVM side of a cross-chain transfer. |
 | **`fundsIn()`** | The method on the EVM bridge contract the sender calls to deposit assets for minting. |
-| **transferId** | The mint's internal identifier for a pre-registered transfer. Used in `verify-bridge-in` and invoice retrieval. |
-| **Triggering Tx** | The EVM deposit transaction that initiates an EVM → RGB or EVM → RGB Lightning mint. |
-| **Entrypoint contract** | A per-network contract that forwards a deposit to the Arbitrum hub through LayerZero. When a route uses it, `bridge-in-signature` returns an `entrypoint` object and the user calls that contract instead of `fundsIn()`. |
+| **OpId** | The RGB operation ID of a prepared mint, returned by `POST /mint/op-id`. |
+| **settlementData** | The ABI-encoded OpId the deposit carries to bind it to the prepared mint. |
+| **Burn consignment** | The RGB data that proves a burn. `POST /unlock` reads the release amount and recipient from it. |
+| **transferId** | The internal identifier of a transfer pre-registered with `bridge-in-signature` (earlier flow). |
+| **Triggering Tx** | The EVM deposit transaction that starts a lock-and-mint transfer. |
+| **Entrypoint contract** | A per-network contract that forwards a deposit to the Arbitrum hub through LayerZero. When a route uses it, `POST /mint/op-id` returns an `entrypoint` object and the user calls that contract instead of `fundsIn()`. |
 | **UTXO** | Unspent Transaction Output — the fundamental unit of Bitcoin accounting. RGB asset state is anchored to UTXOs. |
