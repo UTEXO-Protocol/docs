@@ -72,7 +72,7 @@ The BTC Relay (`btc-relayer`) streams Bitcoin block headers to the release signe
 1. The user burns RGB USDT from an RGB wallet, naming the EVM recipient. The recipient and amount are committed in the burn and cannot be changed afterwards.
 2. The user submits the burn consignment to Utexo. The release waits until the Bitcoin transaction anchoring the burn has **3 confirmations**.
 3. Each release signer enclave validates the burn, the full RGB history, the EVM deposit behind every earlier mint, and the Bitcoin inclusion proofs, then signs the release.
-4. With an M-of-N quorum of signatures, `MultisigProxy` calls the bridge's `fundsOut`. The bridge checks the burn identifier, liquidity, rate limits, and the Bitcoin relay proof, then releases USDT0 to the recipient on Arbitrum, or routes it through USDT0 / LayerZero to another supported network.
+4. With an M-of-N quorum of signatures, `MultisigProxy` calls the bridge's `fundsOut`. The bridge checks the burn identifier, that enough USDT0 is locked to cover the release, rate limits, and the Bitcoin relay proof, then releases USDT0 to the recipient on Arbitrum, or routes it through USDT0 / LayerZero to another supported network.
 
 ## Supported Networks
 
@@ -97,7 +97,7 @@ Additional USDT0-supported networks can be enabled based on business need. See [
 
 ## Fees
 
-Commissions are managed on-chain through the `CommissionManager` contract. For token transfers (USDT, USDT0), fees can be applied on both `FundsIn` and `FundsOut`. For native currency, fees are only taken on `FundsIn` — charging on `FundsOut` is not applicable since that leg is triggered by the protocol rather than the user.
+Commissions are managed on-chain through the `CommissionManager` contract. Fees can be applied on both `FundsIn` (lock) and `FundsOut` (unlock).
 
 The current fee rate is **0.03%** across supported networks.
 

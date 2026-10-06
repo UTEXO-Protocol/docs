@@ -299,7 +299,7 @@ Pre-registers a transfer and returns the data needed for the user to initiate th
   "nonce": 7,
   "transferId": 1024,
   "signature": "0x",
-  "transferType": "LP",
+  "transferType": "WU",
   "estimation": { ... },
   "totalCommission": "600000"
 }
@@ -315,7 +315,7 @@ Pre-registers a transfer and returns the data needed for the user to initiate th
 | `nonce` | Nonce for the EVM bridge contract call |
 | `transferId` | Internal transfer ID — store this for use in `verify-bridge-in` |
 | `signature` | EVM → RGB/RGB Lightning: `"0x"` (empty). RGB/RGB Lightning → EVM: RGB or Lightning invoice string selected by destination network ID |
-| `transferType` | Transfer routing type — see [Transfer Types](#transfer-types) |
+| `transferType` | Transfer model. Always `WU` (lock and mint, burn and unlock) — see [Transfer Types](#transfer-types) |
 | `estimation` | Fee and result-amount estimation using the same fields as the estimate endpoint |
 | `entrypoint` | Ready-to-call entrypoint contract data; present only when the selected route uses the entrypoint contract |
 | `totalCommission` | Total commission in smallest token units |
@@ -465,15 +465,13 @@ For an RGB Lightning network ID, `invoice` contains the Lightning invoice string
 
 ## Transfer Types
 
-The `transferType` field in `BridgeInSignatureData` indicates the internal routing mechanism selected for the transfer. Known values:
+The `transferType` field in `BridgeInSignatureData` names the transfer model the bridge uses. The Mint uses a single model, returned as `WU`:
 
 | Value | Description |
 | --- | --- |
-| `LP` | Liquidity pool route |
-| `WU` | Wrap/unwrap route |
-| `NTV` | Native token transfer |
+| `WU` | Lock and mint: USDT0 is locked on Arbitrum and USDT is minted on Bitcoin. Burn and unlock: USDT on Bitcoin is burned and USDT0 is unlocked on Arbitrum. |
 
-The bridge selects the routing classification. Clients should treat this field as informational unless a transfer flow explicitly requires route-specific handling.
+Clients can treat this field as informational.
 
 ---
 
@@ -494,7 +492,7 @@ All endpoints return a consistent error envelope on failure.
 | --- | --- |
 | `1` | RGB protocol error |
 | `2` | User balance error (insufficient funds) |
-| `3` | System balance error (bridge liquidity issue) |
+| `3` | System balance error (the bridge cannot cover the transfer) |
 | `4` | Destination outflow limit exceeded |
 | `65535` | Other / unclassified error |
 
