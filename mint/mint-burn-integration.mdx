@@ -1,6 +1,6 @@
 ---
 title: "Mint and Burn Integration"
-description: "Integrate the Utexo Mint from your backend: lock USDT0 to mint USDT on Bitcoin, and burn it to unlock USDT0, with the operator API."
+description: "Integrate the Utexo Mint from your backend: lock USDT0 to mint USDT on Bitcoin, and burn it to unlock USDT0, with the Mint API."
 sidebarTitle: "Mint & Burn Integration"
 ---
 
@@ -14,14 +14,14 @@ The Mint does two things:
 <Info>
   **Base URL (staging):** `https://transfer.gateway.stage.utexo.com/api/v0`
 
-  Contact the Utexo team for an operator API key and for production access.
+  Access is by invitation. Contact the Utexo team for a sign-up link and for production access.
 </Info>
 
 ## Before you start
 
 You need:
 
-- **An operator API key.** Send it in the `X-API-Key` header on `POST /mint/op-id`, `GET /lock/{opId}/status` and `POST /unlock`. Keep the key on your backend. Do not put it in a browser app or a wallet you do not control.
+- **An API key.** After your account passes KYC/KYB, generate a key on the **API** page of the Utexo platform. The key is shown once, so copy it then; you can revoke it on the same page. Send it in the `X-API-Key` header on `POST /mint/op-id`, `GET /lock/{opId}/status` and `POST /unlock`. Keep the key on your backend. Do not put it in a browser app or a wallet you do not control.
 - **An EVM account** on Arbitrum with USDT0 and ETH for gas. From Ethereum, Polygon PoS, Plasma or Tron, the deposit goes through the Utexo entrypoint contract on that network (see [Deposit from another network](#deposit-from-another-network)).
 - **An RGB wallet that supports the BFA asset schema.** USDT on Bitcoin is a BFA asset. This guide uses [RGB Lightning Node](/rgb-lightning-node/quickstart) `v0.15.0-beta.3` or later. Burns are not available in [external-signer mode](/security/rln-remote-signer).
 
@@ -67,7 +67,7 @@ From the responses, take:
 
     ```bash
     curl -X POST https://transfer.gateway.stage.utexo.com/api/v0/mint/op-id \
-      -H "X-API-Key: <OPERATOR_API_KEY>" \
+      -H "X-API-Key: <API_KEY>" \
       -H "Content-Type: application/json" \
       -d '{
         "networkId": 96,
@@ -128,7 +128,7 @@ From the responses, take:
 
     ```bash
     curl https://transfer.gateway.stage.utexo.com/api/v0/lock/9f2c...e41a/status \
-      -H "X-API-Key: <OPERATOR_API_KEY>"
+      -H "X-API-Key: <API_KEY>"
     ```
 
     | Status | Meaning |
@@ -242,7 +242,7 @@ await wallet.writeContract({
   <Step title="Submit the burn">
     ```bash
     curl -X POST https://transfer.gateway.stage.utexo.com/api/v0/unlock \
-      -H "X-API-Key: <OPERATOR_API_KEY>" \
+      -H "X-API-Key: <API_KEY>" \
       -H "Content-Type: application/json" \
       -d '{
         "consignment": "<BASE64_CONSIGNMENT>",
