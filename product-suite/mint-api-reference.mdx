@@ -48,10 +48,10 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
     The recipient's RGB wallet creates an invoice for the USDT asset.
   </Step>
   <Step title="Prepare the mint">
-    `POST /mint/op-id` (operator key) — submit the invoice, the amount and the source network. The response contains the `opId`, the `settlementData` to pass to the deposit, and `ttlSeconds`. If the source network uses an entrypoint contract, the response also contains an `entrypoint` object.
+    `POST /mint/op-id` (operator key) — submit the invoice, the amount to mint and the source network. The response contains the `opId`, the `settlementData` to pass to the deposit, and `ttlSeconds`. If the source network uses an entrypoint contract, the response also contains an `entrypoint` object.
   </Step>
   <Step title="Lock USDT0">
-    Before `ttlSeconds` runs out, the user calls `fundsIn()` on the Arbitrum bridge contract and passes `settlementData` verbatim as the `settlementData` argument. On a network that uses an entrypoint contract, the user calls that contract with the returned `depositParams` instead. This step happens **client-side**; the API does not broadcast the transaction.
+    Before `ttlSeconds` runs out, the user calls `fundsIn()` on the Arbitrum bridge contract and passes `settlementData` verbatim as the `settlementData` argument. Size the deposit so that, after the bridge commission, it nets exactly the prepared amount. The commission comes from `calculateFundsInCommission` on the bridge's `commissionManager()`. On a network that uses an entrypoint contract, the user calls that contract with the returned `depositParams` instead. This step happens **client-side**; the API does not broadcast the transaction.
   </Step>
   <Step title="Track the mint">
     `GET /lock/{opId}/status` (operator key) — poll until the status is `completed` or `expired`.
@@ -222,7 +222,7 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
 | `tokenId` | `integer` | No | Token ID on the source network. Required when the source network uses an entrypoint contract |
 | `assetId` | `string` | No | RGB asset ID. Omit to use the standard USDT asset |
 | `invoice` | `string` | Yes | Invoice created by the recipient's RGB wallet |
-| `amount` | `integer` | Yes | Amount the user deposits, in token base units. For a 6-decimal token, `1000000` is 1 USDT |
+| `amount` | `integer` | Yes | In token base units (for a 6-decimal token, `1000000` is 1 USDT). From Arbitrum: the amount to mint; the deposit must net this amount after the `fundsIn` commission. From an entrypoint network: the amount deposited on that network |
 
 **Response `200`**
 
@@ -241,7 +241,7 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
 | `opId` | RGB operation ID of the mint. Use it to track the mint |
 | `ttlSeconds` | Time available to submit the matching deposit |
 | `settlementData` | ABI-encoded `opId`. Pass it verbatim as the `settlementData` argument of `fundsIn()`; do not pass `opId` directly |
-| `depositAmount` | Amount to deposit on the source network, in base units |
+| `depositAmount` | The request `amount`, in base units. On an entrypoint route it is the amount to deposit on the source network |
 | `mintAmount` | Amount minted on Bitcoin, in base units. On an entrypoint route it is the amount quoted to arrive on Arbitrum |
 | `entrypoint` | Present only when the source network uses an entrypoint contract: `contractAddress`, `depositParams` (`amountLD`, `minAmountLD`, `extraOptions`, `payload`, `refundTo`, `expectedComposeValue`), `networkFee`, `nativeFee` and `totalNativeRequired` |
 
