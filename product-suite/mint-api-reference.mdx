@@ -38,17 +38,17 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
 
     `GET /networks/{network-id}/supported-tokens` — take the token `id` on each side. USDT is the only token bridged today.
   </Step>
-  <Step title="Estimate the transfer">
-    `GET /transfers/estimate/{sender-network}/{recipient-network}/{sender-token-id}/{recipient-token-id}/{amount}` — preview fees and the amount the recipient receives.
+  <Step title="Estimate the mint">
+    `GET /mint-burn/estimate/{senderNetworkId}/{recipientNetworkId}/{tokenId}/{amount}` — the amount minted on Bitcoin for a gross deposit, and the bridge commission.
   </Step>
   <Step title="Create an RGB invoice">
     The recipient's RGB wallet creates an invoice for the USDT asset.
   </Step>
   <Step title="Prepare the mint">
-    `POST /mint/op-id` (API key) — submit the invoice, the amount and the source network. The response contains the `opId`, the `settlementData` to pass to the deposit, and `ttlSeconds`. If the source network uses an entrypoint contract, the response also contains an `entrypoint` object.
+    `POST /mint/op-id` (API key) — submit the invoice, the gross deposit, the source network and the token ID. The response contains the `opId`, the `settlementData` to pass to the deposit, and `ttlSeconds`. If the source network uses an entrypoint contract, the response also contains an `entrypoint` object.
   </Step>
   <Step title="Lock USDT0">
-    Before `ttlSeconds` runs out, the user calls `fundsIn()` on the Arbitrum bridge contract and passes `settlementData` verbatim as the `settlementData` argument. On a network that uses an entrypoint contract, the user calls that contract with the returned `depositParams` instead. This step happens **client-side**; the API does not broadcast the transaction.
+    Before `ttlSeconds` runs out, the user calls `fundsIn()` on the Arbitrum bridge contract with `depositAmount` and passes `settlementData` verbatim as the `settlementData` argument. On a network that uses an entrypoint contract, the user calls that contract with the returned `depositParams` instead. This step happens **client-side**; the API does not broadcast the transaction.
   </Step>
   <Step title="Track the mint">
     `GET /lock/{opId}/status` (API key) — poll until the status is `completed` or `expired`.
@@ -58,6 +58,9 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
 ### Burn and unlock: RGB → EVM
 
 <Steps>
+  <Step title="Estimate the release">
+    `GET /mint-burn/estimate/{senderNetworkId}/{recipientNetworkId}/{tokenId}/{amount}` — the USDT0 released for a burn of `amount`, and the bridge commission.
+  </Step>
   <Step title="Check the release capacity">
     `GET /unlock/capacity/{srcNetworkId}/{networkId}/{tokenId}` — read `available`. A burn cannot be undone, so do not burn more than `available`.
   </Step>
@@ -195,6 +198,55 @@ Balance as a human-readable decimal string in token units (e.g., `"100.50"`).
 
 ### Mint and burn
 
+#### `GET /mint-burn/estimate/{senderNetworkId}/{recipientNetworkId}/{tokenId}/{amount}` — Estimate a Mint or Burn
+
+Quotes what a mint or a burn receives and what the bridge charges. The direction follows from which side is the RGB network. No authentication.
+
+**Path Parameters**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `senderNetworkId` | `integer` | Network the funds leave: the EVM network for a mint, the RGB network for a burn |
+| `recipientNetworkId` | `integer` | Network the funds arrive on |
+| `tokenId` | `integer` | Token ID on the EVM network |
+| `amount` | `integer` | Gross amount in base units: the deposit for a mint, the burned amount for a burn |
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `senderAddress` | `string` | Conditional | Depositor address. Required for a mint from an entrypoint network |
+
+**Response `200`**
+
+```json
+{
+  "receiveAmount": "<amount received>",
+  "totalTokenCommission": "<percentFee + baseFee>",
+  "percentFee": "<percentage part>",
+  "baseFee": "<flat part>"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `receiveAmount` | Amount minted on Bitcoin, or released on the EVM network, in base units |
+| `totalTokenCommission` | The whole bridge commission in the token: `percentFee` plus `baseFee` |
+| `percentFee` | Percentage part of the commission |
+| `baseFee` | Flat part of the commission |
+
+Gas is not included. On an entrypoint mint, the LayerZero fee (`entrypoint.nativeFee` of `POST /mint/op-id`) is not included. A release to another network through USDT0 / LayerZero may also take a delivery fee that is not included.
+
+**Error Responses**
+
+| Status | Meaning |
+| --- | --- |
+| `400` | Invalid IDs or amount, a network pair that is not a mint or a burn, an unsupported token, or a missing `senderAddress` on an entrypoint mint |
+| `404` | The RGB network is not served |
+| `503` | The commission for this route cannot be priced |
+
+---
+
 #### `POST /mint/op-id` — Prepare a Mint
 
 Prepares the RGB side of a lock-and-mint transfer and returns the data the deposit must carry. It does not move tokens or submit the EVM transaction. Requires an API key.
@@ -205,7 +257,7 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
 {
   "networkId": 96,
   "sourceNetworkId": 42161,
-  "sourceAddress": "0xYourEvmAddress",
+  "tokenId": 2,
   "invoice": "rgb:...",
   "amount": 1000000
 }
@@ -216,10 +268,10 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
 | `networkId` | `integer` | Yes | RGB network ID (not the EVM source chain) |
 | `sourceNetworkId` | `integer` | Yes | EVM network the deposit is sent from |
 | `sourceAddress` | `string` | No | Address that sends the deposit. Required when the source network uses an entrypoint contract |
-| `tokenId` | `integer` | No | Token ID on the source network. Required when the source network uses an entrypoint contract |
+| `tokenId` | `integer` | Yes | Token ID of the deposited token on the source network |
 | `assetId` | `string` | No | RGB asset ID. Omit to use the standard USDT asset |
 | `invoice` | `string` | Yes | Invoice created by the recipient's RGB wallet |
-| `amount` | `integer` | Yes | Amount the user deposits, in token base units. For a 6-decimal token, `1000000` is 1 USDT |
+| `amount` | `integer` | Yes | Gross deposit in token base units. For a 6-decimal token, `1000000` is 1 USDT. The bridge takes its commission from it and mints the rest |
 
 **Response `200`**
 
@@ -229,7 +281,7 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
   "ttlSeconds": 1800,
   "settlementData": "0x9f2c...e41a",
   "depositAmount": "1000000",
-  "mintAmount": "1000000"
+  "mintAmount": "<deposit less commission>"
 }
 ```
 
@@ -238,8 +290,8 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
 | `opId` | RGB operation ID of the mint. Use it to track the mint |
 | `ttlSeconds` | Time available to submit the matching deposit |
 | `settlementData` | ABI-encoded `opId`. Pass it verbatim as the `settlementData` argument of `fundsIn()`; do not pass `opId` directly |
-| `depositAmount` | Amount to deposit on the source network, in base units |
-| `mintAmount` | Amount minted on Bitcoin, in base units. On an entrypoint route it is the amount quoted to arrive on Arbitrum |
+| `depositAmount` | Gross deposit in base units: the amount `fundsIn()` transfers |
+| `mintAmount` | Amount minted on Bitcoin, in base units: the deposit less the bridge commission |
 | `entrypoint` | Present only when the source network uses an entrypoint contract: `contractAddress`, `depositParams` (`amountLD`, `minAmountLD`, `extraOptions`, `payload`, `refundTo`, `expectedComposeValue`), `networkFee`, `nativeFee` and `totalNativeRequired` |
 
 ---

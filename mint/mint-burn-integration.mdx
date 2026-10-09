@@ -24,6 +24,7 @@ You need:
 - **An API key.** After your account passes KYC/KYB, generate a key on the **API** page of the Utexo platform. The key is shown once, so copy it then; you can revoke it on the same page. Send it in the `X-API-Key` header on `POST /mint/op-id`, `GET /lock/{opId}/status` and `POST /unlock`. Keep the key on your backend. Do not put it in a browser app or a wallet you do not control.
 - **An EVM account** on Arbitrum with USDT0 and ETH for gas. From Ethereum, Polygon PoS, Plasma or Tron, the deposit goes through the Utexo entrypoint contract on that network (see [Deposit from another network](#deposit-from-another-network)).
 - **An RGB wallet that supports the BFA asset schema.** USDT on Bitcoin is a BFA asset. This guide uses [RGB Lightning Node](/rgb-lightning-node/quickstart) `v0.15.0-beta.3` or later. Burns are not available in [external-signer mode](/security/rln-remote-signer).
+- **An Arbitrum RPC endpoint for the wallet.** A BFA wallet checks the Arbitrum deposit behind every mint it receives, so it needs an Ethereum-compatible RPC URL. Without it, RGB Lightning Node does not enable BFA assets. Set `eth_rpc_url` in the node's config file or in the `POST /unlock` request.
 
 All amounts in the mint and burn endpoints are integers in token base units. USDT and USDT0 have 6 decimals, so `1000000` is 1 USDT.
 
@@ -42,7 +43,7 @@ From the responses, take:
 | RGB network ID | `GET /networks`, the `UTEXO` network (`96`) | `networkId` of `/mint/op-id`, `destinationChainId` of `fundsIn`, `srcNetworkId` of `/unlock` |
 | EVM network ID | `GET /networks`, `ARBITRUM-ONE` (`42161`) | `sourceNetworkId` of `/mint/op-id`, `destinationNetworkId` of `/unlock` |
 | Bridge contract | `bridgeContract` of the Arbitrum network | The `fundsIn` call and its token approval |
-| EVM token ID and address | `GET /networks/42161/supported-tokens`, USDT | `tokenId` of `/unlock` and of the capacity check |
+| EVM token ID and address | `GET /networks/42161/supported-tokens`, USDT | `tokenId` of `/mint/op-id`, `/unlock`, the estimate and the capacity check |
 | RGB asset ID | `smartContractAddress` of USDT on network `96` | The RGB invoice and the burn |
 
 ---
@@ -50,6 +51,24 @@ From the responses, take:
 ## Lock and mint
 
 <Steps>
+  <Step title="Estimate what you receive">
+    Quote the mint before you start. `amount` is the gross deposit. The quote is public and needs no API key.
+
+    ```bash
+    curl https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/42161/96/<EVM_TOKEN_ID>/1000000
+    ```
+
+    ```json
+    {
+      "receiveAmount": "<minted amount>",
+      "totalTokenCommission": "<percentFee + baseFee>",
+      "percentFee": "<percentage part>",
+      "baseFee": "<flat part>"
+    }
+    ```
+
+    `receiveAmount` is the USDT minted on Bitcoin. Gas is not included.
+  </Step>
   <Step title="Create an RGB invoice">
     Create an invoice for the USDT asset in the RGB wallet that receives the mint. The invoice must include a transport endpoint (an RGB proxy), and its asset ID, if set, must be the USDT asset.
 
@@ -63,7 +82,7 @@ From the responses, take:
     Use a new invoice for each mint. The Mint refuses an invoice it has already paid (`409`).
   </Step>
   <Step title="Prepare the mint">
-    Send the invoice and the amount to mint. `amount` is the USDT that arrives on Bitcoin.
+    Send the invoice and the gross deposit. `amount` is the USDT0 you deposit; the bridge takes its commission from it and mints the rest.
 
     ```bash
     curl -X POST https://transfer.gateway.stage.utexo.com/api/v0/mint/op-id \
@@ -72,7 +91,7 @@ From the responses, take:
       -d '{
         "networkId": 96,
         "sourceNetworkId": 42161,
-        "sourceAddress": "0xYourEvmAddress",
+        "tokenId": <EVM_TOKEN_ID>,
         "invoice": "rgb:...",
         "amount": 1000000
       }'
@@ -84,23 +103,16 @@ From the responses, take:
       "ttlSeconds": 600,
       "settlementData": "0x9f2c...e41a",
       "depositAmount": "1000000",
-      "mintAmount": "1000000"
+      "mintAmount": "<deposit less commission>"
     }
     ```
 
-    The deposit must reach the bridge contract before `ttlSeconds` runs out. After that the prepared mint expires and you start again.
+    `depositAmount` is what `fundsIn` must transfer, and `mintAmount` is what arrives on Bitcoin. The deposit must reach the bridge contract before `ttlSeconds` runs out. After that the prepared mint expires and you start again.
 
     The amount must be at least the bridge contract's minimum deposit (`minFundsInAmount`). A smaller amount is refused with `mint amount is below the bridge contract minimum`.
   </Step>
-  <Step title="Size the deposit">
-    The bridge contract takes its commission from the deposit. The mint only completes when the deposit, less that commission, equals the `amount` you prepared. Ask the commission manager how much a deposit nets:
-
-    1. Read `TOKEN()` and `commissionManager()` from the bridge contract.
-    2. Call `calculateFundsInCommission(sourceChainId, destChainId, token, deposit)` on the commission manager, with `sourceChainId = 42161` and `destChainId = 96`. It returns `(tokenCommission, nativeCommission, netAmount)`.
-    3. Start with `deposit = amount`. While `netAmount` is less than `amount`, add the difference to `deposit` and ask again. Stop when `netAmount` equals `amount`.
-  </Step>
   <Step title="Lock USDT0">
-    Approve the bridge contract to spend the deposit (if a lower allowance is already set, set it to `0` first), then call `fundsIn` with the `settlementData` from step 2, unchanged. `destinationAddress` is an empty string: the recipient is the RGB invoice you already gave.
+    Approve the bridge contract to spend `depositAmount` (if a lower allowance is already set, set it to `0` first), then call `fundsIn` with `depositAmount` and the `settlementData` from the previous step, unchanged. `destinationAddress` is an empty string: the recipient is the RGB invoice you already gave.
 
     ```ts
     import { createWalletClient, http, parseAbi } from "viem";
@@ -112,6 +124,7 @@ From the responses, take:
     const erc20Abi = parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]);
 
     // wallet: a viem wallet client on Arbitrum for your EVM account
+    const deposit = BigInt(depositAmount);
     await wallet.writeContract({
       address: usdt0, abi: erc20Abi, functionName: "approve",
       args: [bridgeContract, deposit],
@@ -149,7 +162,7 @@ From the responses, take:
 
 ### Deposit from another network
 
-From Ethereum, Polygon PoS, Plasma or Tron, prepare the mint with that network as `sourceNetworkId`, and include `sourceAddress` and the source `tokenId`. In this case `amount` is what you deposit on the source network. The response adds an `entrypoint` object, and `mintAmount` is the amount quoted to arrive on Arbitrum through USDT0 / LayerZero.
+From Ethereum, Polygon PoS, Plasma or Tron, prepare the mint with that network as `sourceNetworkId`, the token ID of the deposited token on that network, and `sourceAddress` (required on these networks). `amount` is what you deposit on the source network. The response adds an `entrypoint` object, and `mintAmount` is what arrives on Bitcoin after USDT0 / LayerZero delivery and the bridge commission. To estimate first, call `/mint-burn/estimate` with the source network ID and add `?senderAddress=<your address>`; the estimate does not include the LayerZero fee (`entrypoint.nativeFee`).
 
 Instead of `fundsIn`:
 
@@ -186,6 +199,15 @@ await wallet.writeContract({
 </Warning>
 
 <Steps>
+  <Step title="Estimate what you receive">
+    `amount` is the amount you plan to burn.
+
+    ```bash
+    curl https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/96/42161/<EVM_TOKEN_ID>/1000000
+    ```
+
+    `receiveAmount` is the USDT0 released on Arbitrum after the bridge commission. For a release to another network through USDT0 / LayerZero, a delivery fee may also apply and is not included.
+  </Step>
   <Step title="Check the release capacity">
     ```bash
     curl https://transfer.gateway.stage.utexo.com/api/v0/unlock/capacity/96/42161/<EVM_TOKEN_ID>
@@ -290,10 +312,10 @@ On `/mint/op-id`:
 
 | HTTP | When | What to do |
 | --- | --- | --- |
-| `400` | Invalid network, amount, invoice, asset or transport endpoint, or `mint amount is below the bridge contract minimum` | Fix the request |
+| `400` | Invalid network, amount, invoice, asset or transport endpoint; `tokenId` missing; `sourceAddress` missing on an entrypoint network; the deposit does not cover the commission; or `mint amount is below the bridge contract minimum` | Fix the request |
 | `409` | The invoice was already used, or a transfer to it is in progress | Create a new invoice |
 | `501` | The selected network does not support mint preparation | Check `networkId` |
-| `503` | The connector is unavailable | Retry later |
+| `503` | The connector is unavailable, or the commission for this route cannot be priced | Retry later |
 
 `GET /lock/{opId}/status` returns `404` when no mint exists for the `opId`.
 
