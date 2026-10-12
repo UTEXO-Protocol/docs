@@ -13,16 +13,16 @@ The Mint supports two directions:
 
 ## Supported networks and routes
 
-The bridge holds its mint and burn liquidity on **Arbitrum One**. A mint from Arbitrum calls the bridge contract directly. A mint from another supported source network first deposits into a Utexo entrypoint contract, which forwards the funds to the Arbitrum bridge before the RGB mint is executed.
+The bridge holds its mint and burn liquidity on **Arbitrum One**. A mint from Arbitrum calls the bridge contract directly. A mint from another supported source network first deposits into a Utexo entrypoint contract, which forwards the funds to the Arbitrum bridge before the RGB mint is executed. A burn is always released from the Arbitrum bridge: to Arbitrum directly, or to another supported network through USDT0 / LayerZero.
 
 | Network | Network ID | Role in this guide | Deposit path |
 | --- | ---: | --- | --- |
 | Utexo RGB | `827166` | Mint destination and burn source | RGB/BFA |
 | Arbitrum One | `42161` | Direct mint source and burn destination | Direct bridge contract call |
-| Ethereum | `1` | Mint source | Utexo entrypoint |
-| Polygon PoS | `137` | Mint source | Utexo entrypoint |
-| Plasma | `9745` | Mint source | Utexo entrypoint |
-| Tron | `728126428` | Mint source | Utexo entrypoint |
+| Ethereum | `1` | Mint source and burn destination | Utexo entrypoint (mint); USDT0 / LayerZero release (burn) |
+| Polygon PoS | `137` | Mint source and burn destination | Utexo entrypoint (mint); USDT0 / LayerZero release (burn) |
+| Plasma | `9745` | Mint source and burn destination | Utexo entrypoint (mint); USDT0 / LayerZero release (burn) |
+| Tron | `728126428` | Mint source and burn destination | Utexo entrypoint (mint); USDT0 / LayerZero release (burn) |
 
 <Note>
   The network IDs above are part of the bridge API contract. Contract addresses, token IDs, and operational availability are deployment-specific; obtain those values from `GET /networks` and `GET /networks/{networkId}/supported-tokens` in the target environment.
@@ -61,7 +61,8 @@ From the responses, take:
 | EVM network ID | `GET /networks`, for example `ARBITRUM-ONE` (`42161`) | `sourceNetworkId` of `/mint/op-id`, `destinationNetworkId` of `/unlock` |
 | Bridge contract | `bridgeContract` of the Arbitrum network | The `fundsIn` call and token approval |
 | Source token ID and address | `GET /networks/{sourceNetworkId}/supported-tokens`, USDT | `tokenId` of mint and estimate requests; source token approval |
-| Arbitrum token ID and address | `GET /networks/42161/supported-tokens`, USDT or USDT0 | `tokenId` of unlock and capacity requests; direct Arbitrum approval |
+| Arbitrum token ID and address | `GET /networks/42161/supported-tokens`, USDT or USDT0 | `tokenId` of unlock and capacity requests for a release to Arbitrum; direct Arbitrum approval |
+| Destination token ID | `GET /networks/{destinationNetworkId}/supported-tokens`, USDT | `tokenId` of unlock, capacity and estimate requests for a release to another network |
 | RGB asset ID | `smartContractAddress` of USDT on the Utexo RGB network | The RGB invoice and burn |
 
 Use the protocol network IDs listed above. Discover contract addresses, token IDs, asset IDs, and active route configuration from the environment you are integrating with.
@@ -567,6 +568,28 @@ await wallet.writeContract({
     `submitted` means the release transaction was sent to the destination EVM network; it is not yet a confirmation. Verify that `recipient` is the address committed in the burn, then follow `evmTxHash` until the transaction confirms. The recipient receives the estimate's net amount.
   </Step>
 </Steps>
+
+### Release to another network
+
+To release to Ethereum, Polygon PoS, Plasma, or Tron, use that network as the destination in every burn request, and use the token ID of USDT on that network:
+
+```bash
+curl https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/827166/137/<DESTINATION_TOKEN_ID>/1000000
+curl https://transfer.gateway.stage.utexo.com/api/v0/unlock/capacity/827166/137/<DESTINATION_TOKEN_ID>
+```
+
+In `POST /unlock`, set `destinationNetworkId` to the destination network. `tokenId` is required for these releases:
+
+```json
+{
+  "consignment": "<BASE64_CONSIGNMENT>",
+  "srcNetworkId": 827166,
+  "destinationNetworkId": 137,
+  "tokenId": <DESTINATION_TOKEN_ID>
+}
+```
+
+The bridge releases from Arbitrum and sends the funds through USDT0 / LayerZero, so `evmTxHash` is the Arbitrum transaction. A confirmed Arbitrum transaction means the send was submitted; delivery to the recipient happens later, in a separate transaction on the destination network. The estimate does not include a fee that USDT0 / LayerZero may take on delivery.
 
 ## Retries and errors
 
