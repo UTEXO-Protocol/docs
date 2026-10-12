@@ -17,7 +17,7 @@ USDT0 settles natively on Arbitrum, which acts as the hub; Ethereum, Polygon PoS
   **Interactive API docs:** [https://transfer.gateway.stage.utexo.com/api/v0/docs/](https://transfer.gateway.stage.utexo.com/api/v0/docs/)
 </Info>
 
-The API is stateless and JSON-based. The network, token, estimate and unlock-capacity endpoints are public. The mint and burn endpoints (`/mint/op-id`, `/lock/{opId}/status` and `/unlock`) need an API key (see [Authentication](#authentication)).
+The API is stateless and JSON-based. The network, token, estimate and unlock-capacity endpoints are public. The mint and burn endpoints (`/mint/op-id`, `/lock/{opId}/status` and `/unlock`) need an operator API key (see [Authentication](#authentication)).
 
 ---
 
@@ -26,7 +26,7 @@ The API is stateless and JSON-based. The network, token, estimate and unlock-cap
 The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT on Bitcoin) and **burn and unlock** (USDT on Bitcoin → USDT0 on EVM).
 
 <Info>
-  **RGB network ID:** take the RGB-side network from `GET /networks`. On the current environment it is the `UTEXO` network (ID `96`). The RGB wallet must use an `rgb-lib` version that supports the BFA asset schema, for example [RGB Lightning Node](/rgb-lightning-node/quickstart) `v0.15.0-beta.3` or later.
+  **RGB network ID:** take the RGB-side network from `GET /networks`. The Utexo RGB network ID is `827166`. The RGB wallet must use the supported `rgb-lib` version; see [Mint and Burn Integration](/mint/mint-burn-integration).
 </Info>
 
 
@@ -65,7 +65,7 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
     `GET /unlock/capacity/{srcNetworkId}/{networkId}/{tokenId}` — read `available`. A burn cannot be undone, so do not burn more than `available`.
   </Step>
   <Step title="Burn USDT on Bitcoin">
-    Burn the amount in the RGB wallet and name the EVM recipient. The burn recipient is 32 bytes: 12 zero bytes followed by the 20-byte EVM address. With RGB Lightning Node, call `POST /burn` with `burn_recipient`, then get the burn consignment with `POST /getconsignment` (asset ID and the burn `txid`). It returns the consignment as hex; convert it to base64 for the next step.
+    Burn the amount in the RGB wallet and name the EVM recipient. The burn recipient is 32 bytes: 12 zero bytes followed by the 20-byte EVM address. With `rgb-lib`, call `Wallet::burn`, then read the consignment at `get_send_consignment_path(asset_id, txid)` and base64-encode the raw bytes.
   </Step>
   <Step title="Submit the burn consignment">
     `POST /unlock` (API key) — send the base64-encoded consignment. You can submit it before the burn has its Bitcoin confirmations: until it does, the API returns `409` with code `6`, `7` or `8`, and you retry the same request later.
@@ -79,15 +79,15 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
 
 ## Authentication
 
-### API key
+### Operator API key
 
-`POST /mint/op-id`, `GET /lock/{opId}/status` and `POST /unlock` need your API key in the `X-API-Key` header. A missing, invalid or revoked key returns `401`. Generate the key on the **API** page of the Utexo platform once your account passes KYC/KYB; access is by invitation. Keep the key on a trusted backend: do not embed it in a browser app or an untrusted wallet.
+`POST /mint/op-id`, `GET /lock/{opId}/status` and `POST /unlock` need an operator API key in the `X-API-Key` header. A missing or invalid key returns `401`. Keep the key on a trusted backend: do not embed it in a browser app or an untrusted wallet. Contact the Utexo team to get a key.
 
 ```bash
 curl -X POST https://transfer.gateway.stage.utexo.com/api/v0/mint/op-id \
-  -H "X-API-Key: <API_KEY>" \
+  -H "X-API-Key: <OPERATOR_API_KEY>" \
   -H "Content-Type: application/json" \
-  -d '{"networkId": 96, "sourceNetworkId": 42161, "invoice": "rgb:...", "amount": 1000000}'
+  -d '{"networkId": 827166, "sourceNetworkId": 42161, "tokenId": 2, "invoice": "rgb:...", "amount": 1000000}'
 ```
 
 ### Signature authentication
@@ -249,13 +249,13 @@ Gas is not included. On an entrypoint mint, the LayerZero fee (`entrypoint.nativ
 
 #### `POST /mint/op-id` — Prepare a Mint
 
-Prepares the RGB side of a lock-and-mint transfer and returns the data the deposit must carry. It does not move tokens or submit the EVM transaction. Requires an API key.
+Prepares the RGB side of a lock-and-mint transfer and returns the data the deposit must carry. It does not move tokens or submit the EVM transaction. Requires the operator API key.
 
 **Request Body**
 
 ```json
 {
-  "networkId": 96,
+  "networkId": 827166,
   "sourceNetworkId": 42161,
   "tokenId": 2,
   "invoice": "rgb:...",
@@ -298,7 +298,7 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
 
 #### `GET /lock/{opId}/status` — Get Mint Status
 
-Returns the state of a prepared mint. Poll it after the deposit is submitted. Requires an API key.
+Returns the state of a prepared mint. Poll it after the deposit is submitted. Requires the operator API key.
 
 **Response `200`**
 
@@ -340,7 +340,7 @@ Returns how much can be released right now for a burn. Call it before you burn. 
 
 ```json
 {
-  "srcNetworkId": 96,
+  "srcNetworkId": 827166,
   "networkId": 42161,
   "tokenId": 2,
   "poolBalance": "1354199",
@@ -361,14 +361,14 @@ Returns how much can be released right now for a burn. Call it before you burn. 
 
 #### `POST /unlock` — Release After a Burn
 
-Validates a burn consignment, gets the release signatures and submits the EVM release. The amount and the recipient are read from the burn itself; the request cannot change them. Requires an API key.
+Validates a burn consignment, gets the release signatures and submits the EVM release. The amount and the recipient are read from the burn itself; the request cannot change them. Requires the operator API key.
 
 **Request Body**
 
 ```json
 {
   "consignment": "<base64-encoded burn consignment>",
-  "srcNetworkId": 96,
+  "srcNetworkId": 827166,
   "destinationNetworkId": 42161,
   "tokenId": 2
 }

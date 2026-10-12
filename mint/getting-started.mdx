@@ -26,7 +26,7 @@ Before initiating a transfer, ensure you have the following ready.
 
 **RGB wallet**
 
-- A wallet built on an `rgb-lib` version that supports the BFA asset schema used by USDT on Bitcoin, for example [RGB Lightning Node](/rgb-lightning-node/quickstart) `v0.15.0-beta.3` or later.
+- A wallet built on the supported `rgb-lib` version, which handles the BFA asset schema used by USDT on Bitcoin. See [Mint and Burn Integration](/mint/mint-burn-integration).
 - BTC balance to cover the RGB transaction fee on the Bitcoin side.
 
 ---
@@ -86,7 +86,7 @@ Enter the amount. The Mint shows how much it can release right now. Do not burn 
 
 Burn the amount in your RGB wallet and name your EVM address as the burn recipient. Then export the burn consignment, the file that proves the burn.
 
-With RGB Lightning Node, call `POST /burn` with `burn_recipient` set to your EVM address, left-padded with zeros to 32 bytes. Then call `POST /getconsignment` with the asset ID and the returned `txid`.
+With `rgb-lib`, call `Wallet::burn` with your EVM address, left-padded with zeros to 32 bytes, as the burn recipient. The consignment is at `get_send_consignment_path(asset_id, txid)`. See [Mint and Burn Integration](/mint/mint-burn-integration#burn-and-unlock).
 
 ### Step 3 — Submit the burn consignment
 
