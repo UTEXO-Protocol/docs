@@ -1,0 +1,613 @@
+---
+title: "Mint and Burn Integration"
+description: "Integrate Utexo Mint from your backend: lock USDT or USDT0 to mint USDT on Bitcoin, and burn it to unlock USDT or USDT0."
+sidebarTitle: "Mint & Burn Integration"
+---
+
+This guide is for partners that run mint and burn from their own backend, such as wallets, exchanges, and resolvers that rebalance between USDT or USDT0 on EVM networks and USDT on Bitcoin.
+
+The Mint supports two directions:
+
+- **Lock and mint:** lock USDT or USDT0 and mint the net amount as USDT on Bitcoin to an RGB wallet.
+- **Burn and unlock:** burn USDT on Bitcoin and unlock the net amount as USDT or USDT0 to the EVM address committed in the burn.
+
+## Supported networks and routes
+
+The bridge holds its mint and burn liquidity on **Arbitrum One**. A mint from Arbitrum calls the bridge contract directly. A mint from another supported source network first deposits into a Utexo entrypoint contract, which forwards the funds to the Arbitrum bridge before the RGB mint is executed. A burn is always released from the Arbitrum bridge: to Arbitrum directly, or to another supported network through USDT0 / LayerZero.
+
+| Network | Network ID | Role in this guide | Deposit path |
+| --- | ---: | --- | --- |
+| Utexo RGB | `827166` | Mint destination and burn source | RGB/BFA |
+| Arbitrum One | `42161` | Direct mint source and burn destination | Direct bridge contract call |
+| Ethereum | `1` | Mint source and burn destination | Utexo entrypoint (mint); USDT0 / LayerZero release (burn) |
+| Polygon PoS | `137` | Mint source and burn destination | Utexo entrypoint (mint); USDT0 / LayerZero release (burn) |
+| Plasma | `9745` | Mint source and burn destination | Utexo entrypoint (mint); USDT0 / LayerZero release (burn) |
+| Tron | `728126428` | Mint source and burn destination | Utexo entrypoint (mint); USDT0 / LayerZero release (burn) |
+
+<Note>
+  The network IDs above are part of the bridge API contract. Contract addresses, token IDs, and operational availability are deployment-specific; obtain those values from `GET /networks` and `GET /networks/{networkId}/supported-tokens` in the target environment.
+</Note>
+
+<Info>
+  **Base URL (staging):** `https://transfer.gateway.stage.utexo.com/api/v0`
+
+  Contact the Utexo team for an operator API key, the supported `rgb-lib` version, and production access.
+</Info>
+
+## Before you start
+
+You need:
+
+- **An operator API key.** Send it in the `X-API-Key` header on `POST /mint/op-id`, `GET /lock/{opId}/status`, and `POST /unlock`. Keep the key on your backend. Do not put it in a browser app or a wallet you do not control. The read-only estimate and capacity endpoints do not require the key.
+- **An account on the source network** with the supported USDT or USDT0 token and native currency for gas or fees. A direct Arbitrum mint also requires ETH. Ethereum, Polygon PoS, Plasma, and Tron use a Utexo entrypoint contract; see [Deposit from another network](#deposit-from-another-network).
+- **An RGB wallet using the supported `rgb-lib` version.** This guide calls its Rust API directly.
+- **Bitcoin for wallet operations.** The receiving wallet needs confirmed sats to create RGB-colorable UTXOs. A burn also needs an empty colorable UTXO and enough sats for its Bitcoin transaction fee.
+
+All API and `rgb-lib` amounts in this guide are integers in token base units. USDT and USDT0 have 6 decimals, so `1000000` is 1 USDT.
+
+### Find the network and token IDs
+
+```bash
+curl https://transfer.gateway.stage.utexo.com/api/v0/networks
+curl "https://transfer.gateway.stage.utexo.com/api/v0/networks/<SOURCE_NETWORK_ID>/supported-tokens"
+curl https://transfer.gateway.stage.utexo.com/api/v0/networks/827166/supported-tokens
+```
+
+From the responses, take:
+
+| Value | Where | Used in |
+| --- | --- | --- |
+| RGB network ID | Utexo protocol network ID (`827166`) | `networkId` of `/mint/op-id`, `recipientNetworkId` of the mint estimate, `srcNetworkId` of `/unlock` |
+| EVM network ID | `GET /networks`, for example `ARBITRUM-ONE` (`42161`) | `sourceNetworkId` of `/mint/op-id`, `destinationNetworkId` of `/unlock` |
+| Bridge contract | `bridgeContract` of the Arbitrum network | The `fundsIn` call and token approval |
+| Source token ID and address | `GET /networks/{sourceNetworkId}/supported-tokens`, USDT | `tokenId` of mint and estimate requests; source token approval |
+| Arbitrum token ID and address | `GET /networks/42161/supported-tokens`, USDT or USDT0 | `tokenId` of unlock and capacity requests for a release to Arbitrum; direct Arbitrum approval |
+| Destination token ID | `GET /networks/{destinationNetworkId}/supported-tokens`, USDT | `tokenId` of unlock, capacity and estimate requests for a release to another network |
+| RGB asset ID | `smartContractAddress` of USDT on the Utexo RGB network | The RGB invoice and burn |
+
+Use the protocol network IDs listed above. Discover contract addresses, token IDs, asset IDs, and active route configuration from the environment you are integrating with.
+
+## Estimate the result
+
+Use the public estimate endpoint before either a mint or a burn:
+
+```text
+GET /mint-burn/estimate/{senderNetworkId}/{recipientNetworkId}/{tokenId}/{amount}
+```
+
+`amount` is always the **gross input** in base units:
+
+- for a mint, it is the amount deposited on the source network;
+- for a burn, it is the amount burned on Bitcoin.
+
+Every successful estimate returns integer base-unit amounts as strings:
+
+```json
+{
+  "receiveAmount": "989500",
+  "totalTokenCommission": "10500",
+  "percentFee": "10000",
+  "baseFee": "500"
+}
+```
+
+`receiveAmount` is the expected amount on the destination after the bridge token commission, and:
+
+```text
+totalTokenCommission = percentFee + baseFee
+```
+
+The fee schedule is deployment-specific; the numbers in this section are illustrative. The way the quote is calculated depends on whether Arbitrum or an entrypoint-based network is the mint source.
+
+### Direct mint estimate from Arbitrum
+
+For Arbitrum One, the gross `amount` is deposited directly into the bridge contract. Quote a gross deposit of 1 USDT or USDT0 like this:
+
+```bash
+curl https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/42161/827166/2/1000000
+```
+
+No `senderAddress` is required for the direct Arbitrum route. The bridge commission is calculated on the gross deposit, so:
+
+```text
+receiveAmount + totalTokenCommission = amount
+```
+
+Use the same gross `amount` in `POST /mint/op-id`. Its `depositAmount` is the value approved and passed to `fundsIn`, while `mintAmount` is the quoted net RGB amount.
+
+### Mint estimate from an entrypoint-based network
+
+Ethereum, Polygon PoS, Plasma, and Tron use a two-stage quote:
+
+1. The source entrypoint quotes how much of the gross deposit is guaranteed to arrive at the Arbitrum bridge.
+2. The bridge calculates its token commission on that guaranteed Arbitrum delivery and returns the final RGB `receiveAmount`.
+
+The estimate must include `senderAddress`, because the entrypoint quote and generated deposit parameters depend on the source account. For example, quote a Polygon deposit:
+
+```bash
+curl "https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/137/827166/<SOURCE_TOKEN_ID>/1000000?senderAddress=0xYourPolygonAddress"
+```
+
+Use the same pattern for the other entrypoint-based networks:
+
+| Source | Estimate path | `senderAddress` format |
+| --- | --- | --- |
+| Ethereum | `/mint-burn/estimate/1/827166/{tokenId}/{amount}` | `0x` EVM address |
+| Polygon PoS | `/mint-burn/estimate/137/827166/{tokenId}/{amount}` | `0x` EVM address |
+| Plasma | `/mint-burn/estimate/9745/827166/{tokenId}/{amount}` | `0x` EVM address |
+| Tron | `/mint-burn/estimate/728126428/827166/{tokenId}/{amount}` | Base58Check or Tron hex address |
+
+Append `?senderAddress={sourceAccount}` to each path. Discover the source network's USDT token ID through its `supported-tokens` endpoint; do not assume it is identical in every environment.
+
+For an entrypoint-based network, the following equality applies to the amount guaranteed to arrive on Arbitrum, not necessarily to the original source deposit:
+
+```text
+receiveAmount + totalTokenCommission = guaranteed Arbitrum delivery
+```
+
+The estimate response does not expose the intermediate delivery amount. Consequently, `receiveAmount + totalTokenCommission` may be less than the gross source `amount`. After `POST /mint/op-id`, use the returned `entrypoint.depositParams`, `nativeFee`, and other entrypoint fields to submit the source-chain deposit; do not construct those values from the estimate.
+
+### Estimate lifecycle and exact receive amounts
+
+The endpoint is read-only: it does not reserve liquidity, prepare a mint, move funds, or require an API key. Treat the result as a quote, not a reservation. Fees or upstream delivery quotes may change before you prepare or submit the operation; the response from `POST /mint/op-id` is authoritative for that prepared mint.
+
+To target an exact RGB receive amount, search for a gross input whose `receiveAmount` equals the target. Start with the target as the gross input, add the difference between the target and `receiveAmount`, and quote again until the endpoint returns the exact target. Integer rounding and a base fee mean that simply adding one percentage may not produce an exact result.
+
+<Warning>
+  Call the estimate before creating the RGB invoice so you can show and record the expected net amount. After `POST /mint/op-id`, verify that `mintAmount` is the amount the customer accepted before moving funds. If the invoice itself carries a fungible amount, it must equal `mintAmount`, not the gross EVM deposit.
+</Warning>
+
+## Use rgb-lib for RGB wallet operations
+
+[`rgb-lib`](https://github.com/UTEXO-Protocol/rgb-lib) is a Rust wallet library for receiving, transferring, and tracking RGB assets. Utexo's USDT on Bitcoin uses the **BFA (Burnable Fungible Asset)** schema, which allows the asset to be burned for release on a supported EVM network.
+
+`rgb-lib` is a library rather than a hosted Utexo API. Call it directly from Rust or expose it through your own wallet service. The integration uses these methods:
+
+- `blind_receive` creates a blinded invoice for a mint;
+- `refresh` discovers and settles incoming transfers;
+- `burn` creates and broadcasts the irreversible asset burn;
+- `get_asset_balance` and `list_unspents` check readiness before a burn;
+- `get_send_consignment_path` locates the raw burn consignment submitted to `/unlock`.
+
+### Add and initialize rgb-lib
+
+Pin the supported revision and enable one supported indexer backend:
+
+```toml
+[dependencies]
+rgb-lib = { git = "https://github.com/UTEXO-Protocol/rgb-lib.git", rev = "aaf5b52f63ff2ee966707f099aacadd5f2e6037f", default-features = false, features = ["esplora"] }
+base64 = "0.22"
+hex = "0.4"
+
+[patch.crates-io]
+rgb-consensus = { git = "https://github.com/UTEXO-Protocol/rgb-consensus-s-bfa", rev = "2faf6118b2f5fe30dd90dd5244d5a7dc32bcd757" }
+rgb-ops = { git = "https://github.com/UTEXO-Protocol/rgb-ops-s-bfa", rev = "773766b5ca7a9e705ec68c2f9ed0917f505cd6e3" }
+rgb-invoicing = { git = "https://github.com/UTEXO-Protocol/rgb-ops-s-bfa", rev = "773766b5ca7a9e705ec68c2f9ed0917f505cd6e3" }
+rgb-schemas = { git = "https://github.com/UTEXO-Protocol/rgb-schemas-s-bfa", rev = "238dfe7a89db998107fd87d919bf2757a2746d7f" }
+```
+
+These dependency revisions are compatible with one another. Keep the `rgb-lib` and patched RGB crate revisions together; do not upgrade them independently.
+
+Create or load the wallet with persistent keys and a persistent data directory, then take it online:
+
+```rust
+use rgb_lib::{AssetSchema, BitcoinNetwork};
+use rgb_lib::wallet::{
+    DatabaseType, OnlineOptions, RgbWalletOpsOffline, RgbWalletOpsOnline,
+    SinglesigKeys, Wallet, WalletData,
+};
+
+// Load the same persisted Keys value on every restart.
+let mut wallet = Wallet::new(
+    WalletData {
+        data_dir: "/secure/path/utexo-rgb-wallet".to_owned(),
+        bitcoin_network: BitcoinNetwork::Signet,
+        database_type: DatabaseType::Sqlite,
+        max_allocations_per_utxo: 5,
+        supported_schemas: vec![AssetSchema::Bfa],
+        reuse_addresses: false,
+    },
+    SinglesigKeys::from_keys(&keys, None),
+)?;
+
+let online = wallet.go_online(OnlineOptions {
+    indexer_url: "https://esplora-api.utexo.com".to_owned(),
+    skip_consistency_check: false,
+    vanilla_sync_lookback: 20,
+    eth_rpc_url: Some("https://your-arbitrum-rpc.example".to_owned()),
+})?;
+```
+
+The wallet needs the EVM RPC to validate the bridge history referenced by consignments. Generate the wallet keys only once, store them securely, and load the same keys and data directory after every restart. Do not run two processes against the same wallet directory concurrently.
+
+Fund an address returned by `wallet.get_address()` with Bitcoin on the configured network. After the funding transaction confirms, create RGB-colorable UTXOs:
+
+```rust
+let funding_address = wallet.get_address()?;
+
+// After funding_address has received confirmed sats:
+let created = wallet.create_utxos(
+    online,
+    true,       // create only enough UTXOs to reach the requested total
+    Some(5),
+    Some(1000), // sats per UTXO
+    1,          // fee rate in sat/vB
+    false,      // sync before building the transaction
+)?;
+```
+
+Creating colorable UTXOs broadcasts a Bitcoin transaction. Wait until the wallet reports usable allocation capacity before creating an invoice. Each pending blinded invoice reserves an allocation slot; use a new invoice for every mint and clean up only invoices that have definitely expired.
+
+## Lock and mint
+
+<Steps>
+  <Step title="Quote the gross deposit">
+    Call the estimate endpoint with the source EVM network, RGB destination network, EVM token ID, and proposed gross deposit. Record `receiveAmount` as the amount the RGB wallet should receive.
+
+    If the customer specifies the desired RGB amount instead, iterate estimates as described in [Estimate the result](#estimate-the-result) to find an exact gross input.
+  </Step>
+  <Step title="Create a blinded RGB invoice">
+    A bridge mint requires a **blinded** recipient. Do not use a witness invoice: a witness recipient requires a satoshi amount in the Bitcoin output, while the bridge mint does not carry one.
+
+    Create a new blinded recipient with `Wallet::blind_receive`:
+
+    ```rust
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use rgb_lib::Assignment;
+
+    let expiration_timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)?
+        .as_secs()
+        + 86_400;
+    let receive = wallet.blind_receive(
+        None,            // the asset ID is omitted from the invoice
+        Assignment::Any, // the bridge binds the prepared mint amount
+        expiration_timestamp,
+        vec!["rpcs://rgb-proxy.utexo.com/json-rpc".to_owned()],
+        1,               // confirmations required before the receive settles
+    )?;
+
+    let invoice = receive.invoice;
+    let receive_transfer_index = receive.batch_transfer_idx;
+    ```
+
+    Persist the invoice and `batch_transfer_idx` with your operation state. For a bridge mint, the invoice normally has an unspecified assignment; the bridge binds the prepared `mintAmount` to that blinded recipient.
+
+    An invoice may omit the asset ID and amount. If another client produces an invoice that includes an asset ID or fungible assignment, they must match the supported USDT asset and the prepared `mintAmount`.
+
+    Use a new invoice for every mint. The Mint refuses an invoice it has already paid.
+  </Step>
+  <Step title="Prepare the mint">
+    Send the blinded invoice and the **gross source deposit** from the estimate as `amount`:
+
+    ```bash
+    curl -X POST https://transfer.gateway.stage.utexo.com/api/v0/mint/op-id \
+      -H "X-API-Key: <OPERATOR_API_KEY>" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "networkId": 827166,
+        "sourceNetworkId": 42161,
+        "tokenId": 2,
+        "assetId": "<RGB_ASSET_ID>",
+        "invoice": "rgb:...",
+        "amount": 1000000
+      }'
+    ```
+
+    ```json
+    {
+      "opId": "9f2c...e41a",
+      "ttlSeconds": 600,
+      "settlementData": "0x9f2c...e41a",
+      "depositAmount": "1000000",
+      "mintAmount": "989500"
+    }
+    ```
+
+    Before moving funds, verify all of the following:
+
+    - `depositAmount` equals the gross amount you intend to deposit;
+    - `mintAmount` equals the amount in the blinded invoice and the amount the customer accepted;
+    - `settlementData` is retained byte-for-byte for the contract call;
+    - enough time remains in `ttlSeconds` for the deposit to be submitted.
+
+    The deposit must reach the bridge contract before the operation expires. If it expires, prepare a new operation and use a new invoice.
+  </Step>
+  <Step title="Lock USDT or USDT0">
+    Approve the bridge contract to spend exactly `depositAmount`. If the token requires resetting an existing allowance, set it to `0` first. Then call `fundsIn` with the returned `settlementData` unchanged. `destinationAddress` is an empty string because the RGB recipient was supplied in the invoice.
+
+    ```ts
+    import { createWalletClient, http, parseAbi } from "viem";
+    import { arbitrum } from "viem/chains";
+
+    const bridgeAbi = parseAbi([
+      "function fundsIn(uint256 amount, uint256 destinationChainId, string destinationAddress, bytes settlementData) payable returns (bytes32 operationId)",
+    ]);
+    const erc20Abi = parseAbi([
+      "function approve(address spender, uint256 amount) returns (bool)",
+    ]);
+
+    // wallet: a viem wallet client for your EVM account on Arbitrum
+    await wallet.writeContract({
+      address: sourceToken,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [bridgeContract, BigInt(depositAmount)],
+    });
+
+    await wallet.writeContract({
+      address: bridgeContract,
+      abi: bridgeAbi,
+      functionName: "fundsIn",
+      args: [BigInt(depositAmount), 827166n, "", settlementData],
+    });
+    ```
+
+    Submit the exact prepared amount. A different amount will not match the prepared mint.
+  </Step>
+  <Step title="Track the mint">
+    Poll the mint until it reaches `completed` or `expired`:
+
+    ```bash
+    curl https://transfer.gateway.stage.utexo.com/api/v0/lock/9f2c...e41a/status \
+      -H "X-API-Key: <OPERATOR_API_KEY>"
+    ```
+
+    | Status | Meaning |
+    | --- | --- |
+    | `awaiting_funds_in` | Waiting for the matching deposit, until `expiresAt` |
+    | `funds_in_confirmed` | The deposit was found and matches the prepared mint |
+    | `bridge_signed` | The mint signer signed the mint |
+    | `broadcast` | The Bitcoin transaction anchoring the mint was broadcast |
+    | `completed` | The Bitcoin transaction is confirmed; the mint is complete |
+    | `expired` | No matching deposit arrived in time |
+
+    Signing starts only after the deposit is final on Arbitrum, so `funds_in_confirmed` can last for a while before `bridge_signed`.
+  </Step>
+  <Step title="Receive the USDT in rgb-lib">
+    Refresh the wallet until the incoming transfer settles:
+
+    ```rust
+    wallet.refresh(online, None, vec![], false)?;
+    let balance = wallet.get_asset_balance(rgb_asset_id.to_owned())?;
+
+    println!(
+        "settled={}, future={}, spendable={}",
+        balance.settled,
+        balance.future,
+        balance.spendable,
+    );
+    ```
+
+    `future` includes transfers known to the wallet; `spendable` is the balance currently available to burn or transfer. Do not start a burn until the required amount is spendable.
+
+  </Step>
+</Steps>
+
+### Deposit from another network
+
+From Ethereum, Polygon PoS, Plasma, or Tron, quote and prepare the mint with that network as `sourceNetworkId`. Include the depositor in the estimate's `senderAddress` query parameter and in the `/mint/op-id` request's `sourceAddress`, and include the source `tokenId`.
+
+`amount` remains the gross amount deposited on the source network. The response adds an `entrypoint` object; `mintAmount` is the net amount quoted to arrive as USDT on RGB after the upstream delivery and bridge commission.
+
+Instead of calling `fundsIn` directly:
+
+1. Approve `entrypoint.contractAddress` to spend `depositParams.amountLD` of the source token.
+2. Call `deposit(depositParams)` on the entrypoint contract with `entrypoint.nativeFee` as the transaction value.
+
+```ts
+const entrypointAbi = parseAbi([
+  "function deposit((uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes payload, address refundTo, uint256 expectedComposeValue) depositParams) payable returns (bytes32 guid)",
+]);
+
+await wallet.writeContract({
+  address: entrypoint.contractAddress,
+  abi: entrypointAbi,
+  functionName: "deposit",
+  args: [{
+    amountLD: BigInt(p.amountLD),
+    minAmountLD: BigInt(p.minAmountLD),
+    extraOptions: `0x${p.extraOptions}`,
+    payload: `0x${p.payload}`,
+    refundTo: p.refundTo,
+    expectedComposeValue: BigInt(p.expectedComposeValue),
+  }],
+  value: BigInt(entrypoint.nativeFee),
+});
+```
+
+`p` is `entrypoint.depositParams`. `extraOptions` and `payload` are returned without the `0x` prefix. On Tron, make the equivalent calls with TronWeb. Then track the mint with `GET /lock/{opId}/status`.
+
+## Burn and unlock
+
+<Warning>
+  A burn cannot be undone. Check the quote, minimum amount, release capacity, spendable RGB balance, and EVM recipient before calling the wallet. The recipient is committed into the burn and cannot be changed by `/unlock`.
+</Warning>
+
+<Steps>
+  <Step title="Quote the burn">
+    Quote the gross amount to burn by reversing the route:
+
+    ```bash
+    curl https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/827166/42161/2/1000000
+    ```
+
+    Show the customer both the gross burn and `receiveAmount`. The EVM recipient receives `receiveAmount`; `totalTokenCommission` is deducted during release. The quote does not check current release liquidity, so perform the capacity check separately.
+  </Step>
+  <Step title="Check release capacity">
+    ```bash
+    curl https://transfer.gateway.stage.utexo.com/api/v0/unlock/capacity/827166/42161/<EVM_TOKEN_ID>
+    ```
+
+    ```json
+    {
+      "srcNetworkId": 827166,
+      "networkId": 42161,
+      "tokenId": 2,
+      "poolBalance": "1354199",
+      "pendingReleases": "0",
+      "availableOutflow": "135419",
+      "available": "135419"
+    }
+    ```
+
+    Do not burn more than `available`. It is the available USDT or USDT0 liquidity in the bridge, less releases in progress, capped by the current outflow limit when one is set. Also read `minFundsOutAmount` from the destination bridge contract and do not burn less than that minimum. Capacity is a snapshot and is not reserved for you, so recheck it immediately before the burn.
+  </Step>
+  <Step title="Prepare the rgb-lib wallet">
+    Refresh the wallet and verify the BFA balance is spendable:
+
+    ```rust
+    wallet.refresh(online, None, vec![], false)?;
+
+    let balance = wallet.get_asset_balance(rgb_asset_id.to_owned())?;
+    if balance.spendable < burn_amount {
+        return Err("the BFA balance is not yet spendable".into());
+    }
+
+    let unspents = wallet.list_unspents(Some(online), false, false)?;
+    let has_empty_colorable_utxo = unspents.iter().any(|unspent| {
+        unspent.utxo.colorable
+            && unspent.utxo.exists
+            && unspent.utxo.btc_amount >= 1000
+            && unspent.rgb_allocations.is_empty()
+            && unspent.pending_blinded == 0
+    });
+    ```
+
+    A burn needs enough spendable BFA assignments and an empty colorable UTXO with sats for the Bitcoin transaction. If no suitable UTXO is available, fund the wallet if necessary and call `Wallet::create_utxos` before proceeding:
+
+    ```rust
+    if !has_empty_colorable_utxo {
+        wallet.create_utxos(online, true, Some(5), Some(1000), fee_rate, false)?;
+    }
+    ```
+  </Step>
+  <Step title="Burn with rgb-lib">
+    Convert the 20-byte EVM recipient into the 32-byte value required by BFA: remove `0x`, lowercase it, validate that it has 40 hexadecimal characters, and left-pad it with 24 zeroes.
+
+    ```text
+    EVM address:    f39fd6e51aad88f6f4ce6ab8827279cfffb92266
+    Burn recipient: 000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266
+    ```
+
+    Decode and validate the address before building the 32-byte recipient. Then call `Wallet::burn` with the gross RGB amount, Bitcoin fee rate, and wallet confirmation policy:
+
+    ```rust
+    let evm_address = hex::decode(
+        "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".trim_start_matches("0x"),
+    )?;
+    if evm_address.len() != 20 {
+        return Err("the EVM recipient must be exactly 20 bytes".into());
+    }
+
+    let mut burn_recipient = vec![0u8; 32];
+    burn_recipient[12..].copy_from_slice(&evm_address);
+
+    let burn = wallet.burn(
+        online,
+        rgb_asset_id.to_owned(),
+        1_000_000,
+        Some(burn_recipient),
+        5, // fee rate in sat/vB
+        1, // confirmations required by the wallet
+    )?;
+
+    let burn_txid = burn.txid;
+    let burn_transfer_index = burn.batch_transfer_idx;
+    ```
+
+    `Wallet::burn` builds and signs the PSBT, writes the BFA consignment, broadcasts the Bitcoin anchor transaction, and returns its transaction ID and transfer index. Persist both values before continuing. If the call fails after submission and it is unclear whether a transaction was created, inspect `wallet.list_transfers(AssetFilter::Id(rgb_asset_id.to_owned()), None)` before retrying. Never retry an ambiguous burn automatically.
+
+  </Step>
+  <Step title="Read and encode the burn consignment">
+    Ask `rgb-lib` for the consignment created by the burn, then read and base64-encode the raw bytes:
+
+    ```rust
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+
+    let consignment_path = wallet.get_send_consignment_path(
+        &rgb_asset_id,
+        &burn_txid,
+    );
+    let consignment = std::fs::read(consignment_path)?;
+    let base64_consignment = STANDARD.encode(consignment);
+    ```
+
+    Send `base64_consignment` as the `consignment` field of `/unlock`. Do not encode the path or a hex representation of the file; `/unlock` expects standard base64 of the raw consignment bytes.
+
+  </Step>
+  <Step title="Submit the burn">
+    ```bash
+    curl -X POST https://transfer.gateway.stage.utexo.com/api/v0/unlock \
+      -H "X-API-Key: <OPERATOR_API_KEY>" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "consignment": "<BASE64_CONSIGNMENT>",
+        "srcNetworkId": 827166,
+        "destinationNetworkId": 42161,
+        "tokenId": 2,
+        "maxFeeRate": "1000000000"
+      }'
+    ```
+
+    `maxFeeRate` is optional. When supplied, it is a non-negative decimal string containing the maximum EVM gas price in wei that you accept.
+
+    You may submit immediately after the burn. The release waits until the Bitcoin relay has observed the burn and the required confirmation depth has been reached. Until then, the API returns `409` with code `6`, `7`, or `8`; resend the same request later. The amount and recipient are read from the consignment and cannot be overridden by the request.
+  </Step>
+  <Step title="Confirm the release">
+    A successful submission returns:
+
+    ```json
+    {
+      "evmTxHash": "0xabc...",
+      "status": "submitted",
+      "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+    }
+    ```
+
+    `submitted` means the release transaction was sent to the destination EVM network; it is not yet a confirmation. Verify that `recipient` is the address committed in the burn, then follow `evmTxHash` until the transaction confirms. The recipient receives the estimate's net amount.
+  </Step>
+</Steps>
+
+### Release to another network
+
+To release to Ethereum, Polygon PoS, Plasma, or Tron, use that network as the destination in every burn request, and use the token ID of USDT on that network:
+
+```bash
+curl https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/827166/137/<DESTINATION_TOKEN_ID>/1000000
+curl https://transfer.gateway.stage.utexo.com/api/v0/unlock/capacity/827166/137/<DESTINATION_TOKEN_ID>
+```
+
+In `POST /unlock`, set `destinationNetworkId` to the destination network. `tokenId` is required for these releases:
+
+```json
+{
+  "consignment": "<BASE64_CONSIGNMENT>",
+  "srcNetworkId": 827166,
+  "destinationNetworkId": 137,
+  "tokenId": <DESTINATION_TOKEN_ID>
+}
+```
+
+The bridge releases from Arbitrum and sends the funds through USDT0 / LayerZero, so `evmTxHash` is the Arbitrum transaction. A confirmed Arbitrum transaction means the send was submitted; delivery to the recipient happens later, in a separate transaction on the destination network. The estimate does not include a fee that USDT0 / LayerZero may take on delivery.
+
+## Retries and errors
+
+Errors have the shape `{"error":"...","code":4,"details":{...}}`. `details` is present only when the error has structured retry information.
+
+| HTTP | Code | When | What to do |
+| --- | --- | --- | --- |
+| `400` | — | Estimate route, network, token, address, or amount is invalid; or the amount does not cover commission | Correct the request; do not continue with a burn |
+| `400` | `4` | `/unlock`: the release is above the current outflow limit | Wait and retry. The burn remains redeemable |
+| `401` | — | `X-API-Key` is missing or wrong on a protected endpoint | Check the key |
+| `409` | `6` | `/unlock`: the Bitcoin relay has not reached the burn block (`blocksRemaining`) | Retry the same request later |
+| `409` | `7` | `/unlock`: the burn lacks the required confirmations (`confirmations`, `requiredConfirmations`) | Retry the same request later |
+| `409` | `8` | `/unlock`: the on-chain verifier refused the relay depth or freshness | Retry the same request later |
+| `409` | — | `/unlock`: the burn was already released | Do not submit another release; find the earlier EVM transaction |
+| `429` | — | Rate limit | Back off with jitter and retry |
+| `500` | — | Validation, signing, or submission failed | Reconcile operation state before retrying, then contact Utexo with the `opId` or burn `txid` |
+| `503` | — | The route's commission cannot currently be priced | Do not prepare or submit; retry the estimate later |
+
+On `POST /mint/op-id`, a `400` may indicate that the deposit does not cover the commission, the invoice is malformed, the invoice uses a witness recipient, the invoice amount or asset does not match, or the route is invalid. A conflict indicating that the RGB invoice was already fulfilled means you must create a new blinded invoice.
+
+For unlock codes `6`, `7`, and `8`, nothing was sent to the destination EVM network, and retrying the same request with the same consignment is safe. For transport errors or a `500` during an irreversible or externally submitted step, first reconcile the RGB wallet, bridge status, and EVM transaction state. Do not assume the operation failed merely because the response was lost.

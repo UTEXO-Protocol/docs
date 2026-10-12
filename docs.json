@@ -222,6 +222,7 @@
             "pages": [
               "product-suite/mint",
               "mint/getting-started",
+              "mint/mint-burn-integration",
               "product-suite/mint-api-reference"
             ]
           }
