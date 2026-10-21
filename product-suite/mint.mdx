@@ -55,6 +55,10 @@ The Enclave Signer (`utexo-bridge-enclave`) is the cryptographic service the sig
 
 ### Bitcoin headers and BtcRelay
 
+<Note>
+  The staging environment does not run the BTC Relay. The `BtcRelay` checks described in this section apply to the production deployment.
+</Note>
+
 Each release signer enclave keeps its own Bitcoin header chain. The untrusted host sends it block headers, and the enclave links them from a checkpoint block compiled into the image, so the checkpoint is bound to the PCR0 measurement and the host cannot choose it. On mainnet the enclave checks proof of work and difficulty rules; on signet it checks chain linkage and the reorg and work rules, but not proof of work or the signet challenge signature. The chain tip must be less than 2 hours old.
 
 Separately, a relayer service (`btc-relayer`) feeds headers to `BtcRelay`, an on-chain Bitcoin light client on Arbitrum. The bridge's `RGBVerifier` checks each release's Bitcoin proof against `BtcRelay`, and the release signers check the same proof against their own header chain before they sign.
@@ -102,7 +106,7 @@ Additional USDT0-supported networks can be enabled based on business need. See [
 
 Commissions are managed on-chain through the `CommissionManager` contract. Fees can be applied on both `FundsIn` (lock) and `FundsOut` (unlock).
 
-The current fee rate is **0.1%** across supported networks.
+The current bridge commission is **0.1% (10 bps)** of the amount plus a **base fee of 0.5 USDT**. Network costs are charged separately: gas on the EVM network, the USDT0 / LayerZero fees on routes through Ethereum, Polygon PoS, Plasma and Tron, and the Bitcoin fee paid by the RGB wallet. [`GET /mint-burn/estimate`](/product-suite/mint-api-reference#mint-and-burn) returns the exact amounts for a route and amount.
 
 ## Security
 

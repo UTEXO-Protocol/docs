@@ -1,6 +1,6 @@
 ---
 title: "Architecture"
-description: "How Bitcoin, the Lightning Network, RGB, the Utexo execution layer, the Mint, and Swap fit together as a unified stablecoin settlement stack."
+description: "How Bitcoin, RGB, the Utexo execution layer, the Mint, and Swap fit together as a unified stablecoin settlement stack, and where the Lightning Network fits."
 sidebarTitle: "Architecture"
 ---
 
@@ -15,13 +15,13 @@ Utexo is built on a layered stack. Each layer has a distinct and non-overlapping
 | Layer | Role | What Utexo Uses It For |
 | --- | --- | --- |
 | Bitcoin | Settlement anchor and finality | Double-spend prevention, dispute resolution, irreversible state |
-| Lightning Network | Off-chain execution and value transfer | High-throughput payments, near-instant finality, predictable latency |
+| Lightning Network | Off-chain payment channels | RGB asset payments over channels — available on test networks, not enabled on mainnet |
 | RGB | Asset issuance and client-side validation | Stablecoin creation, privacy-preserving transfers, Bitcoin-secured ownership |
 | Utexo | Execution and coordination layer | Routing, liquidity, fee management, SDK/API abstraction |
 | Mint | USDT Cross-chain connectivity | Inbound and outbound transfers between the RGB layer and Arbitrum (USDT0 hub), with Ethereum, Polygon PoS, Plasma and Tron reached through USDT0 / LayerZero |
 | Swap | Cross-chain swap | Intent-based cross-chain swaps across Bitcoin, Ethereum, Tron, and Solana |
 
-In the Utexo model, ownership proofs are validated locally by users' wallets (client-side validation), while actual payments occur through bidirectional Lightning channels. There is no global state to synchronise. Each transaction is a direct peer-to-peer exchange verified by cryptographic commitments.
+In the Utexo model, ownership proofs are validated locally by users' wallets (client-side validation), and each transfer is anchored by an ordinary Bitcoin transaction that carries a cryptographic commitment. There is no global state to synchronise. Each transfer is a direct exchange between sender and receiver, verified against those commitments.
 
 ## Bitcoin
 
@@ -41,15 +41,11 @@ It handles correctness, finality and dispute resolution, acting as the foundatio
 
 ## Lightning Network
 
-The Lightning Network provides the off-chain execution environment for Utexo payments.
+The Lightning Network can carry RGB assets over payment channels. The [RGB Lightning Node](/overview) and the Utexo SDKs support RGB channels, invoices and payments.
 
-Utexo adds pooled liquidity and routing access through its APIs, so applications do not need to manage channels directly. All channel management, rebalancing, and routing are handled internally.
-
-**What this means in practice:**
-
-- Payments settle off-chain in milliseconds with near-instant finality.
-- Utexo pre-funds channels and manages liquidity so that routing never fails due to insufficient capacity.
-- Fixed latency and predictable fees make payment behaviour deterministic for application developers.
+<Note>
+  Lightning is available on test networks only. On mainnet, the node rejects Lightning API calls (`403 LightningUnsupportedOnMainnet`) and `@utexo/wdk-rgb-lightning` throws `LIGHTNING_DISABLED_ON_MAINNET`. USDT on Bitcoin moves on-chain with RGB today; integrations built on the on-chain path keep working if Lightning is enabled later.
+</Note>
 
 ## RGB
 
@@ -65,24 +61,19 @@ RGB uses a client-side validation model: contract state is maintained locally by
 
 ## Utexo Execution Layer
 
-The Utexo execution layer is the payment execution environment for USDT. It sits above Bitcoin, Lightning, and RGB and provides the coordination logic that makes the stack usable at the application level.
+The Utexo execution layer is the coordination environment for USDT on Bitcoin. It sits above Bitcoin and RGB and provides the logic that makes the stack usable at the application level.
 
 **Role in the stack:**
 
-- Routes payments through Lightning channels with pre-funded liquidity.
-- Manages RGB asset state and channel balances internally.
-- Abstracts away the complexity of Lightning channel management, RGB state transitions, and fee estimation.
-
-**Performance characteristics:**
-
-- By combining RGB's client-side validation architecture with Lightning's routing network, Utexo achieves transaction times of around 200 ms latency, comparable to Visa speeds.
-- Utexo makes Bitcoin usable as a stablecoin settlement network for high-throughput, private-by-default payments that behave predictably regardless of network conditions.
+- Coordinates mints, burns and swaps between USDT on Bitcoin and other networks.
+- Manages liquidity for the Mint and Swap, and quotes fees before a transfer.
+- Abstracts RGB state transitions and asset validation behind APIs and SDKs.
 
 **Integration surface:**
 
-- REST API and SDK for application-level integration
-- Abstracts all channel management, routing, and liquidity operations internally
-- No protocol-specific knowledge required in application code
+- REST APIs for the Mint and Swap, and SDKs for wallets
+- Liquidity, asset validation and settlement coordination handled by Utexo
+- Little protocol-specific logic required in application code
 
 ## Mint
 

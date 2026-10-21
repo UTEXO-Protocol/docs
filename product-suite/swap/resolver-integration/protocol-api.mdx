@@ -165,7 +165,10 @@ Response:
 
 ### `GET /v1/system/live`
 
+Requires the `X-API-Key` header, like every Protocol API request.
+
 - `200` — healthy
+- `400` — the `X-API-Key` header is missing or malformed (error code `14`)
 - `500` — unhealthy
 
 No response body is documented.

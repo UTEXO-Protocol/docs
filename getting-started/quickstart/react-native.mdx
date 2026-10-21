@@ -106,15 +106,15 @@ await wallet.refreshWallet();
 
 ## Step 6: Resolve the Asset From the Sender
 
-`listAssets()` returns arrays grouped by schema. NIA assets are in `nia` and use `assetId`.
+`listAssets()` returns arrays grouped by schema, with the `assetId` field. USDT on Bitcoin from the Utexo Mint uses the **BFA** schema, so it is in `bfa` (from `@utexo/rgb-sdk-rn` `1.0.0-beta.39`). Other test assets are in `nia`, `cfa`, `ifa`, or `uda`.
 
 ```javascript
-const { nia } = await senderWallet.listAssets();
-const usdt = nia.find((asset) => asset.ticker === 'USDT');
+const { bfa } = await senderWallet.listAssets();
+const usdt = bfa.find((asset) => asset.ticker === 'USDT');
 
 
 if (!usdt) {
-  throw new Error('The sender wallet does not hold the requested NIA asset');
+  throw new Error('The sender wallet does not hold USDT on Bitcoin');
 }
 
 
@@ -170,7 +170,7 @@ await wallet.refreshWallet();
 
 
 const receiverAssets = await wallet.listAssets();
-const receivedAsset = receiverAssets.nia.find(
+const receivedAsset = receiverAssets.bfa.find(
   (asset) => asset.assetId === usdtAssetId
 );
 

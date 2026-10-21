@@ -1,13 +1,13 @@
 ---
 title: "RLN Quick Start"
-description: "Launch two RGB Lightning Nodes, fund them, issue an RGB asset, transfer it, and try RGB over Lightning on testnet."
+description: "Launch two RGB Lightning Nodes on Bitcoin signet, fund them, issue an RGB asset, transfer it, and try RGB over Lightning."
 sidebarTitle: "Quick Start"
 ---
 
-This guide takes a new integrator from zero to a working RGB transfer with two [RGB Lightning Nodes (RLN)](/overview): launch the receiver, top it up, launch a sender, issue an asset, send a small blinded transfer, then create and pay another invoice. The on-chain path is the one available on mainnet today; the Lightning path runs on testnet.
+This guide takes a new integrator from zero to a working RGB transfer with two [RGB Lightning Nodes (RLN)](/overview): launch the receiver, top it up, launch a sender, issue an asset, send a small blinded transfer, then create and pay another invoice. The on-chain path also runs on mainnet; the Lightning path runs on test networks only.
 
 <Warning>
-  This guide uses testnet3 and disables authentication to keep the steps short. Never use `--disable-authentication` in production, and never use mainnet keys or real funds while following this guide.
+  This guide uses the public Bitcoin signet, the network of the Mint staging environment, and disables authentication to keep the steps short. Never use `--disable-authentication` in production, and never use mainnet keys or real funds while following this guide.
 </Warning>
 
 <Info>
@@ -24,13 +24,13 @@ cd rgb-lightning-node
 cargo install --locked --path .
 ```
 
-Start the receiving node on testnet3:
+Start the receiving node on signet:
 
 ```bash
 rgb-lightning-node dataldk0/ \
   --daemon-listening-port 3001 \
   --ldk-peer-listening-port 9735 \
-  --network testnet \
+  --network signet \
   --disable-authentication
 ```
 
@@ -42,7 +42,7 @@ curl -X POST http://localhost:3001/init \
   -d '{"password": "nodepassword"}'
 ```
 
-Unlock it (required after every start), using the public testnet3 services:
+Unlock it (required after every start), using public signet services: the mempool.space Esplora API for chain data and a public RGB proxy for consignments:
 
 ```bash
 curl -X POST http://localhost:3001/unlock \
@@ -50,15 +50,12 @@ curl -X POST http://localhost:3001/unlock \
   -d '{
     "password": "nodepassword",
     "ldk_chain_sync": {
-      "mode": "BlockSync",
+      "mode": "TransactionSync",
       "config": {
-        "bitcoind_rpc_username": "user",
-        "bitcoind_rpc_password": "password",
-        "bitcoind_rpc_host": "electrum.iriswallet.com",
-        "bitcoind_rpc_port": 18332
+        "indexer_url": "https://mempool.space/signet/api"
       }
     },
-    "indexer_url": "ssl://electrum.iriswallet.com:50013",
+    "indexer_url": "https://mempool.space/signet/api",
     "proxy_endpoint": "rpcs://proxy.iriswallet.com/0.2/json-rpc",
     "announce_addresses": []
   }'
@@ -72,7 +69,7 @@ curl http://localhost:3001/nodeinfo
 
 ## 2. Top up
 
-Get a Bitcoin address and send testnet3 BTC to it. The Bitcoin Wiki keeps a list of [testnet faucets](https://en.bitcoin.it/wiki/Testnet#Testnet_Faucets); make sure the faucet supports testnet3 before using the address.
+Get a Bitcoin address and send signet BTC to it from a public signet faucet. Signet blocks arrive about every 10 minutes, so wait for a confirmation before creating colored UTXOs.
 
 ```bash
 curl -X POST http://localhost:3001/address
@@ -102,11 +99,11 @@ Open a second terminal and start another node on different ports. This node will
 rgb-lightning-node dataldk1/ \
   --daemon-listening-port 3003 \
   --ldk-peer-listening-port 9736 \
-  --network testnet \
+  --network signet \
   --disable-authentication
 ```
 
-Initialise and unlock the sender with the same testnet3 services:
+Initialise and unlock the sender with the same signet services:
 
 ```bash
 curl -X POST http://localhost:3003/init \
@@ -118,21 +115,18 @@ curl -X POST http://localhost:3003/unlock \
   -d '{
     "password": "nodepassword",
     "ldk_chain_sync": {
-      "mode": "BlockSync",
+      "mode": "TransactionSync",
       "config": {
-        "bitcoind_rpc_username": "user",
-        "bitcoind_rpc_password": "password",
-        "bitcoind_rpc_host": "electrum.iriswallet.com",
-        "bitcoind_rpc_port": 18332
+        "indexer_url": "https://mempool.space/signet/api"
       }
     },
-    "indexer_url": "ssl://electrum.iriswallet.com:50013",
+    "indexer_url": "https://mempool.space/signet/api",
     "proxy_endpoint": "rpcs://proxy.iriswallet.com/0.2/json-rpc",
     "announce_addresses": []
   }'
 ```
 
-Repeat the top-up steps from the previous section for the sender: request a Bitcoin address, fund it with testnet3 BTC, check the BTC balance, and create colored UTXOs.
+Repeat the top-up steps from the previous section for the sender: request a Bitcoin address, fund it with signet BTC, check the BTC balance, and create colored UTXOs.
 
 ```bash
 curl -X POST http://localhost:3003/address
@@ -304,9 +298,9 @@ curl -X POST http://localhost:3001/assetbalance \
 
 `settled` shows confirmed balance; `future` includes pending incoming transfers. Use `POST /listtransfers` to inspect individual transfers.
 
-## 9. Try RGB over Lightning (testnet only)
+## 9. Try RGB over Lightning (test networks only)
 
-The same node also handles RGB-enabled Lightning payments. On testnet:
+The same node also handles RGB-enabled Lightning payments on signet, testnet and regtest:
 
 1. `POST /connectpeer` with `peer_pubkey_and_addr` (`<pubkey>@<host>:<port>`).
 
@@ -348,7 +342,7 @@ curl -X POST http://localhost:3003/openchannel \
   }'
 ```
 
-Do not continue if `POST /openchannel` returns an error. A successful response means the funding transaction was submitted; keep both nodes running and wait for the funding transaction to confirm on testnet.
+Do not continue if `POST /openchannel` returns an error. A successful response means the funding transaction was submitted; keep both nodes running and wait for the funding transaction to confirm.
 
 Check `GET /listchannels` on both nodes until the channel appears and is usable:
 
@@ -389,7 +383,7 @@ curl -X POST http://localhost:3003/sendpayment \
 ```
 
 <Note>
-  Lightning on mainnet is not supported yet. Integrations built on the on-chain path keep working unchanged when Lightning reaches mainnet.
+  Lightning on mainnet is not supported yet: a mainnet node rejects Lightning API calls with HTTP `403` (`LightningUnsupportedOnMainnet`). Integrations built on the on-chain path keep working unchanged if Lightning reaches mainnet.
 </Note>
 
 ## Next steps

@@ -10,8 +10,11 @@ Use this endpoint to verify that the system is up and ready to accept requests. 
 GET /v1/system/live
 ```
 
+The endpoint requires your API key in the `X-API-Key` header, like the affiliate endpoints. A request without the header returns `400` with error code `14` ("Malformed header").
+
 ```bash
-curl -i https://api-swap.utexo.com/v1/system/live
+curl -i https://api-swap.utexo.com/v1/system/live \
+  -H "X-API-Key: $UTEXO_SWAP_API_KEY"
 ```
 
 ## Response
@@ -19,4 +22,5 @@ curl -i https://api-swap.utexo.com/v1/system/live
 | Status | Meaning |
 | --- | --- |
 | `200 OK` | The system is healthy and ready to process requests. |
+| `400 Bad Request` | The `X-API-Key` header is missing or malformed (error code `14`). |
 | `500 Internal Server Error` | The system is experiencing issues. |

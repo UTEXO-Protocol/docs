@@ -30,7 +30,7 @@ This page covers the SDK family. Refer to the platform reference pages for metho
 
 - **Wallet management** — key generation, derivation, initialisation, backup, and restore (including VSS cloud backup); address rotation following HD wallet best practices
 - **RGB asset operations** — asset issuance, blinded and witness invoices, asset transfers, and balance queries
-- **Lightning payments** — invoice creation, synchronous payment execution (begin → sign → end flow), HODL invoice support for offline recipients, Lightning Address integration, and payment status queries
+- **Lightning payments (test networks only; not enabled on mainnet)** — invoice creation, synchronous payment execution (begin → sign → end flow), HODL invoice support for offline recipients, Lightning Address integration, and payment status queries
 - **Async payments** — LSP-routed delivery so recipients can collect payments when they come online; inbound leg fully operational, outbound leg in active development
 - **On-chain interactions** — deposit address generation, BTC balance queries, on-chain withdrawal
 - **UTXO management** — UTXO creation, listing, and state sync
@@ -64,7 +64,7 @@ On Web and React Native, receive with `onchainReceive({ witness: false })` for b
 The SDK provides two backup mechanisms for wallet state. Backups are recommended after every significant state change (UTXO creation, asset issuance, transfer):
 
 - **File backup** (`createBackup`) — creates an encrypted local backup containing both `layer1` and `utexo` state files. Restore with `restoreUtxoWalletFromBackup()`.
-- **VSS backup** (`vssBackup`) — pushes wallet state to a remote Verifiable Secret Sharing server. The backup is keyed to the wallet mnemonic. Restore with `restoreUtxoWalletFromVss()`. Call `vssBackupInfo()` to check backup existence and whether a new backup is required.
+- **VSS backup** (`vssBackup`) — pushes encrypted wallet state to a remote Versioned Storage Service (VSS) server. The backup is keyed to the wallet mnemonic. Restore with `restoreUtxoWalletFromVss()`. Call `vssBackupInfo()` to check backup existence and whether a new backup is required.
 
 ### Private Key Export
 
@@ -76,13 +76,19 @@ New Node.js integrations use `@utexo/wdk-rgb-lightning`. The primary entry point
 
 ```ts
 const manager = new WalletManagerRgbLightning(mnemonic, {
-  network: 'utexo',
+  network: 'signet',
   dataDir: './wallet',
   lspBaseUrl: '...',  // optional — enables async payments
   lspBearerToken: '...' // optional — required when lspBaseUrl is set
 })
 const account = await manager.getAccount(0)
-await account.unlock({ indexer_url, proxy_endpoint, announce_addresses: [], announce_alias: 'my-node' })
+await account.unlock({
+  ldk_chain_sync: { mode: 'TransactionSync', config: { indexer_url } },
+  indexer_url,
+  proxy_endpoint,
+  announce_addresses: [],
+  announce_alias: 'my-node'
+})
 ```
 
 The Web and React Native packages use `UTEXOWallet` (`init()` then `unlock()`). See the platform reference pages for that lifecycle.
@@ -90,22 +96,24 @@ The Web and React Native packages use `UTEXOWallet` (`init()` then `unlock()`). 
 Key execution properties:
 
 - All operations are **non-custodial** — the SDK never transmits private keys or mnemonics
-- All API calls execute with **predefined costs and latency** — no fee auction or gas estimation required
 - **Web** uses `@utexo/rgb-sdk-web` (WASM); **React Native** uses `@utexo/rgb-sdk-rn`; **Node.js** uses `@utexo/wdk-rgb-lightning`
 - **External signer support** — the Lightning node runs in external-signer mode; the mnemonic stays in the host secret manager
 - **Async payments** are opt-in via `lspBaseUrl` and `lspBearerToken`
 
 ## Networks
 
-The SDK supports three environments. Pass the identifier in the `network` field of the init config.
+The main network identifiers are below. Pass the identifier in the `network` field of the init config.
 
 | Environment | Identifier | RGB Transport | Bitcoin Indexer |
 | --- | --- | --- | --- |
 | Mainnet | `mainnet` | `rpcs://rgb-proxy-mainnet.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50003` |
-| Testnet | `testnet` | `rpcs://rgb-proxy-testnet3.utexo.com/json-rpc` | `ssl://electrum.iriswallet.com:50013` |
 | Utexo (Signet) | `utexo` | `rpcs://rgb-proxy.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
 
-The `utexo` identifier maps to the Utexo-operated signet environment. It is the default network for development and testing.
+The `utexo` identifier maps to the Utexo-operated signet environment. It is the default network for development and testing, and it is moving to the public Bitcoin signet that the Mint [staging environment](/mint/getting-started) uses.
+
+<Note>
+  Testnet3 (`testnet`) is not recommended: Bitcoin confirmations there can take hours. Use `utexo` (signet) or `regtest` for development.
+</Note>
 
 ## In This Section
 
@@ -115,7 +123,7 @@ Platform references for `@utexo/wdk-rgb-lightning` (Node.js / Bare), `@utexo/rgb
 
 - [Product Suite](/getting-started/product-suite) — How the SDK fits into the full Utexo product surface.
 - [Architecture](/getting-started/architecture) — The Bitcoin \+ RGB stack the SDK operates on.
-- [Quickstart](/getting-started/quickstart) — Step-by-step guide to your first Utexo integration.
+- [Quickstart](/getting-started/quickstart/overview) — Step-by-step guide to your first Utexo integration.
 
 ## Platform SDKs
 
@@ -132,5 +140,5 @@ The WDK packages expose RGB capabilities through standard wallet abstraction int
 | Page | Package | Status |
 | --- | --- | --- |
 | [WDK Overview](/sdk/wdk-overview) | — | Shared architecture and `dataDir` coordination |
-| [wdk-wallet-rgb](/sdk/wdk-wallet-rgb) | `@utexo/wdk-wallet-rgb` | Stable — RGB asset management |
+| [wdk-wallet-rgb](/sdk/wdk-wallet-rgb) | `@utexo/wdk-wallet-rgb` | Being updated for BFA — RGB asset management |
 | [wdk-rgb-lightning](/sdk/wdk-rgb-lightning) | `@utexo/wdk-rgb-lightning` | Pre-1.0 beta — RGB Lightning channels and payments |

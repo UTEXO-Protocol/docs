@@ -50,17 +50,18 @@ All RGB state is validated client-side. The Bitcoin UTXO anchors the state trans
 
 ## Asset IDs and Amounts
 
-`listAssets()` returns assets grouped by schema. NIA assets are in `listAssets().nia`, and the identifier field is `assetId`.
+`listAssets()` returns assets grouped by schema. USDT on Bitcoin from the Utexo Mint uses the **BFA** schema, so it is in `listAssets().bfa` on the React Native SDK and `@utexo/wdk-rgb-lightning` (`bfa` and `asset_id` on WDK). `@utexo/rgb-sdk-web` does not list BFA assets yet. Test assets you issue yourself are usually NIA, in `listAssets().nia`. The identifier field is `assetId` on Web and React Native.
 
 `amount` values are integer base units. One displayed unit equals `10 ** precision` base units; it is not always equal to `1`.
 
 ```typescript
-const { nia } = await senderWallet.listAssets();
-const asset = nia.find((item) => item.ticker === 'USDT');
+// React Native: USDT on Bitcoin is a BFA asset
+const { bfa } = await senderWallet.listAssets();
+const asset = bfa.find((item) => item.ticker === 'USDT');
 
 
 if (!asset) {
-  throw new Error('The sender wallet does not hold the requested NIA asset');
+  throw new Error('The sender wallet does not hold USDT on Bitcoin');
 }
 
 
@@ -90,7 +91,7 @@ These files are the reviewed sources for the API distinctions above:
 
 - [Shared SDK conformance contract](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/conformance/index.ts)
 - [Shared wallet models](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/types/wallet-model.ts)
-- [wdk-rgb-lightning](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/dev/README.md)
+- [wdk-rgb-lightning](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/main/README.md)
 - [React Native wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/utexo-wallet.ts)
 - [Web wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk-web/blob/dev/src/utexo/utexo-wallet.ts)
 

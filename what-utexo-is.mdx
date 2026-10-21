@@ -20,10 +20,10 @@ These constraints make stablecoin settlement operationally brittle for payment s
 
 Utexo redefines stablecoin settlement by combining four core design principles:
 
-- **Deterministic cost model** - fees are predefined and fixed at the protocol level. Transactions do not compete for global blockspace and are not subject to congestion-driven pricing.
-- **Off-chain execution with on-chain anchoring** - execution occurs off-chain for performance and scalability, while cryptographic commitments are anchored to Bitcoin for correctness and dispute resolution.
-- **Bitcoin \+ RGB \+ Lightning convergence** - stablecoins are issued and transferred using the RGB protocol, while payments are executed over the Lightning Network for instant settlement and low latency. Bitcoin provides the trust anchor for the entire stack.
-- **Single execution layer** - Utexo abstracts routing, liquidity management, asset validation and settlement coordination into a unified layer exposed via SDK and API, eliminating the need to integrate multiple systems.
+- **Published cost model** - Utexo charges a published commission, quoted before you send, instead of running a gas auction. Each transfer still pays the network fee of the chain it settles on.
+- **Client-side validation with on-chain anchoring** - RGB keeps asset state with its owners. Bitcoin carries only a cryptographic commitment, which anchors each transfer for correctness and dispute resolution.
+- **Bitcoin \+ RGB** - stablecoins are issued and transferred on Bitcoin with the RGB protocol, and Bitcoin provides the trust anchor for the entire stack. RGB over Lightning is available on test networks; it is not enabled on mainnet.
+- **Single integration** - the Mint, Swap and SDK expose USDT on Bitcoin through REST APIs and client libraries, so applications don't integrate each protocol separately.
 
 ## Getting Started
 
@@ -37,16 +37,16 @@ Explore the SDK, Cloud Modules, Mint and Cross-chain Swap.
 
 ## Key Design Properties
 
-Unlike public blockchain fee markets, Utexo's settlement layer uses a fixed, protocol-level fee schedule. Payment providers can model exact unit economics without exposure to gas price volatility.
+Utexo's own fees follow a published schedule. For the Mint, the commission is 0.1% of the amount plus a 0.5 USDT base fee, and the API quotes the exact amount before you transfer. Network fees for the Bitcoin and EVM transactions are separate.
 
-Transactions are executed off-chain within Utexo's settlement layer. Only cryptographic commitments are published to Bitcoin, preserving the confidentiality of business payment flows.
+RGB transfer details stay with the sender and the receiver. Only cryptographic commitments are published to Bitcoin, preserving the confidentiality of business payment flows.
 
 Utexo does not rely on a new consensus mechanism. It inherits Bitcoin's finality and censorship resistance by anchoring settlement state to the Bitcoin blockchain.
 
-Applications integrate through a single SDK and API. Utexo handles routing, liquidity, asset validation and settlement coordination internally — no protocol-specific logic required in application code.
+Applications integrate through REST APIs and SDKs. Utexo handles liquidity, asset validation and settlement coordination for the Mint and Swap, so application code needs little protocol-specific logic.
 
 ## Further Reading
 
 - [The Problem](/getting-started/the-problem) - Why existing stablecoin rails fail for business settlement.
 - [Architecture](/getting-started/architecture) - How Bitcoin, the Lightning Network, RGB, and Utexo fit together.
-- [Product Suite](/product-suite) - SDK/API, Cloud Modules, Mint, and Cross-chain Swap.
+- [Product Suite](/getting-started/product-suite) - SDK/API, Cloud Modules, Mint, and Cross-chain Swap.

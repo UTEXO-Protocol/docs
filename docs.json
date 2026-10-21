@@ -55,6 +55,42 @@
     {
       "source": "/product-suite/swap/resolver-integration/validation-gaps",
       "destination": "/product-suite/swap/resolver-integration/overview"
+    },
+    {
+      "source": "/getting-started/quickstart",
+      "destination": "/getting-started/quickstart/overview"
+    },
+    {
+      "source": "/getting-started/general-overview",
+      "destination": "/what-utexo-is"
+    },
+    {
+      "source": "/getting-started/markdown",
+      "destination": "/what-utexo-is"
+    },
+    {
+      "source": "/getting-started/publish-your-docs",
+      "destination": "/what-utexo-is"
+    },
+    {
+      "source": "/product-suite/bridge-getting-started",
+      "destination": "/mint/getting-started"
+    },
+    {
+      "source": "/product-suite/untitled-page",
+      "destination": "/product-suite/sdk"
+    },
+    {
+      "source": "/untitled-page-2",
+      "destination": "/product-suite/swap/development/authorization"
+    },
+    {
+      "source": "/sdk/rgb-sdk",
+      "destination": "/product-suite/sdk"
+    },
+    {
+      "source": "/sdk/rgb-lightning-sdk",
+      "destination": "/sdk/wdk-rgb-lightning"
     }
   ],
   "navigation": {

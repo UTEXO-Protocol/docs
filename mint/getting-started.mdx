@@ -9,7 +9,11 @@ description: "Transfer USDT between Ethereum and the Bitcoin RGB layer using the
 
 This guide walks you through both directions of a mint transfer: locking USDT from an EVM wallet and minting it on the Bitcoin RGB layer, and burning it to unlock it again. USDT from Ethereum, Polygon PoS, Plasma and Tron is supported — under the hood, it is routed through the USDT0 / LayerZero protocol to Arbitrum before being locked and minted as RGB USDT on Bitcoin. This routing is handled transparently; from your wallet, the experience is the same regardless of which network you connect from.
 
-For now, the only tested and available route is Arbitrum (mainnet) to Bitcoin (Utexo signet). Bitcoin mainnet is not available yet.
+For now, the Mint runs in the **staging environment**: Arbitrum mainnet on the EVM side and the public **Bitcoin signet** on the Bitcoin side. The only tested route is Arbitrum to Bitcoin (signet). Bitcoin mainnet is not available yet.
+
+<Warning>
+  On staging, deposits on Arbitrum use real USDT0, while USDT on Bitcoin is a signet asset. Burn it back to unlock your USDT0. Signet blocks arrive about every 10 minutes, so Bitcoin confirmations take as long as on mainnet. Bitcoin transactions are on [mempool.space/signet](https://mempool.space/signet).
+</Warning>
 
 <Info>
   Minting is signed by the mint signer, an AWS Nitro Enclave that holds the RGB mint rights, only after it verifies your USDT0 deposit on Arbitrum. Withdrawals back to EVM require an M-of-N quorum of independent signer enclaves.
@@ -21,8 +25,8 @@ Before initiating a transfer, ensure you have the following ready.
 
 **Utexo account**
 
-- Create an account or sign in on [transfer.stage.utexo.com](https://transfer.stage.utexo.com). The console opens on the **Mint / Burn** page; **Activity** lists your transfers.
-- Until your account completes KYC or KYB on the **Verification** page, you can mint only up to a cumulative limit, shown in your account. Burns do not count against it. Verified accounts also get an **API** page for generating an API key.
+- Create an account or sign in on [transfer.staging.utexo.com](https://transfer.staging.utexo.com). The console opens on the **Mint / Burn** page; **Activity** lists your transfers.
+- Until your account completes KYC or KYB on the **Verification** page, you can mint only up to a cumulative limit (currently 100 USDT), shown in your account. Burns do not count against it. Verified accounts also get an **API** page for generating an API key.
 
 **EVM wallet (browser extension)**
 
@@ -58,7 +62,7 @@ After filling in the form, a **Transaction Preview** appears with:
 
 - **You will receive**: estimated USDT amount after fees.
 - **Estimated gas fee**: live network gas cost of the deposit (and approval, if still needed).
-- **Mint commission**: the bridge commission charged by Utexo.
+- **Mint commission**: the bridge commission charged by Utexo, currently 0.1% of the amount plus a 0.5 USDT base fee.
 
 Click **Transfer**. The Mint prepares the mint for your invoice, then your EVM wallet prompts you through two confirmation steps:
 
@@ -112,6 +116,6 @@ After the release signers approve the release, the funds are sent to the address
 | Fee type | Description |
 | --- | --- |
 | **Network gas fee** | Variable; priced at live market rates at the time of signing. |
-| **Mint commission** | The bridge commission charged by Utexo: a percentage of the transferred amount plus an optional flat fee. Shown in the Transaction Preview before you confirm. |
+| **Mint commission** | The bridge commission charged by Utexo: currently 0.1% (10 bps) of the transferred amount plus a base fee of 0.5 USDT. Shown in the Transaction Preview before you confirm. |
 | **USDT0 / LayerZero fees** | On a route through USDT0 / LayerZero, the part the OFT keeps and the LayerZero messaging fee. Shown in the quote. |
 | **Bitcoin RGB fee** | Small BTC amount paid by your RGB wallet to settle the RGB transaction on-chain. |
