@@ -99,6 +99,10 @@ Every successful estimate returns integer base-unit amounts as strings. A direct
 }
 ```
 
+<Note>
+  The example amounts use the staging environment's test fee settings. At launch, the bridge commission is 0.1% of the amount plus a 0.5 USDT base fee. Always read the fees from the estimate.
+</Note>
+
 `receiveAmount` is what arrives: minted on RGB for a mint, delivered on the recipient network for a burn. It is net of the bridge commission and, on a LayerZero leg, of the fee the OFT keeps. The amounts relate as follows:
 
 ```text

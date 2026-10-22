@@ -106,7 +106,7 @@ Additional USDT0-supported networks can be enabled based on business need. See [
 
 Commissions are managed on-chain through the `CommissionManager` contract. Fees can be applied on both `FundsIn` (lock) and `FundsOut` (unlock).
 
-The current bridge commission is **0.1% (10 bps)** of the amount plus a **base fee of 0.5 USDT**. Network costs are charged separately: gas on the EVM network, the USDT0 / LayerZero fees on routes through Ethereum, Polygon PoS, Plasma and Tron, and the Bitcoin fee paid by the RGB wallet. [`GET /mint-burn/estimate`](/product-suite/mint-api-reference#mint-and-burn) returns the exact amounts for a route and amount.
+At launch, the bridge commission is **0.1% (10 bps)** of the amount plus a **base fee of 0.5 USDT**. The staging environment uses test fee settings, so its quotes differ. Network costs are charged separately: gas on the EVM network, the USDT0 / LayerZero fees on routes through Ethereum, Polygon PoS, Plasma and Tron, and the Bitcoin fee paid by the RGB wallet. [`GET /mint-burn/estimate`](/product-suite/mint-api-reference#mint-and-burn) returns the exact amounts for a route and amount.
 
 ## Security
 

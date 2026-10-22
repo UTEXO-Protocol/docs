@@ -94,7 +94,7 @@ The API key is self-service. Sign in, complete KYC or KYB, and call `POST /users
 
 ### Verification and the mint limit
 
-An account without approved KYC or KYB can mint only up to a cumulative limit set by Utexo: the new gross deposit plus its completed and active mint deposits must stay within it. Above it, `GET /mint-burn/estimate` (for a mint) and `POST /mint/op-id` return `403` with code `9`. Burns do not count against the limit. `GET /users/me` (session only) shows `kycStatus`, `kybStatus` and the allowance in `mintBurnLimit` (`max`, `used`, `reserved`, `free`, `unlimited`).
+An account without approved KYC or KYB can mint only up to a cumulative limit of 100 USDT: the new gross deposit plus its completed and active mint deposits must stay within it. Above it, `GET /mint-burn/estimate` (for a mint) and `POST /mint/op-id` return `403` with code `9`. Burns do not count against the limit. `GET /users/me` (session only) shows `kycStatus`, `kybStatus` and the allowance in `mintBurnLimit` (`max`, `used`, `reserved`, `free`, `unlimited`).
 
 ```bash
 curl -X POST https://transfer.gateway.staging.utexo.com/api/v0/mint/op-id \
@@ -246,6 +246,10 @@ Quotes what a mint or a burn receives and what the bridge charges. The direction
 ```
 
 All amounts are decimal strings in base units. `amount = receiveAmount + totalTokenFee` on every route.
+
+<Note>
+  The example amounts use the staging environment's test fee settings. At launch, the bridge commission is 0.1% of the amount plus a 0.5 USDT base fee. Always read the fees from the estimate.
+</Note>
 
 | Field | Description |
 | --- | --- |

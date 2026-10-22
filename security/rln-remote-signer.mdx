@@ -44,7 +44,7 @@ Because the keys never reach the node:
 | Operation | Behaviour |
 | --- | --- |
 | Asset issuance (NIA, CFA, IFA, UDA) and inflation | Not supported. Returns `UnsupportedInExternalSignerMode`. |
-| `POST /burn` (BFA burn, from `v0.15.0-beta.3`) | Not supported. Returns `UnsupportedInExternalSignerMode`. |
+| `POST /burn` (BFA burn) | Supported from `v0.16.0-beta.3`; the external signer signs the burn. In `v0.15.0-beta.3` it returns `UnsupportedInExternalSignerMode`. |
 | `POST /changepassword`, `POST /restore` | Not supported. Returns `UnsupportedInExternalSignerMode`. |
 | `POST /backup` | Not available. File backups are encrypted with the node password, and an external-signer node has none. Use [VSS cloud backup](https://github.com/UTEXO-Protocol/rgb-lightning-node#vss-cloud-backup-optional) instead; it supports external-signer mode. |
 | Authentication | Required. The node refuses to configure or unlock external-signer mode when started with `--disable-authentication` (`ExternalSignerRequiresAuthentication`). Use [Biscuit tokens](/rgb-lightning-node/self-hosted-rgb-lightning-node#authentication). |
@@ -71,6 +71,15 @@ cargo build --release --locked --features remote-signer
     A new seed is generated (file mode `0600`) if `--seed-file` does not exist. The daemon keeps its VLS state in `--data-dir` (default: a `signer-db` directory next to the seed file). **Persist this directory** — it is what lets a restarted daemon keep signing for existing channels.
 
     `--network` accepts `bitcoin`, `testnet`, `signet`, or `regtest`.
+  </Step>
+  <Step title="Copy the auth token to the node">
+    From `v0.16.0-beta.3`, every connection to the daemon must start with a shared auth token, including connections on loopback. On first start the daemon generates the token (mode `0600`) at `--auth-token-file`, by default `auth-token` inside `--data-dir`. Copy it into the node's storage directory as `remote-signer-auth-token`:
+
+    ```sh
+    install -m 0600 /secure/signer/signer-db/auth-token dataldk0/remote-signer-auth-token
+    ```
+
+    The file must be readable only by its owner. If the node's copy does not match the daemon's token, the daemon rejects the connection and the node reports that its `remote-signer-auth-token` does not match.
   </Step>
   <Step title="Print the signer identity">
     ```sh
