@@ -102,13 +102,41 @@ Retrieves an intent. Statuses:
 
 Notable fields (non-exhaustive): chain and token identifiers, source and destination addresses, `resolver_id`, `deadline`, `nonce`, amount lots and decimals, `quote_id`, `slippage_tolerance_bps`, intermediate-token bounds, `affiliate_id`, `swap_type` (`standard` or `optimized`), `resolver_deposit_address`, `deposit_type` (`escrowed` or `direct`), and lifecycle timestamps.
 
+### `GET /v1/intents/status/pending`
+
+Lists intents that are waiting for a resolver decision. Query parameters: `limit` (default page size `20`) and `offset`. The response is paginated.
+
+### `POST /v1/intents/{id}/accept`
+
+Accepts an intent. The response carries the data the resolver needs for the `deposit` transaction: `system_contract_address`, `permit2_contract_address`, `permit2_signature`, `proxy_address`, `fulfillment_signature`, `psbt`, and `cosign_transaction`. Which fields are meaningful depends on the source chain.
+
+Errors: `403` (this resolver may not update the intent), `404`, `409` (the intent is no longer in a state that can be accepted), `500`.
+
+### `POST /v1/intents/{id}/decline`
+
+Declines an intent. The body is optional:
+
+```json
+{ "error_code": 1, "message": "quote expired" }
+```
+
+Errors: `403`, `404`, `409`, `500`.
+
+### `POST /v1/intents/{intent_id}/refund`
+
+Refunds the user's locked funds without waiting for the timelock to expire.
+
+### `GET /v1/resolvers/stream`
+
+Opens a WebSocket stream for the resolver (HTTP `101 Switching Protocols`). Send the `X-API-Key` header on the upgrade request.
+
 ### `GET /v1/swaps/{intent_id}/swap`
 
 Retrieves the on-chain execution record for an intent. Notable fields: `status`, `proxy_address`, deposit/fulfill/withdraw/swap transaction hashes, intermediate-token data, and lifecycle timestamps.
 
 ## Reporting transactions
 
-Resolvers must report each on-chain step. For standard swaps, report in order: **Deposit → Fulfill → Withdraw**.
+Resolvers must report each on-chain step. For standard swaps, report the **Deposit**, then the **Fulfill**.
 
 ### `POST /v1/intents/{id}/deposit`
 
@@ -126,14 +154,6 @@ Resolvers must report each on-chain step. For standard swaps, report in order: *
 ```
 
 `signature` is optional for EVM, Solana, and Tron. It is required for Bitcoin.
-
-### `POST /v1/intents/batch/withdraw`
-
-Batched withdrawal reporting.
-
-<Warning>
-  Confirm the request and response payload for this endpoint with Utexo before implementing.
-</Warning>
 
 <Note>
   Optimized swaps report only the `Swap` step. Confirm the reporting endpoint for optimized swaps with Utexo during onboarding.
@@ -165,7 +185,10 @@ Response:
 
 ### `GET /v1/system/live`
 
+Requires the `X-API-Key` header, like every Protocol API request.
+
 - `200` — healthy
+- `400` — the `X-API-Key` header is missing or malformed (error code `14`)
 - `500` — unhealthy
 
 No response body is documented.

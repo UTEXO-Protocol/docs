@@ -81,19 +81,23 @@ Both `num` and `size` are integers. `size` is denominated in satoshis.
 
 ## Step 5: Resolve the Asset From the Sender
 
-`listAssets()` returns an object grouped by asset schema. NIA assets are in the `nia` array and use the `assetId` field.
+`listAssets()` returns an object grouped by asset schema. This guide uses an NIA test asset, which is in the `nia` array and uses the `assetId` field.
 
 ```javascript
 const { nia } = await senderWallet.listAssets();
-const usdt = nia.find((asset) => asset.ticker === 'USDT');
+const testAsset = nia.find((asset) => asset.ticker === 'TEST'); // the ticker of your test asset
 
-if (!usdt) {
+if (!testAsset) {
   throw new Error('The sender wallet does not hold the requested NIA asset');
 }
 
-const usdtAssetId = usdt.assetId;
-const amount = 10 ** usdt.precision; // one displayed unit in base units
+const assetId = testAsset.assetId;
+const amount = 10 ** testAsset.precision; // one displayed unit in base units
 ```
+
+<Note>
+  USDT on Bitcoin from the Utexo Mint uses the **BFA** asset schema. `@utexo/rgb-sdk-web` `1.0.0-beta.12` does not list BFA assets yet. To hold or move Mint USDT, use the [React Native SDK](/sdk/react-native-sdk), [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning), or `rgb-lib` (see [Mint and Burn Integration](/mint/mint-burn-integration)).
+</Note>
 
 A new receiver wallet will not list an asset it has never received. Resolve the asset ID and precision from the funded sender or an authoritative asset registry. Do not use the removed `assets.find(...).id` pattern.
 
@@ -103,7 +107,7 @@ Run this on the receiver wallet initialized in Step 2:
 
 ```javascript
 const receiveData = await wallet.blindReceive({
-  assetId: usdtAssetId,
+  assetId,
   amount,
   minConfirmations: 1,
   durationSeconds: 3600,
@@ -121,7 +125,7 @@ The current Web API uses `onchainSend()`, not `send()`.
 ```javascript
 const sendResult = await senderWallet.onchainSend({
   invoice: receiveData.invoice,
-  assetId: usdtAssetId,
+  assetId,
   amount,
   donation: false,
   feeRate: 7,
@@ -141,7 +145,7 @@ await wallet.refreshWallet();
 
 const receiverAssets = await wallet.listAssets();
 const receivedAsset = receiverAssets.nia.find(
-  (asset) => asset.assetId === usdtAssetId
+  (asset) => asset.assetId === assetId
 );
 
 console.log('Receiver asset balance:', receivedAsset?.balance);

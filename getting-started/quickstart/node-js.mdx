@@ -1,7 +1,7 @@
 ---
 title: "Node.js Quickstart"
 sidebarTitle: "Node.js"
-description: "Start an RGB Lightning node and make an RGB transfer from Node.js using @utexo/wdk-rgb-lightning."
+description: "Start an RGB Lightning node on Bitcoin signet and make an on-chain RGB transfer from Node.js using @utexo/wdk-rgb-lightning."
 ---
 
 <Info>
@@ -11,7 +11,7 @@ description: "Start an RGB Lightning node and make an RGB transfer from Node.js 
 This guide uses [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning), the current Node.js / Bare module for RGB and RGB-over-Lightning. It runs an `rgb-lightning-node` (LDK + `rgb-lib`) node in-process behind WDK's wallet-manager/account contract. The mnemonic stays in the WDK secret manager; channel-state cryptography runs in-process through a VLS signer.
 
 <Warning>
-  `@utexo/wdk-rgb-lightning` is a pre-1.0 beta (`0.1.0-beta` line). This guide was checked against `0.1.0-beta.15`. APIs may change between releases — check the installed package's `index.d.ts` before upgrading.
+  `@utexo/wdk-rgb-lightning` is a pre-1.0 beta. This guide was checked against `0.2.0-beta.5` with `@utexo/rgb-lightning-node-nodejs` `0.2.0-beta.5` (RLN `v0.17.0-beta.3`). `0.2.0-beta.5` requires the native binding at exactly the same version. APIs may change between releases — check the installed package's `index.d.ts` before upgrading.
 </Warning>
 
 <Note>
@@ -22,18 +22,18 @@ This guide uses [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning), the curren
 
 - Node.js 18 or later, on a platform supported by the prebuilt `@utexo/rgb-lightning-node-nodejs` binding
 - An ES module project (`"type": "module"` in `package.json`), since the package ships as pure ESM
-- Bitcoin test funds for transaction fees
+- Signet BTC for transaction fees, from a public signet faucet
 - A separately initialized sender wallet that already holds the RGB asset for an end-to-end transfer
 - Secure server-side storage for the mnemonic and a persistent, access-controlled data directory
 
 <Warning>
-  This guide uses `testnet`. Never use mainnet keys or real funds while following this guide.
+  This guide uses the public Bitcoin `signet`, the network of the Mint staging environment. Never use mainnet keys or real funds while following this guide.
 </Warning>
 
 ## Step 1: Install the SDK
 
 ```bash
-npm install @utexo/wdk-rgb-lightning @utexo/rgb-lightning-node-nodejs
+npm install @utexo/wdk-rgb-lightning@0.2.0-beta.5 @utexo/rgb-lightning-node-nodejs@0.2.0-beta.5
 ```
 
 `@utexo/rgb-lightning-node-nodejs` is the native binding for Node.js. It is an optional peer dependency, so install it explicitly. Its `postinstall` downloads a prebuilt native artifact; no Rust toolchain is required.
@@ -62,21 +62,31 @@ Construct the manager with the seed and config, get the single account, then bri
 
 ```javascript
 const manager = new WalletManagerRgbLightning(mnemonic, {
-  network: 'testnet',
+  network: 'signet',
   dataDir: './wallet-data/receiver',
 });
 
 const wallet = await manager.getAccount(0); // RGB Lightning is single-account
 
+const indexerUrl = 'https://mempool.space/signet/api'; // public signet Esplora
+
 await wallet.unlock({
-  indexer_url: 'ssl://electrum.iriswallet.com:50013',
-  proxy_endpoint: 'rpcs://rgb-proxy-testnet3.utexo.com/json-rpc',
+  ldk_chain_sync: {
+    mode: 'TransactionSync',
+    config: { indexer_url: indexerUrl },
+  },
+  indexer_url: indexerUrl,
+  proxy_endpoint: 'rpcs://proxy.iriswallet.com/0.2/json-rpc', // public signet RGB proxy
   announce_addresses: [],
   announce_alias: 'my-node',
 });
 ```
 
-`network` and `dataDir` are required at construction. `unlock()` takes a chain backend (`indexer_url`, or the four `bitcoind_rpc_*` fields) plus `proxy_endpoint`, `announce_addresses`, and `announce_alias`. Failures throw a typed `UnlockError`.
+`network` and `dataDir` are required at construction. `unlock()` takes the node's chain backend in `ldk_chain_sync` (`TransactionSync` with an Esplora or Electrum indexer, or `BlockSync` with bitcoind RPC), the RGB `indexer_url`, and the RGB transport `proxy_endpoint`. Sender and receiver must use the same network and an RGB proxy that both can reach. Failures throw a typed `UnlockError`.
+
+<Note>
+  To receive USDT on Bitcoin (BFA asset schema) minted by the Utexo Mint, also pass `eth_rpc_url`: an Ethereum JSON-RPC endpoint for the chain with the bridge contract (Arbitrum One for the Mint). The node uses it to validate the bridge events behind the asset. Without it the node keeps its non-BFA behavior.
+</Note>
 
 <Warning>
   Give every wallet its own `dataDir`. `rgb-lib` takes an exclusive lock on a wallet directory, and the sender and receiver in this guide are separate nodes. A mnemonic is necessary for key recovery, but it does not replace a backup of the RGB and channel state in `dataDir` — see VSS backup in the [reference](/sdk/wdk-rgb-lightning#vss).
@@ -94,7 +104,7 @@ console.log('Spendable BTC (sats):', balance);
 
 `getAddress()` throws `AccountLockedError` before `unlock()`. It returns a stable address; call `rotateAddress()` when you need a new one.
 
-Send testnet BTC to this address and wait for confirmation before creating RGB UTXOs.
+Send signet BTC to this address and wait for confirmation before creating RGB UTXOs. Signet blocks arrive about every 10 minutes.
 
 ## Step 5: Create RGB UTXOs
 
@@ -112,14 +122,14 @@ await wallet.createUtxos({
 
 ## Step 6: Resolve the Asset From the Sender
 
-`listAssets()` forwards RLN's response, grouped by schema. NIA assets are in the `nia` array and use the snake_case `asset_id` field.
+`listAssets()` forwards RLN's response, grouped by schema, with the snake_case `asset_id` field. USDT on Bitcoin from the Utexo Mint uses the **BFA** schema, so it is in the `bfa` array. Other test assets are in `nia`, `cfa`, `ifa`, or `uda`.
 
 ```javascript
-const { nia } = await senderWallet.listAssets(['Nia']);
-const usdt = nia.find((asset) => asset.ticker === 'USDT');
+const { bfa } = await senderWallet.listAssets(['Bfa']);
+const usdt = (bfa ?? []).find((asset) => asset.ticker === 'USDT');
 
 if (!usdt) {
-  throw new Error('The sender wallet does not hold the requested NIA asset');
+  throw new Error('The sender wallet does not hold USDT on Bitcoin');
 }
 
 const usdtAssetId = usdt.asset_id;
@@ -162,7 +172,7 @@ console.log('Transfer transaction:', sendResult.hash);
 
 For RGB invoices, `hash` is the anchoring Bitcoin txid. `transfer()` also routes BOLT11 invoices, Lightning node pubkeys, and BTC addresses. For non-fungible, multi-recipient, or witness sends, call `sendRgbAsset()` with a full `recipient_groups` request built from `decodeRgbInvoice()` — see the [reference](/sdk/wdk-rgb-lightning#rgb-assets).
 
-The sender must be a separately created and unlocked `WalletAccountRgbLightning` with its own `dataDir`, sufficient testnet BTC, and a spendable asset balance.
+The sender must be a separately created and unlocked `WalletAccountRgbLightning` with its own `dataDir`, sufficient signet BTC, and a spendable asset balance.
 
 ## Step 9: Refresh and Verify
 
@@ -186,7 +196,7 @@ manager.dispose();
 
 ## Lightning Payments
 
-The same account exposes channels and BOLT11 payments. A payment needs a connected peer and an open channel with enough liquidity — unlocking the node does not create either.
+The same account exposes channels and BOLT11 payments on signet, testnet and regtest. On `mainnet`, Lightning methods throw `LightningDisabledError` (`code: 'LIGHTNING_DISABLED_ON_MAINNET'`) before any network call; on-chain RGB methods keep working. A payment needs a connected peer and an open channel with enough liquidity — unlocking the node does not create either.
 
 ```javascript
 await wallet.connectPeer(`${peerPubkey}@${peerHost}:${peerPort}`);
@@ -215,18 +225,19 @@ For RGB-over-Lightning, pass `asset_id` / `asset_amount` when opening the channe
 | Issue | Likely cause | Check |
 | --- | --- | --- |
 | `Cannot find package '@utexo/rgb-lightning-node-nodejs'` | Native binding not installed | Install the binding next to `@utexo/wdk-rgb-lightning` |
-| `UnlockError` | Unreachable indexer or proxy, or an invalid unlock request | Confirm the endpoints match `network` and that only one chain backend is set |
+| Native binding version rejected | Binding and WDK versions differ | Install both packages at the same version |
+| `UnlockError` | Unreachable indexer or proxy, or an invalid unlock request | Confirm the endpoints match `network` and that `ldk_chain_sync` sets one chain backend |
 | `AccountLockedError` | Method called before `unlock()` | Await `unlock()` before address, balance, or send calls |
 | Wallet directory lock error | Two wallets share a `dataDir` | Give each wallet its own directory |
 | `createUtxos()` fails | Insufficient confirmed BTC | Fund the wallet and wait for confirmation |
-| Asset cannot be found | Wrong response shape or unfunded sender | Read `listAssets().nia` and use `asset_id` |
+| Asset cannot be found | Wrong schema, response shape, or unfunded sender | Read `listAssets().bfa` for USDT on Bitcoin (other schemas for test assets) and use `asset_id` |
 | `transfer()` fails | Invoice, amount, balance, or transport problem | Confirm the invoice is unexpired and the amount is in base units |
 | Balance does not update | Transfer is pending or wallet is stale | Call `refreshTransfers()` on both wallets and check `listTransfers()` |
 
 ## Implementation References
 
-- [Package README](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/dev/README.md)
-- [Type declarations](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/dev/index.d.ts)
+- [Package README](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/main/README.md)
+- [Type declarations](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/main/index.d.ts)
 - [End-to-end demo (LSP, RGB-over-Lightning, regtest stack)](https://github.com/UTEXO-Protocol/utexo-rgb-wdk-demo)
 
 ## Next Steps

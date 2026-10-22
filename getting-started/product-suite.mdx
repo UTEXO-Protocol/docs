@@ -33,10 +33,10 @@ The Utexo SDK and REST API allows applications to support native USDT transfers 
 The SDK provides programmatic access to:
 
 - **RGB asset operations** — privacy-preserving asset issuance, transfers, and state transitions
-- **Lightning execution** — routing, payment lifecycle, and failure recovery
 - **Balance and audit** — balance tracking, transaction status, and transfer history
+- **Lightning (test networks)** — channels, invoices and payments for RGB assets; not enabled on mainnet
 
-The SDK enables non-custodial, client-side validated flows without requiring developers to operate Lightning nodes or manage RGB infrastructure directly. All API calls execute with predefined costs and latency characteristics.
+The SDK enables non-custodial, client-side validated flows without requiring developers to manage RGB infrastructure directly.
 
 <Info>
   See the [SDK reference](/product-suite/sdk) for installation, method reference, and integration examples.
@@ -51,7 +51,7 @@ Capabilities include:
 - **Node lifecycle management** — provisioning, upgrades, and teardown
 - **Health and status monitoring** — real-time node diagnostics
 - **Managed backup and recovery** — encrypted state backups with point-in-time restore
-- **VSS integration** — Verifiable Secret Sharing for non-custodial cloud key management
+- **VSS integration** — encrypted remote backup of node state on a Versioned Storage Service (VSS) server
 
 <Info>
   See the [Cloud documentation](/product-suite/RLN-overview) for setup and configuration.
@@ -92,4 +92,4 @@ Key properties:
 
 - [Architecture](/getting-started/architecture) — How Bitcoin, Lightning, and RGB work together as the underlying stack.
 - [What is Utexo?](/what-utexo-is) — The four core design principles of the Utexo framework.
-- [Quickstart](/getting-started/quickstart) — Integrate Utexo and process your first stablecoin payment.
+- [Quickstart](/getting-started/quickstart/overview) — Integrate Utexo and process your first stablecoin payment.

@@ -29,7 +29,7 @@ The bridge holds its mint and burn liquidity on **Arbitrum One**. A mint from Ar
 </Note>
 
 <Info>
-  **Base URL (staging):** `https://transfer.gateway.stage.utexo.com/api/v0`
+  **Base URL (staging):** `https://transfer.gateway.staging.utexo.com/api/v0`
 
   Every endpoint in this guide requires authentication. Create an account, complete KYC or KYB, and generate an API key in your account. Contact the Utexo team for production access.
 </Info>
@@ -49,9 +49,9 @@ All API and wallet amounts in this guide are integers in token base units. USDT 
 ### Find the network and token IDs
 
 ```bash
-curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.stage.utexo.com/api/v0/networks
-curl -H "X-API-Key: <API_KEY>" "https://transfer.gateway.stage.utexo.com/api/v0/networks/<SOURCE_NETWORK_ID>/supported-tokens"
-curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.stage.utexo.com/api/v0/networks/827166/supported-tokens
+curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/networks
+curl -H "X-API-Key: <API_KEY>" "https://transfer.gateway.staging.utexo.com/api/v0/networks/<SOURCE_NETWORK_ID>/supported-tokens"
+curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/networks/827166/supported-tokens
 ```
 
 From the responses, take:
@@ -99,6 +99,10 @@ Every successful estimate returns integer base-unit amounts as strings. A direct
 }
 ```
 
+<Note>
+  The example amounts use the staging environment's test fee settings. At launch, the bridge commission is 0.1% of the amount plus a 0.5 USDT base fee. Always read the fees from the estimate.
+</Note>
+
 `receiveAmount` is what arrives: minted on RGB for a mint, delivered on the recipient network for a burn. It is net of the bridge commission and, on a LayerZero leg, of the fee the OFT keeps. The amounts relate as follows:
 
 ```text
@@ -131,7 +135,7 @@ The fee schedule is deployment-specific; the numbers in this section are illustr
 For Arbitrum One, the gross `amount` is deposited directly into the bridge contract. Quote a gross deposit of 1 USDT or USDT0 like this:
 
 ```bash
-curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/42161/827166/2/1000000
+curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/mint-burn/estimate/42161/827166/2/1000000
 ```
 
 No `senderAddress` is required for the direct Arbitrum route. There is no `oftFee` on this route, so:
@@ -152,7 +156,7 @@ Ethereum, Polygon PoS, Plasma, and Tron use a two-stage quote:
 The estimate must include `senderAddress`, because the entrypoint quote and generated deposit parameters depend on the source account. For example, quote a Polygon deposit:
 
 ```bash
-curl -H "X-API-Key: <API_KEY>" "https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/137/827166/<SOURCE_TOKEN_ID>/1000000?senderAddress=0xYourPolygonAddress"
+curl -H "X-API-Key: <API_KEY>" "https://transfer.gateway.staging.utexo.com/api/v0/mint-burn/estimate/137/827166/<SOURCE_TOKEN_ID>/1000000?senderAddress=0xYourPolygonAddress"
 ```
 
 Use the same pattern for the other entrypoint-based networks:
@@ -233,7 +237,7 @@ Set up the wallet as follows:
     Send the blinded invoice and the **gross source deposit** from the estimate as `amount`:
 
     ```bash
-    curl -X POST https://transfer.gateway.stage.utexo.com/api/v0/mint/op-id \
+    curl -X POST https://transfer.gateway.staging.utexo.com/api/v0/mint/op-id \
       -H "X-API-Key: <API_KEY>" \
       -H "Content-Type: application/json" \
       -d '{
@@ -301,7 +305,7 @@ Set up the wallet as follows:
     Poll the mint until it reaches `completed` or `expired`:
 
     ```bash
-    curl https://transfer.gateway.stage.utexo.com/api/v0/lock/9f2c...e41a/status \
+    curl https://transfer.gateway.staging.utexo.com/api/v0/lock/9f2c...e41a/status \
       -H "X-API-Key: <API_KEY>"
     ```
 
@@ -449,14 +453,14 @@ Test your implementation against the published vectors before you burn. For exam
     Quote the gross amount to burn by reversing the route:
 
     ```bash
-    curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/827166/42161/2/1000000
+    curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/mint-burn/estimate/827166/42161/2/1000000
     ```
 
     Show the customer both the gross burn and `receiveAmount`. The recipient receives `receiveAmount`; `totalTokenFee` (the bridge commission plus, on a LayerZero release, `oftFee`) is deducted. Do not burn less than `minAmount`. The quote does not check current release liquidity, so perform the capacity check separately.
   </Step>
   <Step title="Check release capacity">
     ```bash
-    curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.stage.utexo.com/api/v0/unlock/capacity/827166/42161/<EVM_TOKEN_ID>
+    curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/unlock/capacity/827166/42161/<EVM_TOKEN_ID>
     ```
 
     ```json
@@ -507,7 +511,7 @@ Test your implementation against the published vectors before you burn. For exam
   </Step>
   <Step title="Submit the burn">
     ```bash
-    curl -X POST https://transfer.gateway.stage.utexo.com/api/v0/unlock \
+    curl -X POST https://transfer.gateway.staging.utexo.com/api/v0/unlock \
       -H "X-API-Key: <API_KEY>" \
       -H "Content-Type: application/json" \
       -d '{
@@ -562,8 +566,8 @@ Test your implementation against the published vectors before you burn. For exam
 To release to Ethereum, Polygon PoS, Plasma, or Tron, use that network as the destination in every burn request, and use the token ID of USDT on that network:
 
 ```bash
-curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.stage.utexo.com/api/v0/mint-burn/estimate/827166/137/<DESTINATION_TOKEN_ID>/1000000
-curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.stage.utexo.com/api/v0/unlock/capacity/827166/137/<DESTINATION_TOKEN_ID>
+curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/mint-burn/estimate/827166/137/<DESTINATION_TOKEN_ID>/1000000
+curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/unlock/capacity/827166/137/<DESTINATION_TOKEN_ID>
 ```
 
 The burn must commit a V1 burn destination for that network (see [Choose the burn destination](#choose-the-burn-destination)); a legacy padded address is refused. In `POST /unlock`, set `destinationNetworkId` to the destination network, send the `burnDestination` record, and set `tokenId`, which is required for these releases:

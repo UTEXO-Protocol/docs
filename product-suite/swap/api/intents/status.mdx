@@ -58,6 +58,8 @@ GET /affiliate/v1/swaps/intents/{intent_id}
 | `Expired` | The intent expired before execution. |
 | `RefundRequested` | A refund has been requested for this intent. |
 | `Refunded` | Tokens have been refunded to the user. |
+| `AwaitingBroadcast` | User broadcast flow: the resolver has passed the transaction calldata to the affiliate, and the affiliate must sign and broadcast the deposit transaction. |
+| `Lapsed` | The intent was never acted on before its deadline. In the approval (permit) flow, no resolver accepted or declined it; in the user broadcast flow, the user never broadcast the deposit transaction. |
 
 ## Notes
 

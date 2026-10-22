@@ -27,7 +27,7 @@ Key terms used throughout the Utexo documentation.
 
 ## C
 
-**CFA (Collectible Fungible Asset)** An RGB asset type for tokens with a fixed supply cap per issuance batch. CFAs are used for assets such as stablecoins and limited-edition tokens. Unlike NIA assets, multiple CFA issuances can be made by the same issuer up to a defined global cap.
+**CFA (Collectible Fungible Asset)** An RGB asset type for tokens with a fixed supply cap per issuance batch. CFAs are used for assets such as limited-edition tokens; USDT on Bitcoin uses BFA. Unlike NIA assets, multiple CFA issuances can be made by the same issuer up to a defined global cap.
 
 **Channel (Lightning)** A bidirectional payment channel opened between two Lightning Network nodes. Channels allow off-chain USDT and BTC transfers with instant settlement. Utexo manages channel lifecycle, routing, and liquidity on behalf of integrators.
 
@@ -61,7 +61,7 @@ Key terms used throughout the Utexo documentation.
 
 **Lightning Invoice** A standard BOLT-11 or BOLT-12 payment request used to receive BTC or RGB assets over Lightning channels. Generated via `wallet.createLightningInvoice()`.
 
-**Lightning Network** A Bitcoin Layer 2 payment protocol that enables instant, low-cost transfers via off-chain payment channels. Utexo uses Lightning as the execution layer for RGB asset transfers, providing near-instant settlement and predictable fees.
+**Lightning Network** A Bitcoin Layer 2 payment protocol that enables instant, low-cost transfers via off-chain payment channels. RGB assets can move over Lightning channels on test networks; Lightning is not enabled on mainnet.
 
 **LDK (Lightning Development Kit)** An open-source library by Spiral (Block) that implements the Lightning Network protocol in Rust. The Utexo RGB Lightning Node is built on top of LDK, enabling it to manage payment channels and route Lightning payments for RGB assets.
 
@@ -119,7 +119,7 @@ Key terms used throughout the Utexo documentation.
 
 **UDA (Unique Digital Asset)** An RGB asset type for non-fungible tokens (NFTs) on Bitcoin. Each UDA has a unique token ID and represents a one-of-a-kind digital item. UDAs are issued and transferred using the RGB protocol with client-side validation.
 
-**USDT (RGB)** Tether's USDT stablecoin issued natively on Bitcoin using the RGB protocol. Distinct from ERC-20 USDT (Ethereum) and TRC-20 USDT (Tron). RGB USDT is transferred over Lightning channels and validated client-side.
+**USDT (RGB)** Tether's USDT stablecoin issued natively on Bitcoin using the RGB protocol. Distinct from ERC-20 USDT (Ethereum) and TRC-20 USDT (Tron). RGB USDT is transferred on-chain with RGB and validated client-side.
 
 **USDT0** Tether's omnichain USDT, which moves between networks through LayerZero. The Utexo Mint locks USDT0 on Arbitrum to mint USDT on Bitcoin, and releases it after a burn.
 
@@ -129,7 +129,7 @@ Key terms used throughout the Utexo documentation.
 
 ## V
 
-**VSS (Verifiable Secret Sharing)** A cloud-based backup mechanism used by the Utexo SDK to store encrypted wallet recovery data. Enables wallet restoration without requiring the user to manually store the mnemonic locally. Used via `wallet.restoreUtxoWalletFromVss()`.
+**VSS (Versioned Storage Service)** A remote server that stores encrypted, versioned backups of wallet and Lightning node state, used by the Utexo SDKs and the RGB Lightning Node. Restoring from VSS still needs the wallet's mnemonic.
 
 ## W
 

@@ -9,7 +9,7 @@ sidebarTitle: 'wdk-rgb-lightning'
 The node runs in **external-signer** mode. The BIP-39 mnemonic stays in the WDK secret manager. Channel-state crypto runs in-process through a VLS signer.
 
 <Warning>
-  Pre-1.0 beta (`0.1.0-beta` line). APIs may change between releases.
+  Pre-1.0 beta. This page follows `0.2.0-beta.5`, which requires the native binding (`@utexo/rgb-lightning-node-nodejs` or `@utexo/rgb-lightning-node-bare`) at exactly `0.2.0-beta.5`. APIs may change between releases.
 </Warning>
 
 ## Why a Separate Package
@@ -21,12 +21,12 @@ This module holds and transfers RGB assets for channels and invoices. For issuan
 ## Installation
 
 ```bash
-npm install @utexo/wdk-rgb-lightning
+npm install @utexo/wdk-rgb-lightning@0.2.0-beta.5
 
-# Native binding for your runtime (optional peer deps):
-npm install @utexo/rgb-lightning-node-nodejs   # Node
+# Native binding for your runtime (optional peer deps), same version:
+npm install @utexo/rgb-lightning-node-nodejs@0.2.0-beta.5   # Node
 # or
-npm install @utexo/rgb-lightning-node-bare     # Bare / React Native
+npm install @utexo/rgb-lightning-node-bare@0.2.0-beta.5     # Bare / React Native
 ```
 
 Install only the binding for your runtime. Each `postinstall` downloads a prebuilt native artifact; no Rust toolchain is required.
@@ -78,6 +78,10 @@ Default export. Construct with a BIP-39 mnemonic (or `Uint8Array` seed) and conf
 const account = await manager.getAccount(0);
 
 await account.unlock({
+  ldk_chain_sync: {
+    mode: 'TransactionSync',
+    config: { indexer_url: 'tcp://localhost:50001' },
+  },
   indexer_url: 'tcp://localhost:50001',
   proxy_endpoint: 'rpc://localhost:3000/json-rpc',
   announce_addresses: [],
@@ -85,7 +89,11 @@ await account.unlock({
 });
 ```
 
-Unlock takes **exactly one** chain backend: `indexer_url`, or all four `bitcoind_rpc_*` fields (`bitcoind_rpc_username`, `bitcoind_rpc_password`, `bitcoind_rpc_host`, `bitcoind_rpc_port`). Mixing both is rejected. `proxy_endpoint`, `announce_addresses`, and `announce_alias` are always required.
+`ldk_chain_sync` sets the node's chain backend: `{ mode: 'TransactionSync', config: { indexer_url } }` for an Esplora or Electrum indexer, or `{ mode: 'BlockSync', config: { bitcoind_rpc_username, bitcoind_rpc_password, bitcoind_rpc_host, bitcoind_rpc_port } }` for bitcoind. `indexer_url` is the RGB wallet's indexer and is also valid alongside `BlockSync`. `proxy_endpoint` is the RGB transport. To validate BFA bridge events (USDT on Bitcoin from the Utexo Mint), also pass `eth_rpc_url` for the chain with the bridge contract.
+
+<Note>
+  Lightning is disabled on `mainnet`. Channel, peer, invoice and payment methods throw `LightningDisabledError` (`code: 'LIGHTNING_DISABLED_ON_MAINNET'`) before any native or HTTP call. On-chain BTC and RGB methods keep working on mainnet. `account.getCapabilities()` reports what the configured network supports.
+</Note>
 
 ---
 
@@ -287,11 +295,11 @@ Typed errors are exported from the package root. Branch on `err.name` / `err.cod
 RgbLightningError            code: RGB_LIGHTNING_ERROR
 ├── UnlockError              code: UNLOCK_FAILED
 ├── AccountLockedError       code: ACCOUNT_LOCKED
+├── LightningDisabledError   code: LIGHTNING_DISABLED_ON_MAINNET
 ├── VssError                 code: VSS_ERROR
-│   └── VssNotConfiguredError code: VSS_NOT_CONFIGURED
+│   ├── VssNotConfiguredError code: VSS_NOT_CONFIGURED
+│   └── VssUnsupportedError   code: ERR_VSS_UNSAFE_UPSTREAM (legacy compatibility)
 ├── ApayError                code: APAY_ERROR
-├── WalletSyncError          code: WALLET_SYNC_FAILED
-├── WalletSnapshotError      code: WALLET_SNAPSHOT_FAILED
 └── NotImplementedError      code: NOT_IMPLEMENTED
 ```
 
@@ -322,6 +330,10 @@ const manager = new WalletManagerRgbLightning(mnemonic, {
 const account = await manager.getAccount(0);
 
 await account.unlock({
+  ldk_chain_sync: {
+    mode: 'TransactionSync',
+    config: { indexer_url: 'tcp://localhost:50001' },
+  },
   indexer_url: 'tcp://localhost:50001',
   proxy_endpoint: 'rpc://localhost:3000/json-rpc',
   announce_addresses: [],
@@ -360,4 +372,4 @@ Both packages use `rgb-lib`, but they do **not** share asset records. Use `@utex
 - [WDK Overview](/sdk/wdk-overview)
 - [wdk-wallet-rgb Reference](/sdk/wdk-wallet-rgb)
 - [SDK Overview](/product-suite/sdk)
-- [Package README](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/dev/README.md)
+- [Package README](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/main/README.md)

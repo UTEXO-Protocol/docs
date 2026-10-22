@@ -6,6 +6,10 @@ sidebarTitle: 'wdk-wallet-rgb'
 
 `@utexo/wdk-wallet-rgb` bridges the Wallet Development Kit (WDK) interfaces with the RGB ecosystem. It wraps the `@utexo/rgb-lib-bare` native addon and the `@utexo/rgb-sdk` Taproot signer inside standard WDK account abstractions, giving wallet builders first-class RGB support without reimplementing the protocol layer.
 
+<Warning>
+  The published `@utexo/wdk-wallet-rgb` (`2.0.3`) predates the BFA asset schema used by USDT on Bitcoin, so it cannot hold or burn Mint USDT. It is being updated to the BFA `rgb-lib`, to become the on-chain path of the wallet SDK: RGB through `rgb-lib` only, without an RGB Lightning Node.
+</Warning>
+
 ## Installation
 
 ```bash

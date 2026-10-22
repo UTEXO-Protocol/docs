@@ -59,12 +59,12 @@ The three failure modes above are addressed directly by the Utexo architecture:
 
 | Failure Mode | Utexo Response |
 | --- | --- |
-| Unpredictable fees | Fixed, protocol-level fee schedule |
-| Public execution | Off-chain settlement with cryptographic privacy |
-| Alternative chain dependency | Bitcoin \+ RGB \+ Lightning, with no external L1 in the payment path |
+| Unpredictable fees | Published commission, quoted before every transfer |
+| Public execution | Client-side validated RGB transfers; only commitments on Bitcoin |
+| Alternative chain dependency | Bitcoin \+ RGB, with no external L1 in the payment path |
 
 ## Further Reading
 
-- [Architecture](/getting-started/architecture) - How Bitcoin, the Lightning Network, RGB, and Utexo address these failure modes at the protocol level.
+- [Architecture](/getting-started/architecture) - How Bitcoin, RGB, and Utexo address these failure modes at the protocol level.
 - [What is Utexo?](/what-utexo-is) - The Utexo framework and its four core design principles.
-- [Quickstart](/getting-started/quickstart) - Integrate Utexo and process your first stablecoin payment.
+- [Quickstart](/getting-started/quickstart/overview) - Integrate Utexo and process your first stablecoin payment.
