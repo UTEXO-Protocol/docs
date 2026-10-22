@@ -18,7 +18,7 @@ Utexo is built on a layered stack. Each layer has a distinct and non-overlapping
 | Lightning Network | Off-chain execution and value transfer | High-throughput payments, near-instant finality, predictable latency |
 | RGB | Asset issuance and client-side validation | Stablecoin creation, privacy-preserving transfers, Bitcoin-secured ownership |
 | Utexo | Execution and coordination layer | Routing, liquidity, fee management, SDK/API abstraction |
-| Mint | USDT Cross-chain connectivity | Inbound and outbound transfers between Ethereum, Tron and the RGB layer |
+| Mint | USDT Cross-chain connectivity | Inbound and outbound transfers between the RGB layer and Arbitrum (USDT0 hub), with Ethereum, Polygon PoS, Plasma and Tron reached through USDT0 / LayerZero |
 | Swap | Cross-chain swap | Intent-based cross-chain swaps across Bitcoin, Ethereum, Tron, and Solana |
 
 In the Utexo model, ownership proofs are validated locally by users' wallets (client-side validation), while actual payments occur through bidirectional Lightning channels. There is no global state to synchronise. Each transaction is a direct peer-to-peer exchange verified by cryptographic commitments.
@@ -88,13 +88,16 @@ The Utexo execution layer is the payment execution environment for USDT. It sits
 
 The Utexo Mint connects external EVM-based and Non-EVM-based networks to the Bitcoin RGB layer, enabling cross-chain USDT transfers in both directions. It is built around Arbitrum as the single EVM settlement hub, with USDT from Ethereum, Polygon PoS, Plasma and Tron supported transparently via the USDT0 / LayerZero protocol. Minted USDT is represented on Bitcoin as RGB USDT, a real on-chain asset with Bitcoin-backed settlement guarantees.
 
-The Mint is composed of five coordinated components:
+The Mint is composed of these coordinated components:
 
-1. **Mint orchestrator** that tracks all in-flight transfers; stateless chain-specific.
-2. **Connectors** that monitor smart contracts and issue on-chain transactions; three independent.
-3. **Mint signer**, an AWS Nitro Enclave holding the RGB mint rights, that signs a mint only after verifying the matching USDT0 deposit on Arbitrum.
-4. **Release signer federation**, independent signer enclaves of which an M-of-N quorum must sign every EVM release after an RGB burn.
-5. **BTC Relay** that streams Bitcoin block headers into the TEE for in-enclave SPV verification.
+1. **Mint orchestrator** that tracks all in-flight transfers in a database and drives each one to completion or cancellation.
+2. **Connectors**, stateless chain-specific gRPC services that watch bridge contracts for `FundsIn` events and issue `FundsOut` transactions.
+3. **Bridge contracts on Arbitrum**: the Bridge holds locked USDT0, and `MultisigProxy` verifies the release signer quorum before any release.
+4. **Mint signer**, an AWS Nitro Enclave holding the RGB mint rights, that signs the mint PSBT only after verifying the matching USDT0 deposit on Arbitrum.
+5. **Release signer federation**, independent signer enclaves of which an M-of-N quorum must sign (EIP-712) every EVM release after an RGB burn.
+6. **BTC Relay**, a service that submits Bitcoin block headers to the on-chain `BtcRelay` contract on Arbitrum. Each release signer enclave keeps its own SPV header chain, fed by its host and checked from a pinned checkpoint, and refuses to sign if that chain disagrees with the `BtcRelay` record.
+
+The signer nodes share one enclave codebase, the Enclave Signer, and a REST Gateway serves the web UI and external integrations.
 
 <Info>
   For full component details, supported networks, transfer flow, and security properties, see [Mint](/product-suite/mint).

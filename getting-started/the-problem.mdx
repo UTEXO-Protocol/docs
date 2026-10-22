@@ -52,7 +52,7 @@ Stablecoin settlement is therefore forced onto alternative chains or custodial p
 ## What Utexo Solves
 
 <Info>
-  Utexo exists to make stablecoin settlement costs predictable and private, independent of blockspace congestion, while preserving Bitcoin’s security model. It brings USDT settlement natively to Bitcoin without requiring alternative chains, custodians, or smart contract platforms.
+  Utexo exists to make stablecoin settlement costs predictable and private, independent of blockspace congestion, while preserving Bitcoin's security model. It brings USDT settlement natively to Bitcoin: payments between Utexo users settle on RGB without alternative chains, custodians, or smart contract platforms in the payment path. Moving USDT between Bitcoin and other networks goes through the [Mint](/product-suite/mint), which uses bridge contracts on Arbitrum.
 </Info>
 
 The three failure modes above are addressed directly by the Utexo architecture:
@@ -61,7 +61,7 @@ The three failure modes above are addressed directly by the Utexo architecture:
 | --- | --- |
 | Unpredictable fees | Fixed, protocol-level fee schedule |
 | Public execution | Off-chain settlement with cryptographic privacy |
-| Alternative chain dependency | Bitcoin \+ RGB \+ Lightning — no external L1 required |
+| Alternative chain dependency | Bitcoin \+ RGB \+ Lightning, with no external L1 in the payment path |
 
 ## Further Reading
 

@@ -19,6 +19,11 @@ For now, the only tested and available route is Arbitrum (mainnet) to Bitcoin (U
 
 Before initiating a transfer, ensure you have the following ready.
 
+**Utexo account**
+
+- Create an account or sign in on [transfer.stage.utexo.com](https://transfer.stage.utexo.com). The console opens on the **Mint / Burn** page; **Activity** lists your transfers.
+- Until your account completes KYC or KYB on the **Verification** page, you can mint only up to a cumulative limit, shown in your account. Burns do not count against it. Verified accounts also get an **API** page for generating an API key.
+
 **EVM wallet (browser extension)**
 
 - ETH balance to cover Arbitrum gas fees.
@@ -26,7 +31,8 @@ Before initiating a transfer, ensure you have the following ready.
 
 **RGB wallet**
 
-- A wallet built on the supported `rgb-lib` version, which handles the BFA asset schema used by USDT on Bitcoin. See [Mint and Burn Integration](/mint/mint-burn-integration).
+- An RGB wallet that supports the BFA asset schema used by USDT on Bitcoin. See [RGB wallet requirements](/mint/mint-burn-integration#rgb-wallet-requirements).
+- To burn from the console in one step, an RGB Wallet you can connect to the browser that supports V1 burn destinations. Otherwise you burn in your wallet and upload the burn consignment.
 - BTC balance to cover the RGB transaction fee on the Bitcoin side.
 
 ---
@@ -35,33 +41,33 @@ Before initiating a transfer, ensure you have the following ready.
 
 This direction locks USDT0 on Arbitrum and mints the same amount of RGB USDT to your RGB wallet.
 
-### Step 1 — Enter the transfer details
+### Step 1: Enter the transfer details
 
-On [transfer.stage.utexo.com](https://transfer.stage.utexo.com), set:
+Sign in and open **Mint / Burn**, then choose **Mint**. Connect your EVM wallet and set:
 
-- **Send:** Blockchain – Ethereum (or Polygon PoS, Plasma or Tron), Token – USDT.
-- **Receive:** Blockchain – Bitcoin (RGB), Token – USDT.
+- **Send:** Blockchain: Arbitrum (or Ethereum, Polygon PoS, Plasma or Tron where available), Token: USDT.
+- **Receive:** Blockchain: Bitcoin (RGB), Token: USDT.
 
 In the **Amount** field, enter the number of USDT tokens to transfer.
 
-In the **Destination** field, paste an RGB invoice for the USDT asset, created in your RGB wallet. Make sure the wallet's BTC balance can cover the network fee.
+For the destination, use an RGB invoice for the USDT asset: let your connected RGB Wallet generate it (approve the request in the wallet), or paste one created in your RGB wallet. Use a new invoice for every mint. Make sure the wallet's BTC balance can cover the network fee.
 
-### Step 2 — Review and confirm
+### Step 2: Review and confirm
 
 After filling in the form, a **Transaction Preview** appears with:
 
-- **You will receive** — estimated USDT amount after fees.
-- **Estimated gas fee** — live Arbitrum network gas cost.
-- **Mint commission** — fixed percentage fee charged by Utexo.
+- **You will receive**: estimated USDT amount after fees.
+- **Estimated gas fee**: live network gas cost of the deposit (and approval, if still needed).
+- **Mint commission**: the bridge commission charged by Utexo.
 
 Click **Transfer**. The Mint prepares the mint for your invoice, then your EVM wallet prompts you through two confirmation steps:
 
-1. **Approve token spending** — Authorises the Mint contract to spend your USDT. Click **Confirm**.
-2. **Confirm the deposit** — Review the details and click **Confirm** to submit. Submit it before the prepared mint expires.
+1. **Approve token spending**: authorises the Mint contract to spend your USDT. Click **Confirm**. This step is skipped when the allowance already covers the amount.
+2. **Confirm the deposit**: review the details and click **Confirm** to submit. Submit it before the prepared mint expires.
 
-### Step 3 — Wait for USDT to arrive
+### Step 3: Wait for USDT to arrive
 
-The Mint tracks the mint until it completes. After your deposit is final on Arbitrum, the mint signer signs the mint and the Bitcoin transaction is broadcast. Once it confirms, the USDT appears in your RGB wallet. Settlement time depends on Bitcoin network congestion.
+The Mint tracks the mint until it completes, also on the **Activity** page. After your deposit is final on Arbitrum, the mint signer signs the mint and the Bitcoin transaction is broadcast. Once it confirms, the USDT appears in your RGB wallet. Settlement time depends on Bitcoin network congestion.
 
 ---
 
@@ -70,31 +76,34 @@ The Mint tracks the mint until it completes. After your deposit is final on Arbi
 This direction burns RGB USDT on Bitcoin and unlocks the same amount of USDT0, less fees, on the EVM side.
 
 <Warning>
-  A burn cannot be undone. Check the amount the Mint can release before you burn, and name the EVM recipient carefully: it is committed in the burn and cannot be changed.
+  A burn cannot be undone. Check the amount the Mint can release before you burn, and name the payout network and recipient carefully: they are committed in the burn and cannot be changed.
+
+  A burn that names a plain EVM address (the legacy format) can be paid only on Arbitrum. To receive on Ethereum, Polygon PoS, Plasma or Tron, the burn must commit a V1 burn destination for that network.
 </Warning>
 
-### Step 1 — Check what can be released
+### Step 1: Check what can be released
 
-On [transfer.stage.utexo.com](https://transfer.stage.utexo.com), set:
+Sign in and open **Mint / Burn**, then choose **Burn**. Set:
 
-- **Send:** Blockchain – Bitcoin (RGB), Token – USDT.
-- **Receive:** Blockchain – Ethereum (or Polygon PoS, Plasma or Tron), Token – USDT.
+- **Send:** Blockchain: Bitcoin (RGB), Token: USDT.
+- **Receive:** Blockchain: Arbitrum (or Ethereum, Polygon PoS, Plasma or Tron where available), Token: USDT.
 
-Enter the amount. The Mint shows how much it can release right now. Do not burn more than that.
+Enter the amount and the receiving address. The Mint shows how much it can release right now and the minimum amount. Do not burn more or less than that.
 
-### Step 2 — Burn USDT in your RGB wallet
+### Step 2: Burn USDT
 
-Burn the amount in your RGB wallet and name your EVM address as the burn recipient. Then export the burn consignment, the file that proves the burn.
+Choose one of two ways:
 
-With `rgb-lib`, call `Wallet::burn` with your EVM address, left-padded with zeros to 32 bytes, as the burn recipient. The consignment is at `get_send_consignment_path(asset_id, txid)`. See [Mint and Burn Integration](/mint/mint-burn-integration#burn-and-unlock).
+- **Burn in RGB Wallet.** With a connected RGB Wallet that supports V1 burn destinations, the console asks the wallet to burn the amount with a V1 destination for the network and address you chose, and submits the burn for you. Approve the burn in the wallet.
+- **Burn in your own wallet.** Burn the amount in your RGB wallet with the payout destination, then export the burn consignment, the file that proves the burn. For a non-Arbitrum payout, keep the payout details file (the V1 burn destination record) that your wallet provides. See [Mint and Burn Integration](/mint/mint-burn-integration#burn-and-unlock).
 
-### Step 3 — Submit the burn consignment
+### Step 3: Submit the burn consignment
 
-Upload the burn consignment file in the Mint and click **Transfer**. You can submit it right after the burn: the release waits until the Bitcoin transaction anchoring the burn has **6 confirmations**. The amount and the recipient are read from the burn itself.
+If you burned in your own wallet, upload the burn consignment file in the Mint (and the payout details file, if your wallet provided one). The console verifies the burn first, then submits it. You can submit it right after the burn: the release waits until the Bitcoin transaction anchoring the burn has **6 confirmations**, and the bridge sends it by itself once the burn is final. The amount and the payout destination are read from the burn itself.
 
-### Step 4 — Receive USDT0
+### Step 4: Receive USDT
 
-After the release signers approve the release, USDT0 is sent to the EVM address you named in the burn.
+After the release signers approve the release, the funds are sent to the address committed in the burn. For Arbitrum this is USDT0 on Arbitrum; for another network the release goes through USDT0 / LayerZero and arrives in a separate transaction on that network. Follow the progress on the **Activity** page.
 
 ---
 
@@ -102,6 +111,7 @@ After the release signers approve the release, USDT0 is sent to the EVM address 
 
 | Fee type | Description |
 | --- | --- |
-| **Arbitrum gas fee** | Variable; priced at live market rates at the time of signing. |
-| **Mint commission** | Fixed percentage of the transferred amount, charged by Utexo. Shown in the Transaction Preview before you confirm. |
+| **Network gas fee** | Variable; priced at live market rates at the time of signing. |
+| **Mint commission** | The bridge commission charged by Utexo: a percentage of the transferred amount plus an optional flat fee. Shown in the Transaction Preview before you confirm. |
+| **USDT0 / LayerZero fees** | On a route through USDT0 / LayerZero, the part the OFT keeps and the LayerZero messaging fee. Shown in the quote. |
 | **Bitcoin RGB fee** | Small BTC amount paid by your RGB wallet to settle the RGB transaction on-chain. |

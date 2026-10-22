@@ -17,7 +17,7 @@ USDT0 settles natively on Arbitrum, which acts as the hub; Ethereum, Polygon PoS
   **Interactive API docs:** [https://transfer.gateway.stage.utexo.com/api/v0/docs/](https://transfer.gateway.stage.utexo.com/api/v0/docs/)
 </Info>
 
-The API is stateless and JSON-based. The network, token, estimate and unlock-capacity endpoints are public. The mint and burn endpoints (`/mint/op-id`, `/lock/{opId}/status` and `/unlock`) need an operator API key (see [Authentication](#authentication)).
+The API is stateless and JSON-based. Every endpoint in this reference needs authentication: an API key in the `X-API-Key` header or a signed-in session cookie (see [Authentication](#authentication)).
 
 ---
 
@@ -26,7 +26,7 @@ The API is stateless and JSON-based. The network, token, estimate and unlock-cap
 The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT on Bitcoin) and **burn and unlock** (USDT on Bitcoin → USDT0 on EVM).
 
 <Info>
-  **RGB network ID:** take the RGB-side network from `GET /networks`. The Utexo RGB network ID is `827166`. The RGB wallet must use the supported `rgb-lib` version; see [Mint and Burn Integration](/mint/mint-burn-integration).
+  **RGB network ID:** take the RGB-side network from `GET /networks`. The Utexo RGB network ID is `827166`. The RGB wallet must support the BFA asset schema; see [RGB wallet requirements](/mint/mint-burn-integration#rgb-wallet-requirements).
 </Info>
 
 
@@ -45,13 +45,13 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
     The recipient's RGB wallet creates an invoice for the USDT asset.
   </Step>
   <Step title="Prepare the mint">
-    `POST /mint/op-id` (API key) — submit the invoice, the gross deposit, the source network and the token ID. The response contains the `opId`, the `settlementData` to pass to the deposit, and `ttlSeconds`. If the source network uses an entrypoint contract, the response also contains an `entrypoint` object.
+    `POST /mint/op-id` - submit the invoice, the gross deposit, the source network and the token ID. The response contains the `opId`, the `settlementData` to pass to the deposit, and `ttlSeconds`. If the source network uses an entrypoint contract, the response also contains an `entrypoint` object.
   </Step>
   <Step title="Lock USDT0">
     Before `ttlSeconds` runs out, the user calls `fundsIn()` on the Arbitrum bridge contract with `depositAmount` and passes `settlementData` verbatim as the `settlementData` argument. On a network that uses an entrypoint contract, the user calls that contract with the returned `depositParams` instead. This step happens **client-side**; the API does not broadcast the transaction.
   </Step>
   <Step title="Track the mint">
-    `GET /lock/{opId}/status` (API key) — poll until the status is `completed` or `expired`.
+    `GET /lock/{opId}/status` - poll until the status is `completed` or `expired`.
   </Step>
 </Steps>
 
@@ -65,13 +65,15 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
     `GET /unlock/capacity/{srcNetworkId}/{networkId}/{tokenId}` — read `available`. A burn cannot be undone, so do not burn more than `available`.
   </Step>
   <Step title="Burn USDT on Bitcoin">
-    Burn the amount in the RGB wallet and name the EVM recipient. The burn recipient is 32 bytes: 12 zero bytes followed by the 20-byte EVM address. With `rgb-lib`, call `Wallet::burn`, then read the consignment at `get_send_consignment_path(asset_id, txid)` and base64-encode the raw bytes.
+    Burn the amount in the RGB wallet and commit the payout destination. For a release on Arbitrum, the burn recipient can be the legacy value: 12 zero bytes followed by the 20-byte EVM address. For any other network it must be the V1 burn destination hash, and you keep the record for `/unlock` (see [Burn destination](#burn-destination)). Then export the burn consignment from the wallet and base64-encode the raw bytes.
   </Step>
   <Step title="Submit the burn consignment">
-    `POST /unlock` (API key) — send the base64-encoded consignment. You can submit it before the burn has its Bitcoin confirmations: until it does, the API returns `409` with code `6`, `7` or `8`, and you retry the same request later.
+    Optionally, `POST /unlock/verify` - dry-run the checks `/unlock` makes before it claims the burn.
+
+    `POST /unlock` - send the base64-encoded consignment, plus `burnDestination` for a V1 burn. Submit it right after the burn: if the burn is not final on Bitcoin yet, the response is `confirming` and the bridge sends the release itself once it is.
   </Step>
   <Step title="Confirm the release">
-    The response contains the `evmTxHash` of the submitted release and the `recipient` read from the burn. The release confirms on the EVM network asynchronously.
+    The response contains the `status`, the `evmTxHash` of the submitted release (empty while `confirming`), the `recipient` read from the burn, and the `operationId` under which the transfer history lists the burn. The release confirms on the EVM network asynchronously.
   </Step>
 </Steps>
 
@@ -79,20 +81,31 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
 
 ## Authentication
 
-### Operator API key
+### API key or session
 
-`POST /mint/op-id`, `GET /lock/{opId}/status` and `POST /unlock` need an operator API key in the `X-API-Key` header. A missing or invalid key returns `401`. Keep the key on a trusted backend: do not embed it in a browser app or an untrusted wallet. Contact the Utexo team to get a key.
+Every endpoint in this reference needs one of:
+
+- **API key:** the `X-API-Key` header. Send exactly one key; two headers return `400`.
+- **Session:** the customer session cookie set by signing in to the Utexo web app. Browser requests other than `GET` also need `X-Requested-With: XMLHttpRequest` and a trusted origin.
+
+A missing or invalid key or session returns `401`.
+
+The API key is self-service. Sign in, complete KYC or KYB, and call `POST /users/me/api-key` from the signed-in session. The response (`201`) contains `apiKey` and `createdAt`; the raw key is returned only this once. `GET /users/me/api-key` returns only `createdAt`, and `DELETE /users/me/api-key` revokes the key. Keep the key on a trusted backend: do not embed it in a browser app or an untrusted wallet.
+
+### Verification and the mint limit
+
+An account without approved KYC or KYB can mint only up to a cumulative limit set by Utexo: the new gross deposit plus its completed and active mint deposits must stay within it. Above it, `GET /mint-burn/estimate` (for a mint) and `POST /mint/op-id` return `403` with code `9`. Burns do not count against the limit. `GET /users/me` (session only) shows `kycStatus`, `kybStatus` and the allowance in `mintBurnLimit` (`max`, `used`, `reserved`, `free`, `unlimited`).
 
 ```bash
 curl -X POST https://transfer.gateway.stage.utexo.com/api/v0/mint/op-id \
-  -H "X-API-Key: <OPERATOR_API_KEY>" \
+  -H "X-API-Key: <API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{"networkId": 827166, "sourceNetworkId": 42161, "tokenId": 2, "invoice": "rgb:...", "amount": 1000000}'
 ```
 
 ### Signature authentication
 
-The other endpoints need no API key. Three of them authenticate the caller with a signature, differing only in where the signature travels — in the path for `GET /transfers/history/{signature-hex}/{pub-key-hex}`, in the request body for `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction`:
+Three of the transfer endpoints also authenticate the wallet with a signature, on top of the API key or session. They differ only in where the signature travels: in the path for `GET /transfers/history/{signature-hex}/{pub-key-hex}`, in the request body for `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction`:
 
 | Field | Description |
 | --- | --- |
@@ -200,7 +213,7 @@ Balance as a human-readable decimal string in token units (e.g., `"100.50"`).
 
 #### `GET /mint-burn/estimate/{senderNetworkId}/{recipientNetworkId}/{tokenId}/{amount}` — Estimate a Mint or Burn
 
-Quotes what a mint or a burn receives and what the bridge charges. The direction follows from which side is the RGB network. No authentication.
+Quotes what a mint or a burn receives and what the bridge charges. The direction follows from which side is the RGB network. Requires authentication.
 
 **Path Parameters**
 
@@ -215,41 +228,59 @@ Quotes what a mint or a burn receives and what the bridge charges. The direction
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `senderAddress` | `string` | Conditional | Depositor address. Required for a mint from an entrypoint network |
+| `senderAddress` | `string` | Conditional | Depositor address. Required for a mint from an entrypoint network, or with an `opId` whose mint stored a depositor |
+| `opId` | `string` | No | An unpaid mint you already prepared (64 hex characters). Rechecks its fees without counting its reservation twice. It must belong to you and match the route, token, depositor and exact gross amount |
 
 **Response `200`**
 
 ```json
 {
-  "receiveAmount": "<amount received>",
-  "totalTokenCommission": "<percentFee + baseFee>",
-  "percentFee": "<percentage part>",
-  "baseFee": "<flat part>"
+  "receiveAmount": "98950",
+  "totalTokenCommission": "1050",
+  "totalTokenFee": "1050",
+  "percentFee": "1000",
+  "baseFee": "50",
+  "minAmount": "100000",
+  "transactionCost": "1050"
 }
 ```
 
+All amounts are decimal strings in base units. `amount = receiveAmount + totalTokenFee` on every route.
+
 | Field | Description |
 | --- | --- |
-| `receiveAmount` | Amount minted on Bitcoin, or released on the EVM network, in base units |
+| `receiveAmount` | What arrives: minted on Bitcoin for a mint, delivered on the recipient network for a burn, after the OFT's fee on a LayerZero leg |
 | `totalTokenCommission` | The whole bridge commission in the token: `percentFee` plus `baseFee` |
+| `totalTokenFee` | Everything kept from `amount` in the token: `totalTokenCommission` plus `oftFee`. Equals `totalTokenCommission` on a direct route |
 | `percentFee` | Percentage part of the commission |
 | `baseFee` | Flat part of the commission |
-
-Gas is not included. On an entrypoint mint, the LayerZero fee (`entrypoint.nativeFee` of `POST /mint/op-id`) is not included. A release to another network through USDT0 / LayerZero may also take a delivery fee that is not included.
+| `minAmount` | The bridge contract's floor for the route: `minFundsInAmount` for a mint, `minFundsOutAmount` for a burn. Read live |
+| `oftFee` | What the USDT0 OFT keeps on a LayerZero leg, in token base units. Omitted on a direct route |
+| `lzNativeFee` | LayerZero messaging fee in the paying chain's native base units: paid by the depositor on a mint, by the bridge on a burn. Never deducted. Omitted on a direct route |
+| `networkFee` | The depositor's gas for a mint, in native base units, including `approveNetworkFee`. Omitted on a burn and when it cannot be measured |
+| `approveNetworkFee` | The part of `networkFee` that pays a token approval still needed. Omitted when the allowance covers the amount |
+| `networkFeeInToken` | `networkFee` valued in the token. Omitted on a burn or when the rate is unavailable |
+| `lzNativeFeeInToken` | `lzNativeFee` valued in the token, for a mint. Omitted on a direct route, on a burn, or when the rate is unavailable |
+| `transactionCost` | Everything the user pays, in token base units: `totalTokenFee` plus the `InToken` values that are present |
+| `estimatedDeliverySeconds` | Median delivery time of the route's latest completed transfers (last 14 days). Omitted while fewer than 3 have completed |
+| `estimatedDeliverySecondsP90` | 90th percentile of the same transfers |
 
 **Error Responses**
 
 | Status | Meaning |
 | --- | --- |
-| `400` | Invalid IDs or amount, a network pair that is not a mint or a burn, an unsupported token, or a missing `senderAddress` on an entrypoint mint |
+| `400` | Invalid IDs or amount, a network pair that is not a mint or a burn, an unsupported token, a missing `senderAddress` on an entrypoint mint, or a malformed or mismatched `opId`. An amount below the route's floor returns code `2` with `details` (`amount`, `minAmount`) |
+| `401` | The API key or session is missing or invalid |
+| `403` | Code `9`: for a mint, KYC or KYB is required because the cumulative mint limit would be exceeded |
 | `404` | The RGB network is not served |
-| `503` | The commission for this route cannot be priced |
+| `409` | Code `12`: the prepared mint named by `opId` is no longer payable. Check its status before starting another mint |
+| `503` | The commission for this route cannot be priced, it is charged in the native token, or the LayerZero delivery of a burn cannot be quoted |
 
 ---
 
 #### `POST /mint/op-id` — Prepare a Mint
 
-Prepares the RGB side of a lock-and-mint transfer and returns the data the deposit must carry. It does not move tokens or submit the EVM transaction. Requires the operator API key.
+Prepares the RGB side of a lock-and-mint transfer and returns the data the deposit must carry. It does not move tokens or submit the EVM transaction. Requires authentication. For an account without KYC or KYB, the gross deposit counts against the [mint limit](#verification-and-the-mint-limit).
 
 **Request Body**
 
@@ -294,11 +325,26 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
 | `mintAmount` | Amount minted on Bitcoin, in base units: the deposit less the bridge commission |
 | `entrypoint` | Present only when the source network uses an entrypoint contract: `contractAddress`, `depositParams` (`amountLD`, `minAmountLD`, `extraOptions`, `payload`, `refundTo`, `expectedComposeValue`), `networkFee`, `nativeFee` and `totalNativeRequired` |
 
+The `fundsIn` must be included in a block before `ttlSeconds` runs out. Sending the same request again for a prepared mint that is not paid yet resumes it; a retry never renews the original deadline.
+
+**Error Responses**
+
+| Status | Meaning |
+| --- | --- |
+| `400` | Invalid network, amount, invoice, asset or transport endpoint. A deposit below the bridge's `minFundsInAmount` (for a LayerZero mint, a delivery below it) returns code `2` with `details` |
+| `401` | The API key or session is missing or invalid |
+| `403` | Code `9`: KYC or KYB is required because the cumulative mint limit would be exceeded |
+| `409` | The invoice is already used or belongs to another preparation, its owner, wallet, route, token or amount differs from the original, payment was already observed, too little time is left to resume safely, or the unpaid-mint limit is reached |
+| `429` | Rate limit exceeded |
+| `500` | Mint preparation failed inside the bridge or RGB connector |
+| `501` | The connector does not support mint preparation |
+| `503` | The connector is unavailable, the commission cannot be priced or is in the native token, or another mint on the wallet is not broadcast yet. Code `11`: the mint wallet has no bridge right to spare; retry the same request later |
+
 ---
 
 #### `GET /lock/{opId}/status` — Get Mint Status
 
-Returns the state of a prepared mint. Poll it after the deposit is submitted. Requires the operator API key.
+Returns the state of a prepared mint. Poll it after the deposit is submitted. Requires authentication. Returns `404` for an unknown `opId`.
 
 **Response `200`**
 
@@ -313,7 +359,7 @@ Returns the state of a prepared mint. Poll it after the deposit is submitted. Re
 
 | Status | Description |
 | --- | --- |
-| `awaiting_funds_in` | Waiting for the deposit. The mint expires at `expiresAt` if no deposit arrives |
+| `awaiting_funds_in` | Waiting for the deposit. `expiresAt` is the deadline for the `fundsIn` block timestamp: a `fundsIn` included by then still moves to `funds_in_confirmed` once confirmed |
 | `funds_in_confirmed` | The deposit was detected and matched to the mint |
 | `bridge_signed` | The mint signer signed the mint |
 | `broadcast` | The Bitcoin transaction anchoring the mint was broadcast |
@@ -326,7 +372,7 @@ Returns the state of a prepared mint. Poll it after the deposit is submitted. Re
 
 #### `GET /unlock/capacity/{srcNetworkId}/{networkId}/{tokenId}` — Get Release Capacity
 
-Returns how much can be released right now for a burn. Call it before you burn. No authentication.
+Returns how much can be released right now for a burn. Call it before you burn. Requires authentication.
 
 **Path Parameters**
 
@@ -353,7 +399,7 @@ Returns how much can be released right now for a burn. Call it before you burn. 
 | Field | Description |
 | --- | --- |
 | `poolBalance` | USDT0 locked in the bridge, in base units |
-| `pendingReleases` | Amount reserved by releases still in progress |
+| `pendingReleases` | Amount reserved by releases still in progress, burns accepted as `confirming` included |
 | `availableOutflow` | Remaining outflow allowance; omitted when no limit applies |
 | `available` | Maximum amount that can be burned and released now |
 
@@ -361,7 +407,9 @@ Returns how much can be released right now for a burn. Call it before you burn. 
 
 #### `POST /unlock` — Release After a Burn
 
-Validates a burn consignment, gets the release signatures and submits the EVM release. The amount and the recipient are read from the burn itself; the request cannot change them. Requires the operator API key.
+Validates a burn consignment, gets the release signatures and submits the EVM release. The amount and the payout destination are read from the burn itself; the request cannot change them. Requires authentication. Burns do not count against the mint limit.
+
+Submit right after the burn. The signer enclaves require 6 Bitcoin confirmations of the burn before they sign; if the burn is not final yet, the bridge accepts it as `confirming` and sends the release itself once it is.
 
 **Request Body**
 
@@ -369,18 +417,25 @@ Validates a burn consignment, gets the release signatures and submits the EVM re
 {
   "consignment": "<base64-encoded burn consignment>",
   "srcNetworkId": 827166,
-  "destinationNetworkId": 42161,
-  "tokenId": 2
+  "destinationNetworkId": 137,
+  "tokenId": 5,
+  "burnDestination": {
+    "version": 1,
+    "destinationChainId": 137,
+    "dstEid": 30109,
+    "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+  }
 }
 ```
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `consignment` | `string` | Yes | Complete burn consignment, standard base64 |
+| `destinationNetworkId` | `integer` | Yes | Network of the release |
 | `srcNetworkId` | `integer` | No | RGB network of the burn. Optional when the bridge serves one RGB network |
-| `destinationNetworkId` | `integer` | No | EVM network of the release. Optional when the bridge serves one EVM network |
-| `tokenId` | `integer` | No | Token ID on the EVM network |
-| `maxFeeRate` | `string` | No | Cap on the EVM gas price in wei |
+| `tokenId` | `integer` | Conditional | Payout token ID. Required for a destination reached through USDT0 / LayerZero |
+| `maxFeeRate` | `string` | No | Cap on the EVM gas price in wei. Omitted or `"0"` leaves the cap to the bridge |
+| `burnDestination` | `object` | Conditional | The V1 burn destination record. Required when the burn commits a V1 hash, refused for a legacy burn. See [Burn destination](#burn-destination) |
 
 **Response `200`**
 
@@ -388,26 +443,112 @@ Validates a burn consignment, gets the release signatures and submits the EVM re
 {
   "evmTxHash": "0xabc...",
   "status": "submitted",
-  "recipient": "0xYourEvmAddress"
+  "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  "operationId": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
 }
 ```
+
+| Field | Description |
+| --- | --- |
+| `status` | `submitted`: the EVM release was sent. `confirming`: the burn is accepted but not final on Bitcoin; nothing was sent, and the bridge sends the release itself once it is. Do not resend |
+| `evmTxHash` | The submitted release transaction. Empty while `confirming`. For a LayerZero destination, this is the Arbitrum transaction |
+| `recipient` | Payee: the address in a legacy burn reason, or the `recipient` of the V1 record |
+| `operationId` | keccak256 of the consignment, hex. The transfer history lists the burn under it |
+
+A burn whose release does not go out within 24 hours (for example, a replaced or dropped burn transaction) shows as `FAILED` in the history and can be unlocked again.
 
 **Error Responses**
 
 | Status | Meaning |
 | --- | --- |
-| `400` | Invalid input, or the release exceeds the current outflow allowance (code `4`). The burn stays redeemable; retry later |
-| `401` | `X-API-Key` is missing or invalid |
-| `409` | The burn cannot be released yet (codes `6`, `7`, `8`; retry the same request later) or was already released |
+| `400` | Invalid input; an unknown `tokenId`, or none for a LayerZero destination; a consignment that is not a burn, or a burn without a burn reason; a `burnDestination` that is missing, malformed, does not hash to the burn reason, or is for another destination (a legacy burn to a LayerZero destination included); an asset the bridge does not release; or code `4`, the release exceeds the current outflow allowance (the burn stays redeemable; retry later) |
+| `401` | The API key or session is missing or invalid |
+| `404` | Unknown `destinationNetworkId` or `srcNetworkId`, or the burn cites a mint this bridge never prepared |
+| `409` | The burn was already released or is being released (`confirming` included). Codes `6`, `7`, `8`: the bridge could not keep the burn waiting for Bitcoin finality; nothing was sent, retry the same request later |
+| `422` | Code `10`: the asset's reject list rejects a coin the burn descends from. Do not retry |
 | `429` | Rate limit exceeded |
 | `500` | Burn validation, signing or EVM submission failed |
+
+#### Burn destination
+
+A burn commits its payout target in the 32-byte burn reason, in one of two formats:
+
+| Version | The 32 bytes hold | Release routes |
+| --- | --- | --- |
+| V0 (legacy) | 12 zero bytes followed by the 20-byte EVM address | Direct `fundsOut` on Arbitrum only. Send no `burnDestination` |
+| V1 | `hash_v1` of a burn destination record | Direct `fundsOut` (`dstEid` `0`) or `lzFundsOut` to a LayerZero endpoint. Send the record as `burnDestination` |
+
+<Warning>
+  The legacy padded address works only for a release on Arbitrum. A release to Ethereum, Polygon PoS, Plasma or Tron needs a V1 burn: a legacy burn sent to those destinations is refused. Keep the V1 record: a V1 burn cannot be released without it.
+</Warning>
+
+| Record field | Type | Rule |
+| --- | --- | --- |
+| `version` | `integer` | Always `1` |
+| `destinationChainId` | `integer` (uint64) | Must equal `destinationNetworkId`. Not `0` |
+| `dstEid` | `integer` (uint32) | LayerZero endpoint ID of the destination. `0` means a direct `fundsOut` on Arbitrum |
+| `recipient` | `string` | Chain-native payee, `0x` hex, 1 to 32 bytes. Exactly 20 bytes when `dstEid` is `0` |
+
+```text
+TYPEHASH_V1 = keccak256("UtexoBurnDestinationV1(uint64 destinationChainId,uint32 dstEid,bytes recipient)")
+            = 0xa1cba9d766975eb04c6a31c3b68dbb2381444a222c9972b6bf3ab26fcb829b00
+hash_v1     = keccak256(abi.encode(TYPEHASH_V1, uint64 destinationChainId, uint32 dstEid, keccak256(recipient)))
+```
+
+Routes used by the Utexo web app (confirm them for your environment):
+
+| Destination | `destinationChainId` | `dstEid` | `recipient` |
+| --- | ---: | ---: | --- |
+| Arbitrum One | `42161` | `0` | 20-byte EVM address |
+| Ethereum | `1` | `30101` | 20-byte EVM address |
+| Polygon PoS | `137` | `30109` | 20-byte EVM address |
+| Plasma | `9745` | `30383` | 20-byte EVM address |
+| Tron | `728126428` | `30420` | 21-byte Tron address (Base58Check decoded, checksum removed, starts with `0x41`) |
+
+See [Mint and Burn Integration](/mint/mint-burn-integration#choose-the-burn-destination) for a worked example and a test vector.
+
+---
+
+#### `POST /unlock/verify` - Check a Burn Before Unlocking
+
+Takes the same body as `POST /unlock` and runs the checks `POST /unlock` makes before it claims the burn: the consignment is a burn, the asset is the bridged RGB asset, the payout destination is a valid legacy address or the hash of the `burnDestination` sent for this destination, and the outflow capacity covers the amount. Nothing is claimed, signed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind the cited mints, or the reject list. Requires authentication.
+
+**Response `200`**
+
+```json
+{
+  "operationId": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+  "amount": "300000",
+  "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  "assetId": "rgb:...",
+  "burnTxid": "d4d4...d4d4"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `operationId` | keccak256 of the consignment; `POST /unlock` returns the same ID |
+| `amount` | Burned amount in base units, before the bridge commission |
+| `recipient` | Payee of the release |
+| `assetId` | Burned RGB asset |
+| `burnTxid` | Bitcoin transaction anchoring the burn |
+
+Errors are as for `POST /unlock`: `400` (code `4` for outflow capacity), `401`, `404`, `409` (already redeemed or being redeemed), `429`, `500`.
+
+---
+
+### RPC proxy
+
+#### `POST /rpc/{network}` - JSON-RPC Proxy
+
+Forwards a JSON-RPC 2.0 request, or a batch, to the upstream configured for `network` (matched case-insensitively, for example `arbitrum`) and relays the upstream response unchanged, including its status code. The proxy may restrict the allowed methods. RGB wallets can use it as their Arbitrum RPC, for example for the `eth_getLogs` calls that check BFA mint events. Returns `404` when no upstream is configured for the network.
 
 ---
 
 ### Transfers
 
 <Note>
-  The pre-registration endpoints in this group (`bridge-in-signature`, `verify-bridge-in`, `submit-transaction` and `invoice`) belong to the earlier transfer flow. Transfers between USDT0 and USDT on Bitcoin use the [mint and burn](#mint-and-burn) endpoints.
+  The pre-registration endpoints in this group (`bridge-in-signature`, `verify-bridge-in`, `submit-transaction` and `invoice`) belong to the earlier transfer flow, which is retired. Transfers between USDT0 and USDT on Bitcoin use the [mint and burn](#mint-and-burn) endpoints. Every endpoint in this group requires an API key or session.
 </Note>
 
 #### `GET /transfers/estimate/{sender-network}/{recipient-network}/{sender-token-id}/{recipient-token-id}/{amount}` — Estimate Transfer Fees
@@ -612,7 +753,7 @@ Submits signed transaction data for a pre-registered transfer and returns the re
 
 #### `GET /transfers/history/{signature-hex}/{pub-key-hex}` — Get Transfer History
 
-Returns a paginated list of transfers associated with a user's address. Identity is proven by providing a signature.
+Returns a page of the wallet's transfers, mints and burns, newest first. A mint is listed under the wallet that deposited it, a burn under the wallet it paid out to. Requires an API key or session, and the wallet proves its identity with a signature.
 
 **Path Parameters**
 
@@ -645,14 +786,25 @@ Returns a paginated list of transfers associated with a user's address. Identity
 
 | Status | Description |
 | --- | --- |
-| `WAITING` | Transfer registered, awaiting on-chain confirmation |
-| `CONFIRMING` | On-chain transaction detected, awaiting sufficient confirmations |
-| `FINISHED` | Transfer completed successfully |
-| `FAILED` | Transfer failed — check `outboundTx` for details |
+| `QUOTED` | Transfer prepared, nothing received yet |
+| `SOURCE_IN` | The source-side funds were seen. A burn is `SOURCE_IN` while it waits for Bitcoin finality (unlock status `confirming`) |
+| `ACCEPTED` | The bridge accepted the transfer |
+| `PREPARING` | The destination transaction is being prepared |
+| `SIGNING` | The destination transaction is being signed or re-sent, and no release hash is known yet |
+| `DEST_OUT` | The destination transaction is out |
+| `SETTLED` | The transfer is paid |
+| `FAILED` | The transfer failed. A burn is `FAILED` when its release was reorged out or did not go out within 24 hours of the unlock; it can be unlocked again |
+| `EXPIRED` | A prepared mint expired without a deposit |
 
 <Info>
   Poll history at a reasonable interval (e.g., every 5–10 seconds). Avoid aggressive polling — the bridge requires Bitcoin confirmations for RGB-leg completions, which may take several minutes.
 </Info>
+
+---
+
+#### `GET /transfers/{tx}` - Get Transfers by Triggering Transaction
+
+Returns the transfers started by a triggering transaction. `tx` is the transaction hash in hex. Requires an API key or session.
 
 ---
 
@@ -706,16 +858,20 @@ All endpoints return a consistent error envelope on failure.
 | Code | Meaning |
 | --- | --- |
 | `1` | RGB protocol error |
-| `2` | User balance error (insufficient funds) |
+| `2` | An amount the caller must change, for example a mint or burn below the route's minimum (`details`: `amount`, `minAmount`) |
 | `3` | System balance error (the bridge cannot cover the transfer) |
 | `4` | Destination outflow limit exceeded. Retry after capacity recovers |
 | `5` | AML policy or clearance failure |
 | `6` | Release wait: the Bitcoin relay has not reached the burn block yet |
 | `7` | Release wait: the burn does not have enough Bitcoin confirmations yet |
 | `8` | Release wait: the on-chain verifier refused the relay depth or freshness |
+| `9` | KYC or KYB is required: the cumulative mint limit would be exceeded (HTTP `403`) |
+| `10` | The asset's reject list rejects a coin the burn descends from (HTTP `422` from `POST /unlock`). Do not retry |
+| `11` | The mint wallet has no bridge right to spare (HTTP `503` from `POST /mint/op-id`). Retry later |
+| `12` | The prepared mint is no longer payable (HTTP `409` from the estimate with `opId`). Do not pay it |
 | `65535` | Other / unclassified error |
 
-Codes `6`, `7` and `8` come with HTTP `409` from `POST /unlock`, and a `details` object with the numbers behind the wait (for example `confirmations` and `requiredConfirmations` for code `7`). Nothing is sent to the EVM network, and the burn stays redeemable.
+Codes `6`, `7` and `8` come with HTTP `409` from `POST /unlock`, and a `details` object with the numbers behind the wait (for example `confirmations` and `requiredConfirmations` for code `7`). A burn waiting for finality is normally accepted as `confirming` instead, so these codes are returned only when the bridge could not keep it waiting. Nothing is sent to the EVM network, and the burn stays redeemable. Authentication errors may omit `code`.
 
 ---
 
