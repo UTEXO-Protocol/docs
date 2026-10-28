@@ -82,7 +82,7 @@ This direction burns RGB USDT on Bitcoin and unlocks the same amount of USDT0, l
 <Warning>
   A burn cannot be undone. Check the amount the Mint can release before you burn, and name the payout network and recipient carefully: they are committed in the burn and cannot be changed.
 
-  A burn that names a plain EVM address (the legacy format) can be paid only on Arbitrum. To receive on Ethereum, Polygon PoS, Plasma or Tron, the burn must commit a V1 burn destination for that network.
+  Every burn commits a V1 burn destination: the payout network and recipient. The Mint creates it for you when your connected RGB wallet burns; when you burn in your own wallet, the wallet must support V1 burn destinations and give you the payout details file.
 </Warning>
 
 ### Step 1: Check what can be released
@@ -99,7 +99,7 @@ Enter the amount and the receiving address. The Mint shows how much it can relea
 Choose one of two ways:
 
 - **Burn in RGB Wallet.** With a connected RGB Wallet that supports V1 burn destinations, the console asks the wallet to burn the amount with a V1 destination for the network and address you chose, and submits the burn for you. Approve the burn in the wallet.
-- **Burn in your own wallet.** Burn the amount in your RGB wallet with the payout destination, then export the burn consignment, the file that proves the burn. For a non-Arbitrum payout, keep the payout details file (the V1 burn destination record) that your wallet provides. See [Mint and Burn Integration](/mint/mint-burn-integration#burn-and-unlock).
+- **Burn in your own wallet.** Burn the amount in your RGB wallet with the payout destination, then export the burn consignment, the file that proves the burn. Keep the payout details file (the V1 burn destination record) that your wallet provides. See [Mint and Burn Integration](/mint/mint-burn-integration#burn-and-unlock).
 
 ### Step 3: Submit the burn consignment
 
@@ -116,6 +116,6 @@ After the release signers approve the release, the funds are sent to the address
 | Fee type | Description |
 | --- | --- |
 | **Network gas fee** | Variable; priced at live market rates at the time of signing. |
-| **Mint commission** | The bridge commission charged by Utexo: at launch, 0.1% (10 bps) of the transferred amount plus a base fee of 0.5 USDT. Staging uses test fee settings. Shown in the Transaction Preview before you confirm. |
+| **Mint commission** | The bridge commission charged by Utexo: a percentage of the transferred amount plus a base fee. Shown in the Transaction Preview before you confirm. |
 | **USDT0 / LayerZero fees** | On a route through USDT0 / LayerZero, the part the OFT keeps and the LayerZero messaging fee. Shown in the quote. |
 | **Bitcoin RGB fee** | Small BTC amount paid by your RGB wallet to settle the RGB transaction on-chain. |

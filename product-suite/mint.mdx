@@ -80,7 +80,7 @@ Separately, a relayer service (`btc-relayer`) feeds headers to `BtcRelay`, an on
 3. Each release signer enclave validates the burn, the full RGB history, the EVM deposit behind every earlier mint, the asset's reject list (if the asset names one), and the Bitcoin inclusion proofs, then signs the release.
 4. With an M-of-N quorum of signatures, `MultisigProxy` calls the bridge. The bridge checks the burn identifier, that enough USDT0 is locked to cover the release, rate limits, and the `BtcRelay` proof, then releases USDT0 with `fundsOut` to the recipient on Arbitrum, or with `lzFundsOut` through USDT0 / LayerZero to another supported network.
 
-A burn names its payout target in a 32-byte burn reason. A legacy value (12 zero bytes plus a 20-byte EVM address) can be paid only on Arbitrum. A release to any other network needs a V1 burn destination: a hash of the destination chain, LayerZero endpoint and recipient, with the matching record sent along with the burn. See [Mint and Burn Integration](/mint/mint-burn-integration#choose-the-burn-destination).
+A burn names its payout target in a 32-byte burn reason: a V1 burn destination, the hash of the destination chain, LayerZero endpoint and recipient. The matching record is sent along with the burn, for a release on Arbitrum or on any other supported network. See [Mint and Burn Integration](/mint/mint-burn-integration#choose-the-burn-destination).
 
 ## Supported Networks
 
@@ -106,7 +106,7 @@ Additional USDT0-supported networks can be enabled based on business need. See [
 
 Commissions are managed on-chain through the `CommissionManager` contract. Fees can be applied on both `FundsIn` (lock) and `FundsOut` (unlock).
 
-At launch, the bridge commission is **0.1% (10 bps)** of the amount plus a **base fee of 0.5 USDT**. The staging environment uses test fee settings, so its quotes differ. Network costs are charged separately: gas on the EVM network, the USDT0 / LayerZero fees on routes through Ethereum, Polygon PoS, Plasma and Tron, and the Bitcoin fee paid by the RGB wallet. [`GET /mint-burn/estimate`](/product-suite/mint-api-reference#mint-and-burn) returns the exact amounts for a route and amount.
+The bridge commission is a percentage of the amount plus a base fee, set per route. Network costs are charged separately: gas on the EVM network, the USDT0 / LayerZero fees on routes through Ethereum, Polygon PoS, Plasma and Tron, and the Bitcoin fee paid by the RGB wallet. Fees change over time: [`GET /mint-burn/estimate`](/product-suite/mint-api-reference#mint-and-burn) returns the current amounts for a route and amount.
 
 ## Security
 
