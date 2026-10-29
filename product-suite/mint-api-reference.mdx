@@ -10,11 +10,11 @@ The **Utexo Mint API** is a network-agnostic REST interface for cross-network as
 USDT0 settles natively on Arbitrum, which acts as the hub; Ethereum, Polygon PoS, Plasma and Tron reach that hub through USDT0 / LayerZero and the Utexo entrypoint contracts.
 
 <Info>
-  **Base URL (staging):** `https://transfer.gateway.staging.utexo.com/api/v0`
+  **Base URL:** `https://gateway.mint.utexo.com/api/v0`
 
-  All paths in this reference are relative to the base URL. Contact the Utexo team for production endpoint access.
+  All paths in this reference are relative to the base URL. Contact the Utexo team for access to the test environment before launch.
 
-  **Interactive API docs:** [https://transfer.gateway.staging.utexo.com/api/v0/docs/](https://transfer.gateway.staging.utexo.com/api/v0/docs/)
+  **Interactive API docs:** [https://gateway.mint.utexo.com/api/v0/docs/](https://gateway.mint.utexo.com/api/v0/docs/)
 </Info>
 
 The API is stateless and JSON-based. Every endpoint in this reference needs authentication: an API key in the `X-API-Key` header or a signed-in session cookie (see [Authentication](#authentication)).
@@ -65,7 +65,7 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
     `GET /unlock/capacity/{srcNetworkId}/{networkId}/{tokenId}` — read `available`. A burn cannot be undone, so do not burn more than `available`.
   </Step>
   <Step title="Burn USDT on Bitcoin">
-    Burn the amount in the RGB wallet and commit the payout destination. For a release on Arbitrum, the burn recipient can be the legacy value: 12 zero bytes followed by the 20-byte EVM address. For any other network it must be the V1 burn destination hash, and you keep the record for `/unlock` (see [Burn destination](#burn-destination)). Then export the burn consignment from the wallet and base64-encode the raw bytes.
+    Burn the amount in the RGB wallet and commit the payout destination: the burn reason is the V1 burn destination hash, on every payout network, and you keep the record for `/unlock` (see [Burn destination](#burn-destination)). Then export the burn consignment from the wallet and base64-encode the raw bytes.
   </Step>
   <Step title="Submit the burn consignment">
     Optionally, `POST /unlock/verify` - dry-run the checks `/unlock` makes before it claims the burn.
@@ -94,10 +94,10 @@ The API key is self-service. Sign in, complete KYC or KYB, and call `POST /users
 
 ### Verification and the mint limit
 
-An account without approved KYC or KYB can mint only up to a cumulative limit of 100 USDT: the new gross deposit plus its completed and active mint deposits must stay within it. Above it, `GET /mint-burn/estimate` (for a mint) and `POST /mint/op-id` return `403` with code `9`. Burns do not count against the limit. `GET /users/me` (session only) shows `kycStatus`, `kybStatus` and the allowance in `mintBurnLimit` (`max`, `used`, `reserved`, `free`, `unlimited`).
+An account without approved KYC or KYB can mint only up to a cumulative limit set by Utexo, which can change: the new gross deposit plus its completed and active mint deposits must stay within it. Above it, `GET /mint-burn/estimate` (for a mint) and `POST /mint/op-id` return `403` with code `9`. Burns do not count against the limit. `GET /users/me` (session only) shows `kycStatus`, `kybStatus` and the allowance in `mintBurnLimit` (`max`, `used`, `reserved`, `free`, `unlimited`).
 
 ```bash
-curl -X POST https://transfer.gateway.staging.utexo.com/api/v0/mint/op-id \
+curl -X POST https://gateway.mint.utexo.com/api/v0/mint/op-id \
   -H "X-API-Key: <API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{"networkId": 827166, "sourceNetworkId": 42161, "tokenId": 2, "invoice": "rgb:...", "amount": 1000000}'
@@ -248,7 +248,7 @@ Quotes what a mint or a burn receives and what the bridge charges. The direction
 All amounts are decimal strings in base units. `amount = receiveAmount + totalTokenFee` on every route.
 
 <Note>
-  The example amounts use the staging environment's test fee settings. At launch, the bridge commission is 0.1% of the amount plus a 0.5 USDT base fee. Always read the fees from the estimate.
+  The amounts above are an example. Fees are set per route and change over time, so always read them from the estimate.
 </Note>
 
 | Field | Description |
@@ -439,7 +439,7 @@ Submit right after the burn. The signer enclaves require 6 Bitcoin confirmations
 | `srcNetworkId` | `integer` | No | RGB network of the burn. Optional when the bridge serves one RGB network |
 | `tokenId` | `integer` | Conditional | Payout token ID. Required for a destination reached through USDT0 / LayerZero |
 | `maxFeeRate` | `string` | No | Cap on the EVM gas price in wei. Omitted or `"0"` leaves the cap to the bridge |
-| `burnDestination` | `object` | Conditional | The V1 burn destination record. Required when the burn commits a V1 hash, refused for a legacy burn. See [Burn destination](#burn-destination) |
+| `burnDestination` | `object` | Yes | The V1 burn destination record whose hash the burn commits. See [Burn destination](#burn-destination) |
 
 **Response `200`**
 
@@ -456,7 +456,7 @@ Submit right after the burn. The signer enclaves require 6 Bitcoin confirmations
 | --- | --- |
 | `status` | `submitted`: the EVM release was sent. `confirming`: the burn is accepted but not final on Bitcoin; nothing was sent, and the bridge sends the release itself once it is. Do not resend |
 | `evmTxHash` | The submitted release transaction. Empty while `confirming`. For a LayerZero destination, this is the Arbitrum transaction |
-| `recipient` | Payee: the address in a legacy burn reason, or the `recipient` of the V1 record |
+| `recipient` | Payee: the `recipient` of the V1 record |
 | `operationId` | keccak256 of the consignment, hex. The transfer history lists the burn under it |
 
 A burn whose release does not go out within 24 hours (for example, a replaced or dropped burn transaction) shows as `FAILED` in the history and can be unlocked again.
@@ -465,7 +465,7 @@ A burn whose release does not go out within 24 hours (for example, a replaced or
 
 | Status | Meaning |
 | --- | --- |
-| `400` | Invalid input; an unknown `tokenId`, or none for a LayerZero destination; a consignment that is not a burn, or a burn without a burn reason; a `burnDestination` that is missing, malformed, does not hash to the burn reason, or is for another destination (a legacy burn to a LayerZero destination included); an asset the bridge does not release; or code `4`, the release exceeds the current outflow allowance (the burn stays redeemable; retry later) |
+| `400` | Invalid input; an unknown `tokenId`, or none for a LayerZero destination; a consignment that is not a burn, or a burn without a burn reason; a `burnDestination` that is missing, malformed, does not hash to the burn reason, or is for another destination; an asset the bridge does not release; or code `4`, the release exceeds the current outflow allowance (the burn stays redeemable; retry later) |
 | `401` | The API key or session is missing or invalid |
 | `404` | Unknown `destinationNetworkId` or `srcNetworkId`, or the burn cites a mint this bridge never prepared |
 | `409` | The burn was already released or is being released (`confirming` included). Codes `6`, `7`, `8`: the bridge could not keep the burn waiting for Bitcoin finality; nothing was sent, retry the same request later |
@@ -475,15 +475,10 @@ A burn whose release does not go out within 24 hours (for example, a replaced or
 
 #### Burn destination
 
-A burn commits its payout target in the 32-byte burn reason, in one of two formats:
-
-| Version | The 32 bytes hold | Release routes |
-| --- | --- | --- |
-| V0 (legacy) | 12 zero bytes followed by the 20-byte EVM address | Direct `fundsOut` on Arbitrum only. Send no `burnDestination` |
-| V1 | `hash_v1` of a burn destination record | Direct `fundsOut` (`dstEid` `0`) or `lzFundsOut` to a LayerZero endpoint. Send the record as `burnDestination` |
+A burn commits its payout target in the 32-byte burn reason: `hash_v1` of a V1 burn destination record. The bridge releases it with a direct `fundsOut` on Arbitrum (`dstEid` `0`) or with `lzFundsOut` to a LayerZero endpoint. Send the record as `burnDestination`.
 
 <Warning>
-  The legacy padded address works only for a release on Arbitrum. A release to Ethereum, Polygon PoS, Plasma or Tron needs a V1 burn: a legacy burn sent to those destinations is refused. Keep the V1 record: a V1 burn cannot be released without it.
+  Keep the V1 record: a burn cannot be released without it.
 </Warning>
 
 | Record field | Type | Rule |
@@ -515,7 +510,7 @@ See [Mint and Burn Integration](/mint/mint-burn-integration#choose-the-burn-dest
 
 #### `POST /unlock/verify` - Check a Burn Before Unlocking
 
-Takes the same body as `POST /unlock` and runs the checks `POST /unlock` makes before it claims the burn: the consignment is a burn, the asset is the bridged RGB asset, the payout destination is a valid legacy address or the hash of the `burnDestination` sent for this destination, and the outflow capacity covers the amount. Nothing is claimed, signed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind the cited mints, or the reject list. Requires authentication.
+Takes the same body as `POST /unlock` and runs the checks `POST /unlock` makes before it claims the burn: the consignment is a burn, the asset is the bridged RGB asset, the burn reason is the hash of the `burnDestination` sent for this destination, and the outflow capacity covers the amount. Nothing is claimed, signed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind the cited mints, or the reject list. Requires authentication.
 
 **Response `200`**
 

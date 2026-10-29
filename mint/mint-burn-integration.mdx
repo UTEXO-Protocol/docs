@@ -9,7 +9,18 @@ This guide is for partners that run mint and burn from their own backend, such a
 The Mint supports two directions:
 
 - **Lock and mint:** lock USDT or USDT0 and mint the net amount as USDT on Bitcoin to an RGB wallet.
-- **Burn and unlock:** burn USDT on Bitcoin and unlock the net amount as USDT or USDT0 to the EVM address committed in the burn.
+- **Burn and unlock:** burn USDT on Bitcoin and unlock the net amount as USDT or USDT0 to the payout address committed in the burn.
+
+## Bridging lifecycle
+
+Every transfer starts with an estimate. Then the two directions follow these steps:
+
+| Step | Lock and mint (EVM → Bitcoin) | Burn and unlock (Bitcoin → EVM) |
+| --- | --- | --- |
+| 1. Estimate | [`GET /mint-burn/estimate`](#estimate-the-result) from the EVM network to the RGB network: the amount minted and the fees | [`GET /mint-burn/estimate`](#estimate-the-result) from the RGB network to the payout network, and [`GET /unlock/capacity`](#burn-and-unlock): the amount released and what can be released now |
+| 2. Prepare | [`POST /mint/op-id`](#lock-and-mint) with a blinded RGB invoice: returns the `opId` and the `settlementData` the deposit must carry | [Choose the burn destination](#choose-the-burn-destination): the V1 record and the 32-byte burn reason for the payout network and address |
+| 3. Move funds | **Lock:** call `fundsIn` on the Arbitrum bridge (or the entrypoint on another network) with `settlementData` | **Burn:** burn USDT on Bitcoin in the RGB wallet with the burn reason, then export the burn consignment |
+| 4. Settle | The mint signer mints USDT on Bitcoin to the invoice. Track it with `GET /lock/{opId}/status` | **Unlock:** `POST /unlock` with the consignment and the record. The release signers release USDT0, or USDT on another network |
 
 ## Supported networks and routes
 
@@ -29,9 +40,9 @@ The bridge holds its mint and burn liquidity on **Arbitrum One**. A mint from Ar
 </Note>
 
 <Info>
-  **Base URL (staging):** `https://transfer.gateway.staging.utexo.com/api/v0`
+  **Base URL:** `https://gateway.mint.utexo.com/api/v0`
 
-  Every endpoint in this guide requires authentication. Create an account, complete KYC or KYB, and generate an API key in your account. Contact the Utexo team for production access.
+  Every endpoint in this guide requires authentication. Create an account, complete KYC or KYB, and generate an API key in your account. Contact the Utexo team for access to the test environment before launch.
 </Info>
 
 ## Before you start
@@ -49,9 +60,9 @@ All API and wallet amounts in this guide are integers in token base units. USDT 
 ### Find the network and token IDs
 
 ```bash
-curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/networks
-curl -H "X-API-Key: <API_KEY>" "https://transfer.gateway.staging.utexo.com/api/v0/networks/<SOURCE_NETWORK_ID>/supported-tokens"
-curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/networks/827166/supported-tokens
+curl -H "X-API-Key: <API_KEY>" https://gateway.mint.utexo.com/api/v0/networks
+curl -H "X-API-Key: <API_KEY>" "https://gateway.mint.utexo.com/api/v0/networks/<SOURCE_NETWORK_ID>/supported-tokens"
+curl -H "X-API-Key: <API_KEY>" https://gateway.mint.utexo.com/api/v0/networks/827166/supported-tokens
 ```
 
 From the responses, take:
@@ -100,7 +111,7 @@ Every successful estimate returns integer base-unit amounts as strings. A direct
 ```
 
 <Note>
-  The example amounts use the staging environment's test fee settings. At launch, the bridge commission is 0.1% of the amount plus a 0.5 USDT base fee. Always read the fees from the estimate.
+  The amounts above are an example. Fees are set per route and change over time, so always read them from the estimate.
 </Note>
 
 `receiveAmount` is what arrives: minted on RGB for a mint, delivered on the recipient network for a burn. It is net of the bridge commission and, on a LayerZero leg, of the fee the OFT keeps. The amounts relate as follows:
@@ -135,7 +146,7 @@ The fee schedule is deployment-specific; the numbers in this section are illustr
 For Arbitrum One, the gross `amount` is deposited directly into the bridge contract. Quote a gross deposit of 1 USDT or USDT0 like this:
 
 ```bash
-curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/mint-burn/estimate/42161/827166/2/1000000
+curl -H "X-API-Key: <API_KEY>" https://gateway.mint.utexo.com/api/v0/mint-burn/estimate/42161/827166/2/1000000
 ```
 
 No `senderAddress` is required for the direct Arbitrum route. There is no `oftFee` on this route, so:
@@ -156,7 +167,7 @@ Ethereum, Polygon PoS, Plasma, and Tron use a two-stage quote:
 The estimate must include `senderAddress`, because the entrypoint quote and generated deposit parameters depend on the source account. For example, quote a Polygon deposit:
 
 ```bash
-curl -H "X-API-Key: <API_KEY>" "https://transfer.gateway.staging.utexo.com/api/v0/mint-burn/estimate/137/827166/<SOURCE_TOKEN_ID>/1000000?senderAddress=0xYourPolygonAddress"
+curl -H "X-API-Key: <API_KEY>" "https://gateway.mint.utexo.com/api/v0/mint-burn/estimate/137/827166/<SOURCE_TOKEN_ID>/1000000?senderAddress=0xYourPolygonAddress"
 ```
 
 Use the same pattern for the other entrypoint-based networks:
@@ -237,7 +248,7 @@ Set up the wallet as follows:
     Send the blinded invoice and the **gross source deposit** from the estimate as `amount`:
 
     ```bash
-    curl -X POST https://transfer.gateway.staging.utexo.com/api/v0/mint/op-id \
+    curl -X POST https://gateway.mint.utexo.com/api/v0/mint/op-id \
       -H "X-API-Key: <API_KEY>" \
       -H "Content-Type: application/json" \
       -d '{
@@ -300,12 +311,14 @@ Set up the wallet as follows:
     ```
 
     Submit the exact prepared amount. A different amount will not match the prepared mint.
+
+    The bridge takes the commission that applies when the deposit arrives. Right before you send the deposit, recheck the prepared mint with `GET /mint-burn/estimate/...?opId={opId}` (see [Estimate lifecycle](#estimate-lifecycle-and-exact-receive-amounts)). If `receiveAmount` no longer equals `mintAmount`, do not deposit: prepare a new mint with a new invoice.
   </Step>
   <Step title="Track the mint">
     Poll the mint until it reaches `completed` or `expired`:
 
     ```bash
-    curl https://transfer.gateway.staging.utexo.com/api/v0/lock/9f2c...e41a/status \
+    curl https://gateway.mint.utexo.com/api/v0/lock/9f2c...e41a/status \
       -H "X-API-Key: <API_KEY>"
     ```
 
@@ -367,19 +380,12 @@ await wallet.writeContract({
 <Warning>
   A burn cannot be undone. Check the quote, minimum amount, release capacity, spendable RGB balance, and payout destination before calling the wallet. The payout destination is committed into the burn and cannot be changed by `/unlock`.
 
-  **The legacy padded EVM address works only for a release on Arbitrum.** A burn whose recipient is 12 zero bytes plus a 20-byte address is paid by a direct `fundsOut` on Arbitrum and nothing else. To release on Ethereum, Polygon PoS, Plasma, or Tron, the burn must commit a V1 burn destination hash, and `/unlock` must carry the matching `burnDestination` record. A legacy burn sent to a LayerZero destination is refused with `400`. See [Choose the burn destination](#choose-the-burn-destination).
+  **Every burn commits a V1 burn destination**, on every payout network, Arbitrum included: the burn reason is the hash of a record naming the payout network, its LayerZero endpoint and the recipient, and `/unlock` must carry that record. See [Choose the burn destination](#choose-the-burn-destination).
 </Warning>
 
 ### Choose the burn destination
 
-A BFA burn has one 32-byte field for the payout target, the burn reason (`burnReason`). It holds one of two formats:
-
-| Version | The 32 bytes hold | Release routes |
-| --- | --- | --- |
-| V0 (legacy) | 12 zero bytes followed by the 20-byte EVM address | Direct `fundsOut` on Arbitrum only. `/unlock` must not carry `burnDestination` |
-| V1 | `hash_v1(record)` of a burn destination record | Direct `fundsOut` on Arbitrum, or `lzFundsOut` through USDT0 / LayerZero. `/unlock` must carry the record |
-
-The bridge tells them apart by the high 12 bytes: all zero means V0, otherwise V1.
+A BFA burn has one 32-byte field for the payout target, the burn reason (`burnReason`). It holds `hash_v1(record)` of a **V1 burn destination record**. The bridge releases a V1 burn with a direct `fundsOut` on Arbitrum (`dstEid` `0`), or with `lzFundsOut` through USDT0 / LayerZero to another network. `/unlock` must carry the record.
 
 A V1 record has four fields:
 
@@ -453,14 +459,14 @@ Test your implementation against the published vectors before you burn. For exam
     Quote the gross amount to burn by reversing the route:
 
     ```bash
-    curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/mint-burn/estimate/827166/42161/2/1000000
+    curl -H "X-API-Key: <API_KEY>" https://gateway.mint.utexo.com/api/v0/mint-burn/estimate/827166/42161/2/1000000
     ```
 
     Show the customer both the gross burn and `receiveAmount`. The recipient receives `receiveAmount`; `totalTokenFee` (the bridge commission plus, on a LayerZero release, `oftFee`) is deducted. Do not burn less than `minAmount`. The quote does not check current release liquidity, so perform the capacity check separately.
   </Step>
   <Step title="Check release capacity">
     ```bash
-    curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/unlock/capacity/827166/42161/<EVM_TOKEN_ID>
+    curl -H "X-API-Key: <API_KEY>" https://gateway.mint.utexo.com/api/v0/unlock/capacity/827166/42161/<EVM_TOKEN_ID>
     ```
 
     ```json
@@ -486,17 +492,69 @@ Test your implementation against the published vectors before you burn. For exam
     If no suitable UTXO is available, fund the wallet if necessary and create colorable UTXOs before you continue.
   </Step>
   <Step title="Burn in the RGB wallet">
-    Build the 32-byte burn reason:
+    Use the V1 `burnReason` from [Choose the burn destination](#choose-the-burn-destination), and keep its record. Then burn the gross RGB amount in the wallet, with the burn reason, a Bitcoin fee rate, and your confirmation policy. The wallet builds and signs the PSBT, writes the BFA consignment, and broadcasts the Bitcoin anchor transaction.
 
-    - **Release on any network other than Arbitrum:** use the V1 `burnReason` from [Choose the burn destination](#choose-the-burn-destination), and keep its record.
-    - **Release on Arbitrum only:** you can use the legacy V0 value. Remove `0x` from the 20-byte EVM address, lowercase it, check that it has 40 hexadecimal characters, and left-pad it with 24 zeroes:
+    <Tabs>
+      <Tab title="rgb-lib">
+        With [`rgb-lib`](https://github.com/RGB-Tools/rgb-lib), call `Wallet::burn` and then read the consignment that the burn wrote. BFA burns need an `rgb-lib` version with BFA support: the `next` branch, until it is included in a release. The wallet must be online with an EVM RPC endpoint for Arbitrum One (`evm_rpc_urls` in `OnlineOptions`, chain ID `42161`). The same call is available in the `rgb-lib` language bindings.
 
-    ```text
-    EVM address:    f39fd6e51aad88f6f4ce6ab8827279cfffb92266
-    Burn recipient: 000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266
-    ```
+        ```rust
+        use base64::Engine;
+        use rgb_lib::wallet::{AssetFilter, RgbWalletOpsOffline};
 
-    Then burn the gross RGB amount in the wallet, with the burn reason, a Bitcoin fee rate, and your confirmation policy. The wallet builds and signs the PSBT, writes the BFA consignment, and broadcasts the Bitcoin anchor transaction.
+        // wallet: an rgb-lib Wallet that supports the BFA schema
+        // online: the result of wallet.go_online(...)
+        // burn_reason: the V1 hash, hex without the 0x prefix (64 characters)
+        let res = wallet.burn(
+            online.clone(),
+            asset_id.clone(),       // the USDT asset ID, "rgb:..."
+            amount,                 // gross amount to burn, in base units
+            Some(burn_reason),
+            fee_rate,               // Bitcoin fee rate, sat/vB
+            6,                      // confirmations before the wallet settles the burn
+        )?;
+        // Persist res.txid before you continue.
+
+        let transfers = wallet.list_transfers(AssetFilter::Id(asset_id.clone()), Some(res.txid.clone()))?;
+        let path = transfers
+            .iter()
+            .find_map(|t| t.consignment_path.clone())
+            .expect("burn consignment");
+        let consignment = base64::engine::general_purpose::STANDARD.encode(std::fs::read(path)?);
+        // Send `consignment` to /unlock.
+        ```
+      </Tab>
+      <Tab title="WebRGB wallet">
+        A browser app can ask a connected RGB wallet to burn through [WebRGB](https://github.com/UTEXO-Protocol/webrgb), directly or over WalletConnect with [`@utexo/webrgb-walletconnect`](https://github.com/UTEXO-Protocol/webrgb-walletconnect). The wallet asks the user to approve the burn, burns, and returns the transaction ID; `getConsignment` then returns the burn consignment as base64.
+
+        Check the wallet's capabilities first: it must support `burnAsset` and `getConsignment`, report `burnDestinationVersion: 1`, and list the payout route in `burnDestinationRoutes`.
+
+        ```ts
+        import { supports } from "@utexo/webrgb";
+
+        const info = await provider.getInfo();
+        if (!supports(info, "burnAsset") || !supports(info, "getConsignment")) {
+          throw new Error("This wallet cannot burn for the Mint");
+        }
+
+        const burn = await provider.burnAsset({
+          network,                    // the wallet's RGB network, as in info.network
+          assetId,                    // the USDT asset ID, "rgb:..."
+          amount: "1000000",          // gross amount to burn, in base units
+          burnRecipient: { chainId: "eip155:42161", address: evmAddress },
+          burnDestination,            // the V1 record from "Choose the burn destination"
+          minConfirmations: 6,
+        });
+        // Persist burn.txid before you continue. Never request a second burn if this call times out:
+        // check the wallet history first.
+
+        const proof = await provider.getConsignment({ assetId: burn.assetId, txid: burn.txid });
+        // proof.data is the base64 consignment for /unlock.
+        ```
+
+        For a payout on Tron, `burnRecipient.chainId` is `tron:728126428` and `address` is the Tron address; the wallet must list `tron` in `burnRecipientNamespaces`. Check that the wallet's returned `burnDestination`, amount and recipient match the request before you submit the burn.
+      </Tab>
+    </Tabs>
 
     Persist the burn transaction ID and the wallet's transfer reference before you continue. If the call fails after submission and it is unclear whether a transaction was created, check the wallet's transfer list before you retry. Never retry an ambiguous burn automatically.
 
@@ -511,7 +569,7 @@ Test your implementation against the published vectors before you burn. For exam
   </Step>
   <Step title="Submit the burn">
     ```bash
-    curl -X POST https://transfer.gateway.staging.utexo.com/api/v0/unlock \
+    curl -X POST https://gateway.mint.utexo.com/api/v0/unlock \
       -H "X-API-Key: <API_KEY>" \
       -H "Content-Type: application/json" \
       -d '{
@@ -525,7 +583,7 @@ Test your implementation against the published vectors before you burn. For exam
 
     `maxFeeRate` is optional. When supplied, it is a non-negative decimal string containing the maximum EVM gas price in wei that you accept.
 
-    For a V1 burn, add the record the burn commits to. Do not send `burnDestination` for a legacy V0 burn:
+    Add the record the burn commits to as `burnDestination`:
 
     ```json
     "burnDestination": {
@@ -566,11 +624,11 @@ Test your implementation against the published vectors before you burn. For exam
 To release to Ethereum, Polygon PoS, Plasma, or Tron, use that network as the destination in every burn request, and use the token ID of USDT on that network:
 
 ```bash
-curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/mint-burn/estimate/827166/137/<DESTINATION_TOKEN_ID>/1000000
-curl -H "X-API-Key: <API_KEY>" https://transfer.gateway.staging.utexo.com/api/v0/unlock/capacity/827166/137/<DESTINATION_TOKEN_ID>
+curl -H "X-API-Key: <API_KEY>" https://gateway.mint.utexo.com/api/v0/mint-burn/estimate/827166/137/<DESTINATION_TOKEN_ID>/1000000
+curl -H "X-API-Key: <API_KEY>" https://gateway.mint.utexo.com/api/v0/unlock/capacity/827166/137/<DESTINATION_TOKEN_ID>
 ```
 
-The burn must commit a V1 burn destination for that network (see [Choose the burn destination](#choose-the-burn-destination)); a legacy padded address is refused. In `POST /unlock`, set `destinationNetworkId` to the destination network, send the `burnDestination` record, and set `tokenId`, which is required for these releases:
+The burn must commit a V1 burn destination for that network (see [Choose the burn destination](#choose-the-burn-destination)). In `POST /unlock`, set `destinationNetworkId` to the destination network, send the `burnDestination` record, and set `tokenId`, which is required for these releases:
 
 ```json
 {
@@ -595,7 +653,7 @@ Errors have the shape `{"error":"...","code":4,"details":{...}}`. `details` is p
 
 | HTTP | Code | When | What to do |
 | --- | --- | --- | --- |
-| `400` | `65535` | Route, network, token, address, or amount is invalid; the amount does not cover commission; or on `/unlock`, the consignment is not a burn, has no burn reason, or its `burnDestination` is missing, wrong, or sent for a legacy burn | Correct the request; do not continue with a burn |
+| `400` | `65535` | Route, network, token, address, or amount is invalid; the amount does not cover commission; or on `/unlock`, the consignment is not a burn, has no burn reason, or its `burnDestination` is missing or does not match the burn reason | Correct the request; do not continue with a burn |
 | `400` | `2` | The amount is below the route's minimum (`details.amount`, `details.minAmount`) | Raise the amount |
 | `400` | `4` | `/unlock`: the release is above the current outflow limit | Wait and retry. The burn remains redeemable |
 | `401` | - | The API key or session is missing or invalid | Check the key |
