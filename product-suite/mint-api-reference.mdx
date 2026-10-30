@@ -73,7 +73,7 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
     `POST /unlock` - send the base64-encoded consignment, plus `burnDestination` for a V1 burn. Submit it right after the burn: if the burn is not final on Bitcoin yet, the response is `confirming` and the bridge sends the release itself once it is.
   </Step>
   <Step title="Confirm the release">
-    The response contains the `status`, the `evmTxHash` of the submitted release (empty while `confirming`), the `recipient` read from the burn, and the burn's `operationId`. The release confirms on the EVM network asynchronously.
+    The response contains the `status`, the `evmTxHash` of the submitted release (empty while `confirming`), the `recipient` read from the burn, and the `operationId` under which the [transfer history](#transfer-history) lists the burn. The release confirms on the EVM network asynchronously.
   </Step>
 </Steps>
 
@@ -102,6 +102,22 @@ curl -X POST https://gateway.mint.utexo.com/api/v0/mint/op-id \
   -H "Content-Type: application/json" \
   -d '{"networkId": 827166, "sourceNetworkId": 42161, "tokenId": 2, "invoice": "rgb:...", "amount": 1000000}'
 ```
+
+---
+
+### Signature authentication
+
+`GET /transfers/history/{signature-hex}/{pub-key-hex}` also authenticates the wallet, on top of the API key or session. The wallet signs the fixed message `Bridge Authentication Proof` and passes the signature and its public key or address in the path:
+
+| Path segment | Description |
+| --- | --- |
+| `signature-hex` | Hex-encoded signature over `Bridge Authentication Proof`, without a `0x` prefix |
+| `pub-key-hex` | Wallet public key or address, encoded for `network-id` |
+
+Verification depends on the network type:
+
+- **EVM and Tron:** the public key is recovered from the signature, converted to an address, and compared against `pub-key-hex`.
+- **RGB:** authentication is handled inside the RGB network; no signature check happens at this layer.
 
 ---
 
@@ -441,9 +457,9 @@ Submit right after the burn. The signer enclaves require 6 Bitcoin confirmations
 | `status` | `submitted`: the EVM release was sent. `confirming`: the burn is accepted but not final on Bitcoin; nothing was sent, and the bridge sends the release itself once it is. Do not resend |
 | `evmTxHash` | The submitted release transaction. Empty while `confirming`. For a LayerZero destination, this is the Arbitrum transaction |
 | `recipient` | Payee: the `recipient` of the V1 record |
-| `operationId` | keccak256 of the consignment, hex |
+| `operationId` | keccak256 of the consignment, hex. The [transfer history](#transfer-history) lists the burn under it |
 
-A burn whose release does not go out within 24 hours (for example, a replaced or dropped burn transaction) can be unlocked again.
+A burn whose release does not go out within 24 hours (for example, a replaced or dropped burn transaction) shows as `FAILED` in the history and can be unlocked again.
 
 **Error Responses**
 
@@ -517,6 +533,89 @@ Takes the same body as `POST /unlock` and runs the checks `POST /unlock` makes b
 | `burnTxid` | Bitcoin transaction anchoring the burn |
 
 Errors are as for `POST /unlock`: `400` (code `4` for outflow capacity), `401`, `404`, `409` (already redeemed or being redeemed), `429`, `500`.
+
+---
+
+### Transfer history
+
+#### `GET /transfers/history/{signature-hex}/{pub-key-hex}` — Get Wallet History
+
+Returns a page of the wallet's mints and burns, newest first. A mint is listed under the wallet that deposited it, a burn under the wallet it paid out to. Requires an API key or session, and the wallet proves ownership with a [signature](#signature-authentication).
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `offset` | `integer` | Yes | Number of records to skip |
+| `limit` | `integer` | Yes | Maximum number of records to return (must be \> 0) |
+| `network-id` | `integer` | Yes | Network the wallet address belongs to |
+| `address` | `string` | No | Address filter, encoded for the network the public key belongs to |
+
+**Response `200`**
+
+```json
+{
+  "transfers": [
+    {
+      "id": 1024,
+      "type": "burn",
+      "status": "SETTLED",
+      "operationId": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "senderAmount": "10.5",
+      "recipientAmount": "10.4",
+      "commission": "0.1",
+      "sender": { "networkId": 827166, ... },
+      "recipient": { "networkId": 42161, "address": "0x...", ... },
+      "bridgeOutTxHash": "0x...",
+      "bridgeOutNetworkId": 42161,
+      "destinationTxHash": "0x...",
+      "createdAt": "2026-10-06T12:00:00Z"
+    }
+  ],
+  "offset": 0,
+  "limit": 20,
+  "totalCount": 142
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `type` | `mint` or `burn` |
+| `status` | See the status values below |
+| `operationId` | The mint's `opId`, or the burn's `operationId` from `POST /unlock` |
+| `senderAmount`, `recipientAmount`, `commission` | Decimal token amounts, already scaled by the token's decimals |
+| `senderToken`, `recipientToken` | Token `id`, `shortName`, `longName` and `iconLink` on each side |
+| `sender`, `recipient` | `networkId`, `networkName`, `displayName` and `address` of each side |
+| `sourceTxHash` | Source transaction, encoded for the sender network. Omitted until known |
+| `bridgeInTxHash`, `bridgeInNetworkId` | Deposit received by the bridge and its network, for example Arbitrum for an entrypoint mint. Omitted until known |
+| `bridgeOutTxHash`, `bridgeOutNetworkId` | Release sent by the bridge and its network, for example Arbitrum for a LayerZero burn. Omitted until known |
+| `destinationTxHash` | Final delivery on the recipient network. Omitted until known |
+
+**Status Values**
+
+| Status | Description |
+| --- | --- |
+| `QUOTED` | Prepared, nothing received yet |
+| `SOURCE_IN` | The source-side funds were seen. A burn is `SOURCE_IN` while it waits for Bitcoin finality (unlock status `confirming`) |
+| `ACCEPTED` | The bridge accepted the operation |
+| `PREPARING` | The destination transaction is being prepared |
+| `SIGNING` | The destination transaction is being signed or re-sent, and no release hash is known yet |
+| `DEST_OUT` | The destination transaction is out |
+| `SETTLED` | Paid |
+| `FAILED` | Failed. A burn is `FAILED` when its release was reorged out or did not go out within 24 hours of the unlock; it can be unlocked again |
+| `EXPIRED` | A prepared mint expired without a deposit |
+
+**Error Responses**
+
+| Status | Meaning |
+| --- | --- |
+| `400` | Invalid signature or public key encoding, or invalid query parameters |
+| `401` | The API key or session is missing or invalid, or the signature is invalid |
+| `500` | Internal error |
+
+<Info>
+  Poll the history every 5 to 10 seconds. Avoid polling faster: a burn waits for 6 Bitcoin confirmations before its release is signed.
+</Info>
 
 ---
 
