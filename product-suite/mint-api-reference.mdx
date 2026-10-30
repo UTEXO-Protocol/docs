@@ -1,6 +1,6 @@
 ---
 title: "Mint API Reference"
-description: "Network-agnostic REST API for discovering supported networks, estimating fees, initiating transfers, and tracking settlement across EVM and RGB networks."
+description: "Network-agnostic REST API for discovering supported networks, estimating fees, minting and burning USDT, and tracking settlement across EVM and RGB networks."
 ---
 
 ## Overview
@@ -73,7 +73,7 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
     `POST /unlock` - send the base64-encoded consignment, plus `burnDestination` for a V1 burn. Submit it right after the burn: if the burn is not final on Bitcoin yet, the response is `confirming` and the bridge sends the release itself once it is.
   </Step>
   <Step title="Confirm the release">
-    The response contains the `status`, the `evmTxHash` of the submitted release (empty while `confirming`), the `recipient` read from the burn, and the `operationId` under which the transfer history lists the burn. The release confirms on the EVM network asynchronously.
+    The response contains the `status`, the `evmTxHash` of the submitted release (empty while `confirming`), the `recipient` read from the burn, and the `operationId` under which the [transfer history](#transfer-history) lists the burn. The release confirms on the EVM network asynchronously.
   </Step>
 </Steps>
 
@@ -103,21 +103,21 @@ curl -X POST https://gateway.mint.utexo.com/api/v0/mint/op-id \
   -d '{"networkId": 827166, "sourceNetworkId": 42161, "tokenId": 2, "invoice": "rgb:...", "amount": 1000000}'
 ```
 
+---
+
 ### Signature authentication
 
-Three of the transfer endpoints also authenticate the wallet with a signature, on top of the API key or session. They differ only in where the signature travels: in the path for `GET /transfers/history/{signature-hex}/{pub-key-hex}`, in the request body for `POST /transfers/verify-bridge-in` and `POST /transfers/submit-transaction`:
+`GET /transfers/history/{signature-hex}/{pub-key-hex}` also authenticates the wallet, on top of the API key or session. The wallet signs the fixed message `Bridge Authentication Proof` and passes the signature and its public key or address in the path:
 
-| Field | Description |
+| Path segment | Description |
 | --- | --- |
-| `authenticationSignature` | Hex-encoded signature over the fixed message `Bridge Authentication Proof` |
-| `publicKey` | Sender address or public key encoded for `networkId` |
+| `signature-hex` | Hex-encoded signature over `Bridge Authentication Proof`, without a `0x` prefix |
+| `pub-key-hex` | Wallet public key or address, encoded for `network-id` |
 
-**Signing procedure.** The signed message is the constant string `Bridge Authentication Proof`. Verification depends on the network type:
+Verification depends on the network type:
 
-- **EVM and Tron** — the public key is recovered from the signature, converted to an address, and compared against `publicKey`.
-- **RGB** — authentication is handled inside the RGB network; no signature check happens at this layer.
-
-A `401` response indicates an invalid authentication signature. A `403` response indicates the derived sender address does not match the pre-registered transfer.
+- **EVM and Tron:** the public key is recovered from the signature, converted to an address, and compared against `pub-key-hex`.
+- **RGB:** authentication is handled inside the RGB network; no signature check happens at this layer.
 
 ---
 
@@ -457,7 +457,7 @@ Submit right after the burn. The signer enclaves require 6 Bitcoin confirmations
 | `status` | `submitted`: the EVM release was sent. `confirming`: the burn is accepted but not final on Bitcoin; nothing was sent, and the bridge sends the release itself once it is. Do not resend |
 | `evmTxHash` | The submitted release transaction. Empty while `confirming`. For a LayerZero destination, this is the Arbitrum transaction |
 | `recipient` | Payee: the `recipient` of the V1 record |
-| `operationId` | keccak256 of the consignment, hex. The transfer history lists the burn under it |
+| `operationId` | keccak256 of the consignment, hex. The [transfer history](#transfer-history) lists the burn under it |
 
 A burn whose release does not go out within 24 hours (for example, a replaced or dropped burn transaction) shows as `FAILED` in the history and can be unlocked again.
 
@@ -536,308 +536,86 @@ Errors are as for `POST /unlock`: `400` (code `4` for outflow capacity), `401`, 
 
 ---
 
-### RPC proxy
+### Transfer history
 
-#### `POST /rpc/{network}` - JSON-RPC Proxy
+#### `GET /transfers/history/{signature-hex}/{pub-key-hex}` — Get Wallet History
 
-Forwards a JSON-RPC 2.0 request, or a batch, to the upstream configured for `network` (matched case-insensitively, for example `arbitrum`) and relays the upstream response unchanged, including its status code. The proxy may restrict the allowed methods. RGB wallets can use it as their Arbitrum RPC, for example for the `eth_getLogs` calls that check BFA mint events. Returns `404` when no upstream is configured for the network.
-
----
-
-### Transfers
-
-<Note>
-  The pre-registration endpoints in this group (`bridge-in-signature`, `verify-bridge-in`, `submit-transaction` and `invoice`) belong to the earlier transfer flow, which is retired. Transfers between USDT0 and USDT on Bitcoin use the [mint and burn](#mint-and-burn) endpoints. Every endpoint in this group requires an API key or session.
-</Note>
-
-#### `GET /transfers/estimate/{sender-network}/{recipient-network}/{sender-token-id}/{recipient-token-id}/{amount}` — Estimate Transfer Fees
-
-Returns a fee and confirmation time estimate for a proposed transfer. Call it before you prepare the mint to show the user a cost preview.
-
-**Path Parameters**
-
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `sender-network` | `string` | Yes | Sender network name (e.g., `ARBITRUM-ONE`, `UTEXO`) |
-| `recipient-network` | `string` | Yes | Recipient network name |
-| `sender-token-id` | `integer` | Yes | Token ID on the sender network |
-| `recipient-token-id` | `integer` | Yes | Token ID on the recipient network |
-| `amount` | `string` | Yes | Human-readable amount (e.g., `100.5`) |
+Returns a page of the wallet's mints and burns, newest first. A mint is listed under the wallet that deposited it, a burn under the wallet it paid out to. Requires an API key or session, and the wallet proves ownership with a [signature](#signature-authentication).
 
 **Query Parameters**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `sender-address` | `string` | Yes | Sender's address on the sender network |
-| `recipient-address` | `string` | Yes | Recipient's address on the recipient network |
-
-**Response `200`** — `Estimation`
-
-```json
-{
-  "fee": "0.50",
-  "feePercentage": "0.5",
-  "stableFee": "0.10",
-  "estimatedConfirmationTime": "5 minutes",
-  "resultAmount": "99.40",
-  "nativeFee": "0.0002",
-  "networkFee": "0.0001",
-  "nativeStableFee": "0.0001",
-  "totalNativeCommission": "0.0004",
-  "nativeTokenSymbol": "ETH",
-  "swapResultAmount": "99.40",
-  "effectiveAvailableOutflow": "10000"
-}
-```
-
-| Field | Description |
-| --- | --- |
-| `fee` | Gas fee denominated in the transfer token |
-| `stableFee` | Fixed protocol fee in transfer token units |
-| `feePercentage` | Protocol fee as a percentage string |
-| `resultAmount` | Amount the recipient will receive after fees |
-| `nativeFee` | Gas fee in the sender's native token (multi-token transfers) |
-| `networkFee` | Source-network execution fee in the sender's native token |
-| `nativeStableFee` | Stable fee in the sender's native token (multi-token transfers) |
-| `totalNativeCommission` | Sum of the native fee components |
-| `nativeTokenSymbol` | Symbol of the native token used for commissions |
-| `swapResultAmount` | Human-readable result amount in recipient token units |
-| `effectiveAvailableOutflow` | Remaining destination outflow allowance; omitted when no limit applies |
-| `screening` | Present when AML screening is active: `cleared`, or `unavailable` (the transfer must not be started) |
-| `clearance` | AML clearance `token` and its `expiresAt`, when screening issued one |
-
----
-
-#### `POST /transfers/bridge-in-signature` — Pre-Register Transfer
-
-Pre-registers a transfer and returns the data needed for the user to initiate the on-chain action.
-
-- **EVM → RGB**: Returns `transferId`, fee `estimation`, and an empty `signature` field (`0x`). The user then calls `fundsIn()` on the EVM bridge contract.
-- **RGB → EVM**: Returns an RGB invoice in the `signature` field. The user pays that invoice.
-
-**Request Body** — `BridgeInSignatureRequest`
-
-```json
-{
-  "sender": {
-    "networkId": 42161,
-    "networkName": "ARBITRUM-ONE",
-    "address": "0xYourEvmAddress"
-  },
-  "tokenId": 42,
-  "amount": "100.5",
-  "destination": {
-    "networkId": 36,
-    "networkName": "RGB",
-    "address": "rgb:..."
-  },
-  "additionalAddresses": []
-}
-```
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `sender` | `Address` | Yes | Sender network, ID, and address |
-| `tokenId` | `integer` | Yes | Token ID (same token on both chains) |
-| `amount` | `string` | Yes | Human-readable amount (e.g., `"100.5"`) |
-| `destination` | `Address` | Yes | Recipient network, ID, and address |
-| `additionalAddresses` | `string[]` | No | Additional addresses (use case: TBD — validation required) |
-
-**Response `200`** — `BridgeInSignatureData`
-
-```json
-{
-  "token": "0xTokenContractAddress",
-  "amount": "100500000",
-  "gasCommission": "50000",
-  "destination": { ... },
-  "deadline": "1719999999",
-  "nonce": 7,
-  "transferId": 1024,
-  "signature": "0x",
-  "transferType": "WU",
-  "estimation": { ... },
-  "totalCommission": "600000"
-}
-```
-
-| Field | Description |
-| --- | --- |
-| `token` | EVM token contract address |
-| `amount` | Transfer amount in **smallest token units** (not human-readable) |
-| `gasCommission` | Gas commission in smallest token units |
-| `destination` | Destination network and address selected for the transfer |
-| `deadline` | EVM: UNIX timestamp expiry. RGB: always `"0"` |
-| `nonce` | Nonce for the EVM bridge contract call |
-| `transferId` | Internal transfer ID — store this for use in `verify-bridge-in` |
-| `signature` | EVM → RGB: `"0x"` (empty). RGB → EVM: RGB invoice string |
-| `transferType` | Transfer model. Always `WU` (lock and mint, burn and unlock) — see [Transfer Types](#transfer-types) |
-| `estimation` | Fee and result-amount estimation using the same fields as the estimate endpoint |
-| `entrypoint` | Ready-to-call entrypoint contract data; present only when the selected route uses the entrypoint contract |
-| `totalCommission` | Total commission in smallest token units |
-
----
-
-#### `POST /transfers/verify-bridge-in` — Confirm Bridge-In Transaction
-
-Notifies the bridge that the user has completed the on-chain or off-chain send action. Must be called after:
-
-- The EVM `fundsIn()` transaction is broadcast (EVM → RGB), or
-- The RGB invoice payment is complete (RGB → EVM)
-
-**Request Body** — `VerifyBridgeInRequest`
-
-```json
-{
-  "transferId": 1024,
-  "networkId": 42161,
-  "txHash": "abcdef1234...",
-  "publicKey": "0xYourPublicKeyOrAddress",
-  "authenticationSignature": "hex-encoded-signature"
-}
-```
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `transferId` | `integer` | Yes | Transfer ID from `bridge-in-signature` response |
-| `networkId` | `integer` | Yes | Sender's network ID |
-| `txHash` | `string` | Conditional | Network-encoded transaction hash. May be empty when the RGB-side confirmation has no transaction hash to submit. |
-| `publicKey` | `string` | Yes | Sender public key or address |
-| `authenticationSignature` | `string` | Yes | Hex-encoded signature proving address ownership |
-
-**Response `200`** — Empty body (`null`). Accepted.
-
-**Error Responses**
-
-| Status | Meaning |
-| --- | --- |
-| `401` | Authentication signature is invalid |
-| `403` | Sender address derived from the signature does not match the pre-registered transfer |
-| `500` | Internal server error |
-
----
-
-#### `POST /transfers/submit-transaction` — Submit Signed Transaction
-
-Submits signed transaction data for a pre-registered transfer and returns the resulting transaction hash.
-
-**Request Body**
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `transferId` | `integer` | Yes | Transfer ID from `POST /transfers/bridge-in-signature` |
-| `networkId` | `integer` | Yes | Network on which the transaction is submitted |
-| `txData` | `string` | Conditional | Base64-encoded signed transaction data. Populate this field only when required for the selected network. |
-| `publicKey` | `string` | Yes | Sender address or public key encoded for `networkId` |
-| `authenticationSignature` | `string` | Yes | Hex-encoded signature proving sender ownership |
+| `offset` | `integer` | Yes | Number of records to skip |
+| `limit` | `integer` | Yes | Maximum number of records to return (must be \> 0) |
+| `network-id` | `integer` | Yes | Network the wallet address belongs to |
+| `address` | `string` | No | Address filter, encoded for the network the public key belongs to |
 
 **Response `200`**
 
 ```json
 {
-  "txHash": "network-encoded-transaction-hash"
-}
-```
-
-**Error Responses**
-
-| Status | Meaning |
-| --- | --- |
-| `400` | Invalid network, sender address, signature encoding, transaction encoding, or unsupported non-empty `txData` network type |
-| `401` | Authentication signature is invalid |
-| `403` | Sender address does not match the pre-registered transfer |
-| `500` | Transaction submission failed |
-
----
-
-#### `GET /transfers/history/{signature-hex}/{pub-key-hex}` — Get Transfer History
-
-Returns a page of the wallet's transfers, mints and burns, newest first. A mint is listed under the wallet that deposited it, a burn under the wallet it paid out to. Requires an API key or session, and the wallet proves its identity with a signature.
-
-**Path Parameters**
-
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `signature-hex` | `string` | Yes | Hex-encoded signature proving address ownership |
-| `pub-key-hex` | `string` | Yes | Public key or address encoded for the selected network |
-
-**Query Parameters**
-
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `offset` | `integer` | Yes | Pagination offset (number of records to skip) |
-| `limit` | `integer` | Yes | Number of records to return (must be \> 0) |
-| `network-id` | `integer` | Yes | Network ID to filter history by |
-| `address` | `string` | No | User address — required for Bitcoin native addresses |
-
-**Response `200`** — `Page`
-
-```json
-{
-  "transfers": [...],
+  "transfers": [
+    {
+      "id": 1024,
+      "type": "burn",
+      "status": "SETTLED",
+      "operationId": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "senderAmount": "10.5",
+      "recipientAmount": "10.4",
+      "commission": "0.1",
+      "sender": { "networkId": 827166, ... },
+      "recipient": { "networkId": 42161, "address": "0x...", ... },
+      "bridgeOutTxHash": "0x...",
+      "bridgeOutNetworkId": 42161,
+      "destinationTxHash": "0x...",
+      "createdAt": "2026-10-06T12:00:00Z"
+    }
+  ],
   "offset": 0,
   "limit": 20,
   "totalCount": 142
 }
 ```
 
-**Transfer Status Values**
+| Field | Description |
+| --- | --- |
+| `type` | `mint` or `burn` |
+| `status` | See the status values below |
+| `operationId` | The mint's `opId`, or the burn's `operationId` from `POST /unlock` |
+| `senderAmount`, `recipientAmount`, `commission` | Decimal token amounts, already scaled by the token's decimals |
+| `senderToken`, `recipientToken` | Token `id`, `shortName`, `longName` and `iconLink` on each side |
+| `sender`, `recipient` | `networkId`, `networkName`, `displayName` and `address` of each side |
+| `sourceTxHash` | Source transaction, encoded for the sender network. Omitted until known |
+| `bridgeInTxHash`, `bridgeInNetworkId` | Deposit received by the bridge and its network, for example Arbitrum for an entrypoint mint. Omitted until known |
+| `bridgeOutTxHash`, `bridgeOutNetworkId` | Release sent by the bridge and its network, for example Arbitrum for a LayerZero burn. Omitted until known |
+| `destinationTxHash` | Final delivery on the recipient network. Omitted until known |
+
+**Status Values**
 
 | Status | Description |
 | --- | --- |
-| `QUOTED` | Transfer prepared, nothing received yet |
+| `QUOTED` | Prepared, nothing received yet |
 | `SOURCE_IN` | The source-side funds were seen. A burn is `SOURCE_IN` while it waits for Bitcoin finality (unlock status `confirming`) |
-| `ACCEPTED` | The bridge accepted the transfer |
+| `ACCEPTED` | The bridge accepted the operation |
 | `PREPARING` | The destination transaction is being prepared |
 | `SIGNING` | The destination transaction is being signed or re-sent, and no release hash is known yet |
 | `DEST_OUT` | The destination transaction is out |
-| `SETTLED` | The transfer is paid |
-| `FAILED` | The transfer failed. A burn is `FAILED` when its release was reorged out or did not go out within 24 hours of the unlock; it can be unlocked again |
+| `SETTLED` | Paid |
+| `FAILED` | Failed. A burn is `FAILED` when its release was reorged out or did not go out within 24 hours of the unlock; it can be unlocked again |
 | `EXPIRED` | A prepared mint expired without a deposit |
 
-<Info>
-  Poll history at a reasonable interval (e.g., every 5–10 seconds). Avoid aggressive polling — the bridge requires Bitcoin confirmations for RGB-leg completions, which may take several minutes.
-</Info>
+**Error Responses**
 
----
-
-#### `GET /transfers/{tx}` - Get Transfers by Triggering Transaction
-
-Returns the transfers started by a triggering transaction. `tx` is the transaction hash in hex. Requires an API key or session.
-
----
-
-#### `GET /transfers/invoice/{tx-id}/{network-id}` — Get RGB Invoice
-
-Returns the invoice associated with a completed or pending transfer. The `network-id` is the RGB network ID.
-
-**Path Parameters**
-
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `tx-id` | `integer` | Yes | Internal transfer ID (from `bridge-in-signature` response) |
-| `network-id` | `integer` | Yes | RGB network ID |
-
-**Response `200`** — `InvoiceResponse`
-
-```json
-{
-  "invoice": "rgb:..."
-}
-```
-
-
----
-
-## Transfer Types
-
-The `transferType` field in `BridgeInSignatureData` names the transfer model the bridge uses. The Mint uses a single model, returned as `WU`:
-
-| Value | Description |
+| Status | Meaning |
 | --- | --- |
-| `WU` | Lock and mint: USDT0 is locked on Arbitrum and USDT is minted on Bitcoin. Burn and unlock: USDT on Bitcoin is burned and USDT0 is unlocked on Arbitrum. |
+| `400` | Invalid signature or public key encoding, or invalid query parameters |
+| `401` | The API key or session is missing or invalid, or the signature is invalid |
+| `500` | Internal error |
 
-Clients can treat this field as informational.
+<Info>
+  Poll the history every 5 to 10 seconds. Avoid polling faster: a burn waits for 6 Bitcoin confirmations before its release is signed.
+</Info>
 
 ---
 
@@ -875,16 +653,6 @@ Codes `6`, `7` and `8` come with HTTP `409` from `POST /unlock`, and a `details`
 ---
 
 ## Data Models
-
-### `Address`
-
-```json
-{
-  "networkId": 42161,
-  "networkName": "ARBITRUM-ONE",
-  "address": "0x..."
-}
-```
 
 ### `Network`
 
@@ -931,7 +699,5 @@ Codes `6`, `7` and `8` come with HTTP `409` from `POST /unlock`, and a `details`
 | **OpId** | The RGB operation ID of a prepared mint, returned by `POST /mint/op-id`. |
 | **settlementData** | The ABI-encoded OpId the deposit carries to bind it to the prepared mint. |
 | **Burn consignment** | The RGB data that proves a burn. `POST /unlock` reads the release amount and recipient from it. |
-| **transferId** | The internal identifier of a transfer pre-registered with `bridge-in-signature` (earlier flow). |
-| **Triggering Tx** | The EVM deposit transaction that starts a lock-and-mint transfer. |
 | **Entrypoint contract** | A per-network contract that forwards a deposit to the Arbitrum hub through LayerZero. When a route uses it, `POST /mint/op-id` returns an `entrypoint` object and the user calls that contract instead of `fundsIn()`. |
 | **UTXO** | Unspent Transaction Output — the fundamental unit of Bitcoin accounting. RGB asset state is anchored to UTXOs. |
