@@ -1,33 +1,29 @@
 ---
-title: "User Flow"
-description: "The quote, intent, signing, and execution flow behind every Utexo Swap."
-sidebarTitle: "User Flow"
+title: "Execute a swap"
+description: "Request a quote, create an intent, fund it, and track the result."
+sidebarTitle: "User flow"
 ---
 
-A swap involves two participants: the **user**, who initiates the swap, and the **resolver**, who executes it. The process starts with a quote request.
+## Request a quote
 
-<Steps>
-  <Step title="Quote request">
-    The user chooses the token pair and the amount to swap. The client sends these parameters to the [Quotes API](/product-suite/swap/api/quotes). The API returns a quote — a time-limited execution estimate that includes all pricing information.
-  </Step>
-  <Step title="Intent creation">
-    After the user accepts the quote, the client [creates an intent](/product-suite/swap/api/intents/creation): a structured representation of the user's swap intention that references the accepted quote and specifies the user's source, destination, and refund addresses.
-  </Step>
-  <Step title="Signing the intent">
-    The intent response contains everything the user needs to sign the swap. The user signs off-chain, cryptographically approving the swap parameters defined in the intent and authorizing resolvers to execute it under the quoted conditions. The client submits the signature as an [approval](/product-suite/swap/api/intents/approvals).
-  </Step>
-  <Step title="Execution">
-    Once the approval is added, Utexo notifies the winning resolver. The resolver deposits the user's assets into an escrow on the source chain and then transfers the corresponding assets to the user on the destination chain. During execution, the client can [retrieve the intent status](/product-suite/swap/api/intents/status) to track progress.
-  </Step>
-</Steps>
+1. [List networks and tokens](/product-suite/swap/api/networks-and-tokens) with your affiliate API key.
+2. Request a [quote](/product-suite/swap/api/quotes) for the user's token pair and amount.
+3. Check the returned amounts, expiry, fees, `swap_type`, and `deposit_type`.
+4. Create an [intent](/product-suite/swap/api/intents/creation) with the quote ID and the user's addresses before the quote expires.
 
-## Request sequence
+For EVM and Tron source tokens, grant Permit2 the required token allowance when the intent uses `permit2`. See [Approve for Permit2](/product-suite/swap/on-chain-helpers/approve-for-permit2).
 
-| Step | Endpoint |
-| --- | --- |
-| Check API availability | [`GET /v1/system/live`](/product-suite/swap/api/system-health-check) |
-| Discover networks and tokens | [`GET /affiliate/v1/networks`, `GET /affiliate/v1/tokens`](/product-suite/swap/api/networks-and-tokens) |
-| Get the best quote | [`POST /affiliate/v1/quotes/best`](/product-suite/swap/api/quotes) |
-| Create an intent | [`POST /affiliate/v1/intents`](/product-suite/swap/api/intents/creation) |
-| Sign and submit the approval | [`POST /affiliate/v1/intents/{intent_id}/approvals`](/product-suite/swap/api/intents/approvals) |
-| Track the swap | [`GET /affiliate/v1/swaps/intents/{intent_id}`](/product-suite/swap/api/intents/status), [`GET /affiliate/v1/swaps/history`](/product-suite/swap/api/swap-history) |
+## Fund the intent
+
+Read `approval_mechanism` from the intent response, then follow the matching procedure:
+
+- For `permit2`, sign with the user's [EVM wallet](/product-suite/swap/api/intents/approvals/evm) or [Tron wallet](/product-suite/swap/api/intents/approvals/tron). Submit the signature as a `permit2` approval.
+- For `htlc`, sign the listed [Bitcoin PSBT inputs](/product-suite/swap/api/intents/approvals/bitcoin). Submit the PSBT as a `psbt` approval.
+- For `cosign`, sign the returned [Solana transaction](/product-suite/swap/api/intents/approvals/solana). Submit the transaction as a `cosign` approval.
+- For `broadcast`, sign and broadcast the returned transaction. For RGB, [pay the returned invoice](/product-suite/swap/api/intents/approvals/rgb). Report the transaction hash through the [user deposit endpoint](/product-suite/swap/api/intents/deposits).
+
+## Track settlement
+
+Poll `GET /affiliate/v1/intents/{intent_id}/status` for the [intent status](/product-suite/swap/api/intents/status). If the intent is declined, read `decline_details`.
+
+Use `GET /affiliate/v1/swaps/intents/{intent_id}` for transaction hashes and amounts. Use [swap history](/product-suite/swap/api/swap-history) to list swaps by wallet or retail user ID.

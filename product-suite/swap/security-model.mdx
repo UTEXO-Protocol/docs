@@ -1,48 +1,37 @@
 ---
-title: "Swap Security Model"
-description: "Escrow isolation, resolver permissions, timeouts and refunds in Utexo Swap."
-sidebarTitle: "Security Model"
+title: "Swap security model"
+description: "How deposit type, escrow release, and refund deadlines affect swap settlement."
+sidebarTitle: "Security model"
 ---
 
-Utexo does not hold or custody user funds. Every swap is governed by on-chain settlement logic: swaps either complete in full or revert safely. There is no partial execution risk.
+The quote's `deposit_type` determines how source funds are held. Escrowed and direct deposits have different protections.
 
-On every supported network (Ethereum, Tron, Solana, Bitcoin), a dedicated escrow is created for each swap. User funds are locked inside this escrow and can only be released once the swap is fulfilled.
+## Escrowed deposits
 
-## Resolver permissions
+An escrowed standard swap locks source funds under chain-specific settlement rules. After Utexo verifies destination fulfillment, it reveals the secret that permits the resolver to claim the source funds.
 
-Resolvers provide liquidity and execute swaps on-chain. Their permissions are strictly limited by the protocol.
-
-**Resolvers can:**
-
-- Move user-approved assets into the swap-specific escrow
-- Execute the swap according to the signed intent
-- Withdraw escrowed funds **only after** fulfillment is verified
-
-**Resolvers cannot:**
-
-- Withdraw funds before fulfillment conditions are met
-- Access funds from any other swap
-- Move user assets outside the defined execution flow
-- Modify the conditions defined in the signed intent
-
-## Timeouts and refunds
-
-Every swap has a time-to-live (TTL). If the resolver does not complete the swap before the TTL expires, the swap enters a refund path and funds are returned to the `refund_address` specified in the intent. Funds cannot be locked indefinitely.
-
-## Chain-specific settlement mechanisms
-
-| Network | Mechanism |
+| Network | Source settlement |
 | --- | --- |
-| Ethereum / EVM | Dedicated escrow smart contract per swap |
-| Tron | Same escrow model as EVM |
-| Solana | Program-derived escrow account (PDA) per swap |
-| Bitcoin | Taproot-based hash time-locked contract (HTLC) |
+| EVM or Tron | An escrow proxy for the swap. |
+| Solana | A shared vault holds tokens. An `EscrowCheck` PDA records the order and its withdrawal conditions. |
+| Bitcoin | A Taproot HTLC output contains a secret-based claim path and refund paths. |
 
-## Security guarantees
+The source deposit, destination fulfillment, and source withdrawal are separate on-chain transactions. A refund requires an on-chain transaction. A standard cross-chain swap does not revert both chains as one atomic transaction.
 
-- Funds are segregated at the individual swap level.
-- Resolvers cannot access assets outside the swap execution flow.
-- Escrow release is conditional on verified fulfillment.
-- Swaps automatically revert through the refund path if execution fails.
+## Direct deposits
 
-These mechanisms ensure that swaps either complete successfully or revert safely, without exposing users to partial execution risk.
+A `direct` deposit transfers source funds to the resolver without the source-chain escrow protection described above. Quote selection can return this deposit type for a permit-flow affiliate when the resolver supports direct deposits.
+
+The affiliate does not select `deposit_type` in the quote request. The returned quote records the selected deposit type.
+
+## Optimized same-chain swaps
+
+An optimized swap exchanges the source and destination tokens in one atomic transaction. The quote identifies this path with `swap_type: "optimized"`.
+
+## Refunds
+
+Escrowed swaps use deadlines to bound the resolver's claim and the refund path. The intent supplies `refund_address` and `deadline_secs`. A fast refund uses resolver and protocol cooperation. A timelock refund becomes available after its deadline.
+
+For Bitcoin and RGB, the protocol key controls the timelock refund leaf. The user's Bitcoin key does not spend that leaf directly. RGB refunds also require a valid consignment that moves the allocation.
+
+The chain-specific references describe [EVM and Tron settlement](/product-suite/swap/resolver-integration/evm-tron-settlement), [Solana settlement](/product-suite/swap/resolver-integration/solana-settlement), and [Bitcoin settlement](/product-suite/swap/resolver-integration/bitcoin-settlement).

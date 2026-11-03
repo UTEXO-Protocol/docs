@@ -14,7 +14,7 @@ Example:
 
 ```bash
 curl https://stage.api.swap.utexo.com/affiliate/v1/networks \
-  -H "X-API-Key: $UTEXO_SWAP_API_KEY"
+	-H "X-API-Key: $UTEXO_SWAP_API_KEY"
 ```
 
 <Warning>
@@ -22,3 +22,7 @@ curl https://stage.api.swap.utexo.com/affiliate/v1/networks \
 </Warning>
 
 To request an API key, [contact the Utexo team](https://utexo.com/contact-sales).
+
+Affiliate authentication also applies to `GET /affiliate/v1/system/live`. Routes under `/v1` use resolver API keys. The keys are not interchangeable.
+
+An inactive key returns HTTP `401` with error code `53`. Affiliate requests are rate-limited per API key. Exceeding the configured limit returns HTTP `429` with error code `62`.

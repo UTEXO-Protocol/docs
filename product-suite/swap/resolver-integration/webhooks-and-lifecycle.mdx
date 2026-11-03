@@ -1,114 +1,123 @@
 ---
-title: "Webhooks and Lifecycle"
-description: "Verify Utexo signed webhooks and act on the intent lifecycle events that drive resolver settlement."
-sidebarTitle: "Webhooks and Lifecycle"
+title: "Webhooks and lifecycle"
+description: "Signed resolver webhooks, response bodies, and lifecycle event schemas."
+sidebarTitle: "Webhooks and lifecycle"
 ---
 
-Utexo notifies resolvers of lifecycle transitions through signed webhook events. Webhook events are separate from the transaction-reporting calls resolvers make through the [Protocol API](/product-suite/swap/resolver-integration/protocol-api).
+Utexo sends lifecycle events to the resolver's configured webhook URL. Transaction reporting uses the separate [Protocol API](/product-suite/swap/resolver-integration/protocol-api).
 
 ## Envelope
 
-Every event uses the same envelope:
+Each event has a `type` and `data`. `IntentAssigned` nests its payload under `data.intent`:
 
 ```json
 {
-  "type": "IntentAssigned",
-  "data": { }
+	"type": "IntentAssigned",
+	"data": {
+		"intent": {
+			"id": "8a2d3f92-2a2b-4e4c-9d8a-3c9f92e4a111"
+		}
+	}
 }
 ```
 
+This example shows only the nesting and intent ID. The assignment fields are listed below.
+
 ## Signature verification
 
-Each request carries two headers:
+Each request carries these headers:
 
 | Header | Value |
 | --- | --- |
-| `X-Signature` | Hex-encoded Ed25519 signature. |
-| `X-Timestamp` | Unix timestamp string. |
+| `X-Signature` | `0x`-prefixed hex encoding of a 64-byte Ed25519 signature. |
+| `X-Timestamp` | Unix timestamp in seconds, encoded as a decimal string. |
 
-Verify the signature over the concatenation `timestamp_bytes + raw_body_bytes` using the public key returned by [`GET /v1/resolvers/webhooks/public-key`](/product-suite/swap/resolver-integration/protocol-api).
+The signed bytes are the UTF-8 timestamp header followed by the raw request body, with no separator. The verification key comes from `GET /v1/resolvers/webhooks/public-key` and is a `0x`-prefixed 32-byte Ed25519 public key.
 
-<Warning>
-  - Verify against the **raw request bytes** before JSON parsing. Re-serialization changes the signed payload.
-  - Reject any request with an invalid signature.
-  - Enforce a timestamp freshness and replay window. Confirm the exact policy with Utexo.
-  - Use the event type and intent identifier (`id` or `intent_id`, depending on the event) as the idempotency key, and persist processed lifecycle transitions.
-</Warning>
+Verification uses the raw body before JSON parsing. JSON re-serialization can change the signed bytes. A resolver rejects invalid signatures and applies its own timestamp freshness and replay policy.
 
-## Events
+Retries can repeat an event. Lifecycle handling is idempotent by event type and intent identifier. `IntentAssigned` uses `data.intent.id`; most other events use `data.intent_id`.
 
-### `IntentAssigned`
+## IntentAssigned
 
-The intent has been assigned to your resolver.
+The `data.intent` object contains `id`, `secret_hash`, `user_source_address`, `user_destination_address`, `user_approval`, `fulfillment_signature`, `fulfillment_request`, `deadline`, `quote_id`, `swap_type`, `cosign_transaction`, `deposit_type`, and `signature_details`.
 
-**Data fields:** `id`, `secret_hash`, `user_source_address`, `user_destination_address`, `user_approval` (approval mechanism and chain-specific data), `deadline`, `quote_id`, `deposit_type`, `signature_details`.
+`deadline` is an RFC 3339 timestamp. `user_approval` has `approval_mechanism` and `data`, rather than `params_to_sign`. `signature_details` contains `signature` and `public_key`.
 
-**Action:** validate the deadline and assignment, then begin constructing and broadcasting the source-chain deposit.
+This webhook expects a JSON response containing `status`. An accepted assignment responds with:
 
-### `DepositConfirmed`
-
-The source-chain deposit is confirmed and Utexo is releasing the fulfillment request.
-
-**Data fields:** `intent_id`, `deposit_tx`, `fulfillment_deadline`, `fulfillment_signature`, `cosign_transaction`, `fulfillment_request` containing `intent_id`, `user_destination_address`, `to_token`, `min_amount`, `max_amount`, `deadline`.
-
-**Action:** execute fulfillment on the destination chain before `fulfillment_deadline`, then report through `POST /v1/intents/{id}/fulfill`.
-
-### `WithdrawReady`
-
-Fulfillment has been verified and the secret is available.
-
-**Data fields:** `intent_id`, `secret`.
-
-**Action:** withdraw the escrowed source-chain funds using the revealed secret, then report the withdrawal transaction hash.
-
-### `SwapConfirmed`
-
-Terminal event for optimized single-chain swaps.
-
-**Data fields:** `intent_id`, `swap_tx`.
-
-**Action:** none. The swap is complete.
-
-### `RefundConfirmed`
-
-Terminal event for refunded intents.
-
-**Data fields:** `intent_id`, `refund_tx`.
-
-**Action:** stop any in-flight fulfillment for this intent.
-
-## Flow overview
-
-### Standard escrowed swap
-
-```text
-IntentAssigned
-  -> deposit tx (resolver broadcasts)
-  -> POST /v1/intents/{id}/deposit
-DepositConfirmed
-  -> fulfill tx (resolver broadcasts)
-  -> POST /v1/intents/{id}/fulfill
-WithdrawReady (secret revealed)
-  -> withdraw tx (resolver broadcasts)
-  -> withdrawal reporting
+```json
+{ "status": "Accepted" }
 ```
 
-### Optimized single-chain swap
+A declined assignment can include details:
 
-```text
-IntentAssigned
-  -> swap tx (resolver broadcasts)
-  -> swap reporting
-SwapConfirmed (terminal)
+```json
+{
+	"status": "Declined",
+	"decline_details": {
+		"error_code": 1,
+		"message": "quote expired"
+	}
+}
 ```
 
-### Refund
+Other lifecycle webhooks require a successful HTTP response and do not require a JSON body.
 
-```text
-RefundConfirmed (terminal)
-  -> stop fulfillment attempts
+## DepositConfirmed
+
+The `data` object contains `intent_id`, `deposit_tx`, `fulfillment_deadline`, `fulfillment_signature`, `cosign_transaction`, `fulfillment_request`, and `flow_kind`.
+
+`fulfillment_deadline` is a Unix timestamp in seconds. `flow_kind` is `Permit` or `UserBroadcast`.
+
+`fulfillment_request` contains `intent_id`, `user_destination_address`, `to_token`, `min_amount`, `max_amount`, and `deadline`. Amounts are decimal integer strings. Its deadline is in seconds.
+
+This event authorizes destination-chain fulfillment after the source deposit is confirmed. Fulfillment reporting uses `POST /v1/intents/{id}/fulfill`.
+
+## FulfillmentConfirmed
+
+The `data` object contains `intent_id` and `fulfill_tx`. It records confirmation of the destination transaction.
+
+## WithdrawReady
+
+The `data` object contains `intent_id` and `merkle_root`:
+
+```json
+{
+	"type": "WithdrawReady",
+	"data": {
+		"intent_id": "8a2d3f92-2a2b-4e4c-9d8a-3c9f92e4a111",
+		"merkle_root": "<0x-prefixed 32-byte secret>"
+	}
+}
 ```
 
-<Note>
-  Webhook events signal state transitions. Transaction reporting through the Protocol API is what advances the intent through those transitions. Treat them as two separate channels.
-</Note>
+The current wire field is named `merkle_root`, but its value is the revealed secret. The payload has no `secret` field. The [secret-retrieval endpoints](/product-suite/swap/resolver-integration/protocol-api#secret-retrieval) return the same value under `secret` or `secrets`.
+
+Withdrawal reporting uses `POST /v1/intents/batch/withdraw`.
+
+## SwapConfirmed
+
+The `data` object contains `intent_id`, `flow_kind`, and `swap_tx`. This event marks completion of an optimized single-chain swap.
+
+## RefundInProgress
+
+The `data` object contains `intent_id` and `tx_hash`. A refund transaction is in progress.
+
+## RefundConfirmed
+
+The `data` object contains `intent_id` and `refund_tx`. The refund is confirmed. Fulfillment attempts for the intent must stop.
+
+## FailedTransactionUpdate
+
+The `data` object contains `timestamp`, `tx_hash`, and `intent_ids`. It identifies a failed transaction and the affected intents.
+
+## CalldataValidationFail
+
+The `data` object contains `intent_id` and `error`. It reports rejected transaction data from the resolver.
+
+## Delivery
+
+Failed deliveries are stored for retry. The signed timestamp reflects each delivery attempt.
+
+`TransactionUpdate` and `DepositInfo` are WebSocket messages and are not sent as webhooks.

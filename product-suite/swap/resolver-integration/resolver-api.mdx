@@ -1,48 +1,81 @@
 ---
-title: "Resolver API"
-description: "Callbacks and endpoints resolvers must expose so Utexo can request quotes, PSBTs, and co-signed settlement transactions."
+title: "Resolver callbacks"
+description: "Request and response schemas for endpoints that Utexo calls on a resolver."
 sidebarTitle: "Resolver API"
 ---
 
-The Resolver API is the direction Utexo calls **on the resolver**. Each resolver defines and configures its own callback URLs; there are no prescribed paths.
+Utexo calls the URLs configured for each resolver. The callbacks have no prescribed paths. Requests do not carry an `X-API-Key` header. Each request carries an `X-Request-ID` for correlation.
 
-<Warning>
-  Resolver callbacks are not protected by `X-API-Key`. Agree the transport authentication for this direction with Utexo before exposing endpoints.
-</Warning>
+## Health callback
+
+Utexo sends a `GET` request. The response is:
+
+```json
+{ "ok": true }
+```
 
 ## Quote callback
 
-Utexo calls the resolver to request a quote for a user swap.
+Utexo sends a `POST` request with these fields:
 
-### Request fields
+| Field | Type | Description |
+| --- | --- | --- |
+| `source_chain`, `dest_chain` | integer | Utexo network IDs. |
+| `source_token`, `dest_token` | string | Token identifiers. |
+| `source_amount` | string | Amount in whole-token units, such as `"1.5"`. |
+| `slippage_tolerance_bps` | string | Integer basis points from `"0"` through `"10000"`. |
+| `swap_type` | string | `standard` or `optimized`. |
+| `affiliate_id` | string | Affiliate UUID. |
+| `retail_user_id` | string or null | Retail user identifier. |
+| `user_meta` | JSON value or null | Metadata from the affiliate request. |
+| `affiliate_fees` | object or null | Sub-affiliate IDs mapped to `fee_bps`, `network_id`, and `token`. |
+| `deposit_type` | string | `escrowed` or `direct`. |
+| `flow_kind` | string | `Permit` or `UserBroadcast`. |
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `source_chain` | integer | yes | Source network ID. |
-| `source_token` | string | yes | Source token identifier. |
-| `dest_chain` | integer | yes | Destination network ID. |
-| `dest_token` | string | yes | Destination token identifier. |
-| `amount` | string | yes | Amount in decimal-adjusted format. |
-| `slippage_bps` | string | yes | Slippage tolerance in basis points, range `0..10000`. |
-| `swap_type` | string | yes | `standard` or `optimized`. |
-| `affiliate_id` | string | yes | Affiliate identifier. |
-| `retail_user_id` | string | no | Optional retail user identifier. |
-| `affiliate_fees` | object | no | Keyed by sub-affiliate ID; each entry contains `fee_bps`, `network_id`, `token`. |
-| `deposit_type` | string | yes | `escrowed` or `direct`. |
+The callback uses `source_amount` and `slippage_tolerance_bps`. The affiliate quote endpoint uses `amount` and `slippage_bps`.
 
 ### Response
 
-<Note>
-  The quote response carries the destination minimum and maximum, expiry in milliseconds, and affiliate and intermediate routing data. Confirm the exact response shape with Utexo during onboarding.
-</Note>
+```json
+{
+	"id": "19b44362-bc4d-4b2e-824f-f712c6c80eff",
+	"source_chain": 1,
+	"source_token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+	"dest_chain": 4,
+	"dest_token": "So11111111111111111111111111111111111111112",
+	"intermediate_token": null,
+	"intermediate_token_amount_min": null,
+	"intermediate_token_amount_max": null,
+	"intermediate_token_decimals": null,
+	"source_amount_lots": "1000000000000000000",
+	"source_amount_decimals": 18,
+	"source_amount_in_usd": "2000",
+	"min_dest_amount_lots": "19900000000",
+	"max_dest_amount_lots": "20000000000",
+	"dest_amount_decimals": 9,
+	"dest_amount_in_usd": "1990",
+	"expiry": 1793700000000,
+	"affiliate_fees": null
+}
+```
 
-### Error responses
+Lot amounts are decimal integer strings. `expiry` is a Unix timestamp in milliseconds. The USD fields accept numeric strings or JSON numbers and default to `0` when omitted.
 
-Use `400` for invalid or unsupported requests and `500` for unexpected resolver failures. Envelope:
+Each non-null `affiliate_fees` entry includes `fee_bps`, `network_id`, `token`, `fee_amount_lots`, and `fee_amount_decimals`. Intermediate-token bounds are required together when an intermediate token is present.
+
+### Errors
+
+Non-success responses use this envelope:
 
 ```json
-{ "error_code": 1, "msg": "swap amount is below the minimum threshold" }
+{
+	"error_code": 1,
+	"msg": "swap amount is below the minimum threshold",
+	"details": { "min_amount": "0.01" }
+}
 ```
+
+`details` is optional. The quote callback has a 600 ms request timeout.
 
 | Code | Constant |
 | --- | --- |
@@ -55,95 +88,105 @@ Use `400` for invalid or unsupported requests and `500` for unexpected resolver 
 | `6` | `UNSUPPORTED_DEST_TOKEN` |
 | `7` | `INVALID_SLIPPAGE_TOLERANCE_BPS` |
 
+## Resolver address callback
+
+The `POST` request contains `intent_id`, `chain`, and `address_type`. `chain` is a Utexo network ID. `address_type` is `Deposit` or `Withdraw`.
+
+```json
+{ "address": "<resolver address>" }
+```
+
 ## Bitcoin deposit PSBT callback
 
-Utexo requests a PSBT for the user's Bitcoin deposit.
+The `POST` request contains `intent_id`, `quote_id`, `protocol_pub_key`, `user_address`, `user_pub_key`, `secret_hash`, and `deadline`.
 
-### Request
+`secret_hash` is double SHA-256. `deadline` is a Unix timestamp in seconds. The request has no `deposit_type` field.
+
+The response is:
+
+```json
+{
+	"psbt": "cHNidP8...",
+	"x_only_public_key": "<resolver x-only public key>",
+	"refund_control_block": "<hex>",
+	"fast_refund_control_block": "<hex>"
+}
+```
+
+The three Taproot metadata fields are required for escrowed deposits and are `null` for direct deposits. The resolver obtains the deposit type from its quote.
+
+RGB sources use the [user-broadcast transaction callback](#user-broadcast-transaction-callback).
+
+## Solana cosign callback
+
+The `POST` request uses these fields:
+
+| Field | Type |
+| --- | --- |
+| `request_type` | `DepositSwap`, `Fulfill`, or `WithdrawToUser` |
+| `intent_id`, `quote_id`, `resolver_id` | UUID string |
+| `user_address`, `resolver_deposit` | Base58 address |
+| `token_in`, `token_out` | Token identifier |
+| `secret_hash` | Hex string |
+| `nonce` | integer |
+| `amount_in`, `min_amount_out`, `max_amount_out` | Decimal integer string |
+| `deadline` | Unix timestamp in seconds |
+| `intermediate_token_out` | string or null |
+| `intermediate_min_amount_out`, `intermediate_max_amount_out` | Decimal integer string or null |
+| `swap_type` | `standard` or `optimized` |
+| `recent_blockhash` | string or null |
+| `deposit_type` | `escrowed` or `direct` |
+| `flow_kind` | `Permit` or `UserBroadcast` |
+
+The response contains a hex-encoded serialized versioned transaction:
+
+```json
+{ "transaction": "<hex>" }
+```
+
+Signer positions follow the transaction message. Existing signatures remain valid only while that message remains unchanged.
+
+## User-broadcast transaction callback
+
+The `POST` request contains these fields:
 
 | Field | Description |
 | --- | --- |
-| `intent_id` | Intent identifier. |
-| `quote_id` | Quote identifier. |
-| `protocol_pub_key` | Protocol public key for the HTLC. |
-| `user_address` | User's Bitcoin address. |
-| `user_pub_key` | User's public key. |
-| `secret_hash` | Double SHA-256 secret hash. |
-| `deadline` | Refund timelock deadline. |
-| `deposit_type` | `escrowed`. |
+| `intent_id`, `quote_id`, `affiliate_id` | UUID strings. |
+| `user_source_address`, `user_destination_address`, `refund_address` | User addresses. |
+| `deadline` | RFC 3339 timestamp. |
+| `nonce` | Integer nonce. |
+| `secret_hash` | Hex-encoded hash. |
+| `psbt_data` | For Bitcoin, an object with `protocol_pub_key` and `user_source_pub_key`. Otherwise, `null`. |
 
-### Response
+The response contains `intent_id` and a case-sensitive `calldata` variant. A Bitcoin response has this form:
 
-| Field | Description |
-| --- | --- |
-| `psbt` | Base64-encoded PSBT. |
-| `x_only_public_key` | Taproot x-only key. |
-| `refund_control_block` | Control block for the timelock refund leaf. |
-| `fast_refund_control_block` | Control block for the fast refund leaf. |
-| `destination_script_hex` | RGB swaps only. Script of your `witness_receive` claim destination, where you will move the RGB allocation when you claim. Not the HTLC script. |
+```json
+{
+	"intent_id": "8a2d3f92-2a2b-4e4c-9d8a-3c9f92e4a111",
+	"calldata": {
+		"Psbt": {
+			"bitcoin_psbt": {
+				"psbt": "cHNidP8...",
+				"x_only_public_key": "<resolver x-only public key>",
+				"refund_control_block": "<hex>",
+				"fast_refund_control_block": "<hex>"
+			}
+		}
+	}
+}
+```
 
-<Note>
-  `x_only_public_key`, `refund_control_block`, and `fast_refund_control_block` are only meaningful for `deposit_type=escrowed`.
-</Note>
+The other variants are `Cosign`, with `transaction`, `recent_blockhash`, and `resolver_deposit_address`, and `EvmLike`, with `transaction` and `resolver_deposit_address`. For `Cosign`, the transaction is hex-encoded serialized Solana data. For `EvmLike`, `transaction` is hex-encoded contract calldata.
 
-For RGB USDT swaps, the request does not include the asset or amount; load them from the quote. See [RGB USDT in Utexo Swap](/product-suite/swap/rgb#for-resolvers).
-
-## Solana co-signed transaction callback
-
-Utexo asks the resolver to co-sign a Solana transaction.
-
-### Request
-
-`request_type` is one of:
-
-- `DepositSwap`
-- `Fulfill`
-- `WithdrawToUser`
-
-Source fields:
-
-- `intent_id`
-- `quote_id`
-- `user_address`
-- `nonce`
-- `resolver_deposit`
-- `token_in`
-- `token_out`
-- `secret_hash`
-- `amount_in`
-- `deadline`
-- `resolver_id`
-- `intermediate_token_out` and its bounds (optional)
-- `min_amount_out`
-- `max_amount_out`
-- `swap_type`
-- `recent_blockhash` (optional)
-- `deposit_type` = `escrowed`
-
-### Response
-
-<Warning>
-  Confirm the Solana co-signed callback response shape with Utexo before implementing.
-</Warning>
+For RGB, the resolver returns a `Psbt` template. Utexo derives the witness invoice and returns `deposit_tx_data.RgbLock` to the affiliate. The resolver response has no `RgbLock` variant or `destination_script_hex` field. See [RGB USDT settlement](/product-suite/swap/resolver-integration/rgb-settlement) for the lock template and claim procedure.
 
 ## Fast-refund signing callback
 
-Utexo requests a resolver signature for a fast refund.
+The `POST` request contains `intent_id`, `chain`, and `deposit_type`. For Bitcoin, it also contains `btc_data`, an object with `psbt`, `tapscipt`, and `input`.
 
-### Request
-
-| Field | Description |
-| --- | --- |
-| `intent_id` | Intent identifier. |
-| `chain` | Source chain identifier. |
-| `btc_data` | Object containing `psbt`, `tapscipt`, and `input` for Bitcoin. |
-
-### Response
+The wire field is spelled `tapscipt`. `input` is the PSBT input index.
 
 ```json
 { "signature": "<hex>" }
 ```
-
-<Warning>
-  The Bitcoin script field is currently named `tapscipt`. Validate the field name against the current implementation before you wire it up.
-</Warning>

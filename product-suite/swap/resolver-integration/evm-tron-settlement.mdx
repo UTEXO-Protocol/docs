@@ -1,5 +1,5 @@
 ---
-title: "EVM and Tron Settlement"
+title: "EVM and Tron settlement"
 description: "Deploy resolver executors and settle Utexo swaps on EVM chains and Tron, including single-chain, cross-chain, DEX, and fast refund paths."
 sidebarTitle: "EVM and Tron"
 ---
@@ -11,7 +11,7 @@ Utexo supports four settlement paths on EVM:
 - Single-chain atomic swap
 - Fast refund
 
-Users sign Permit2 approvals. The resolver submits every on-chain transaction and pays gas.
+In the permit flow, users sign Permit2 approvals and the resolver broadcasts the deposit. In the user-broadcast flow, the user broadcasts the source transaction. The resolver broadcasts fulfillment and withdrawal transactions.
 
 ## Onboarding
 
@@ -29,28 +29,28 @@ Each resolver deploys an Executor implementing the `IExecutor` interface:
 
 ```solidity
 function fulfill(
-  address token,
-  uint256 minAmount,
-  uint256 maxAmount,
-  bytes data
+	address token,
+	uint256 minAmount,
+	uint256 maxAmount,
+	bytes data
 ) external returns (uint256 amount);
 
 function swap(
-  address outputToken,
-  uint256 minOutputAmount,
-  uint256 maxOutputAmount,
-  address inputToken,
-  uint256 inputAmount,
-  bytes data
+	address outputToken,
+	uint256 minOutputAmount,
+	uint256 maxOutputAmount,
+	address inputToken,
+	uint256 inputAmount,
+	bytes data
 ) external returns (uint256 amount);
 
 function dexSwap(
-  address outputToken,
-  uint256 minOutputAmount,
-  uint256 maxOutputAmount,
-  address inputToken,
-  uint256 inputAmount,
-  bytes data
+	address outputToken,
+	uint256 minOutputAmount,
+	uint256 maxOutputAmount,
+	address inputToken,
+	uint256 inputAmount,
+	bytes data
 ) external returns (uint256 amount);
 ```
 
@@ -87,9 +87,21 @@ The protocol deploys a Fulfillment contract once per resolver per destination ch
   </Step>
 </Steps>
 
-<Note>
-  Confirm the withdraw signature and parameters with Utexo during resolver onboarding.
-</Note>
+### Withdrawal call
+
+The escrow implementation exposes:
+
+```solidity
+function withdraw(
+	IEscrowRouter.Order calldata order,
+	bytes calldata secret,
+	address resolverWithdraw
+) external;
+```
+
+`Order` contains `nonce`, `resolverDeposit`, `user`, `token`, `amount`, `secretHash`, and `deadline`. The call uses the revealed secret and the original escrow order. It does not take an additional off-chain signature.
+
+The withdraw address must belong to the same whitelisted resolver as `order.resolverDeposit`.
 
 ## Cross-chain swap with DEX
 

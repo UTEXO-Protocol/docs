@@ -1,0 +1,49 @@
+---
+title: "Report a user deposit"
+description: "Broadcast a user-funded transaction and report its hash for a broadcast intent."
+sidebarTitle: "User deposits"
+---
+
+Use this procedure when [intent creation](/product-suite/swap/api/intents/creation) returns `approval_mechanism: "broadcast"`.
+
+## Fund the intent
+
+1. Read `approval_mechanism` from the intent response.
+2. Sign and broadcast the transaction in `deposit_tx_data`. For RGB, pay `deposit_tx_data.RgbLock.witness_invoice` with an RGB wallet instead.
+3. Save the transaction hash.
+
+For Solana transactions, preserve the existing signatures and message. Changing the blockhash invalidates existing signatures. For RGB wallet details, see [Fund an RGB intent](/product-suite/swap/api/intents/approvals/rgb).
+
+For EVM and Tron, `deposit_tx_data.EvmLike.transaction` contains contract calldata, not a complete transaction. Submit that calldata to the source network's configured Utexo router. The response does not include the router address, gas settings, or transaction value. Those settings come from your network configuration. `resolver_deposit_address` is not the router address.
+
+## Report the transaction
+
+For a standard swap, submit the hash with your affiliate API key:
+
+```http
+POST /affiliate/v1/intents/{intent_id}/deposit
+Content-Type: application/json
+X-API-Key: <your_api_key>
+```
+
+```json
+{
+	"tx_hash": "<broadcast transaction hash>"
+}
+```
+
+A successful response returns HTTP `200` with a Unix timestamp in seconds:
+
+```json
+{
+	"fulfillment_deadline": 1793700000
+}
+```
+
+For an optimized single-chain swap, report the hash to `POST /affiliate/v1/intents/{intent_id}/add-swap` instead. The body has the same `tx_hash` field. Success returns HTTP `200` with an empty body.
+
+## Track the result
+
+[Poll the intent status](/product-suite/swap/api/intents/status) until the swap completes or enters a refund path.
+
+For an RGB deposit, error code `76` with HTTP `409` means the consignment check can be retried. Wait for the consignment to become available, then submit the same transaction hash again. HTTP `400` for that code means the consignment check failed permanently.

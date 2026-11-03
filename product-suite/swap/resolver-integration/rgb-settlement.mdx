@@ -1,0 +1,57 @@
+---
+title: "RGB USDT settlement"
+description: "Build lock templates, fulfill swaps, and claim or refund RGB USDT allocations on Bitcoin."
+sidebarTitle: "RGB USDT"
+---
+
+An RGB USDT source swap locks the RGB allocation at a Bitcoin HTLC output. The resolver supplies the lock template, fulfills the destination payment, and claims the allocation after fulfillment.
+
+Use an RGB wallet that can accept consignments and color HTLC spends. The RFQ integration uses `rgb-lib` methods `psbt_op_prepare`, `psbt_op_apply`, and `psbt_op_abort` for external HTLC spends.
+
+## Build the lock template
+
+Utexo calls the [user-broadcast transaction callback](/product-suite/swap/resolver-integration/resolver-api#user-broadcast-transaction-callback). The request includes `psbt_data.protocol_pub_key` and `psbt_data.user_source_pub_key`.
+
+1. Load the asset and amount from the quote. The callback request does not include them.
+2. Build the [Bitcoin HTLC](/product-suite/swap/resolver-integration/bitcoin-settlement#htlc-lock-output) with the NUMS internal key, the resolver claim leaf, the protocol timelock refund leaf, and the cooperative fast-refund leaf.
+3. Build the template PSBT with the intent tag at output `0` and the P2TR HTLC at output `1`.
+4. Return the template as `calldata.Psbt.bitcoin_psbt`, with `psbt`, `x_only_public_key`, `refund_control_block`, and `fast_refund_control_block`.
+5. Persist the lock address, Taproot spend data, and resolver claim leaf.
+
+Do not assume a fixed leaf order when you rebuild the Taproot tree. The callback has no `destination_script_hex` field.
+
+Utexo derives the invoice from the template. The user's RGB wallet then creates and broadcasts the colored lock transaction. Track the actual deposit outpoint rather than the template's transaction ID.
+
+## Fulfill the swap
+
+After `DepositConfirmed`, deliver the destination asset and report the fulfillment through the [Protocol API](/product-suite/swap/resolver-integration/protocol-api#reporting-transactions).
+
+## Claim the RGB allocation
+
+After fulfillment, retrieve the revealed secret and spend the HTLC into a witness receive output owned by your RGB wallet.
+
+1. Fetch the lock consignment with `fetch_consignment_by_recipient_id_unchecked`.
+2. Check that its transaction ID and output index match the confirmed lock. Import it with `accept_transfer_from_consignment_unchecked` and an `ExpectedTransfer` for the exact asset, schema, and amount.
+3. Check the HTLC allocation with `contract_assignments_for_outpoints`.
+4. Create a witness receive destination in your wallet.
+5. Build an unsigned claim PSBT. Use the HTLC as the input, an empty `OP_RETURN` at output `0`, and your receive destination at output `1`.
+6. Add the claim leaf, control block, and witness UTXO to the HTLC input.
+7. Call `psbt_op_prepare` with the asset assigned to output `1` and the HTLC as the input that carries RGB. Save the returned `operation_id`.
+8. Post the resulting consignment to the RGB proxy.
+9. Sign the HTLC input with the witness stack `[signature, secret, script, control block]`.
+10. Broadcast the claim transaction.
+11. Once the transaction is visible to the indexer, call `psbt_op_apply` with `operation_id`. Refresh the wallet.
+
+If you abandon the prepared transaction before broadcast, call `psbt_op_abort` with `operation_id`.
+
+The checked `fetch_and_accept_transfer_by_recipient_id` method requires a wallet-owned witness script and rejects the external HTLC. The unchecked import still validates the consignment, but your integration must check the lock outpoint and expected transfer.
+
+Color the PSBT before you sign any input. Include every input that holds RGB and assign its full allocation. Use the final output indexes in the asset map.
+
+The HTLC is not a wallet UTXO. Accept its consignment before you inspect the allocation, and do not register the HTLC as a wallet output.
+
+## Handle a refund
+
+If fulfillment does not complete, stop fulfillment attempts when a refund begins. The protocol spends the timelock refund leaf after the deadline or uses the cooperative fast-refund path. An RGB refund also needs a consignment that moves the allocation back to the user.
+
+For the user's invoice payment, see [Fund an RGB intent](/product-suite/swap/api/intents/approvals/rgb).

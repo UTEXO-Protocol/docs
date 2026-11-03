@@ -1,22 +1,24 @@
 ---
-title: "Signing an Intent for Solana"
+title: "Sign a Solana intent"
 description: "Cosign the prebuilt Solana versioned transaction while preserving signature order."
 sidebarTitle: "Solana"
 ---
 
-Versioned-transaction cosigning lets the user authorize a swap by signing a prebuilt Solana transaction that encodes the exact execution parameters. The user signs it locally, preserving the required signature order, and returns it as the approval. Funds remain secure until the resolver executes the swap according to the authorized transaction.
+Sign the versioned transaction returned in `params_to_sign.transaction` when `approval_mechanism` is `cosign`. Preserve its message and other signatures, then submit the serialized transaction as the approval.
 
-## Signature order
+## Find the user's signer slot
 
-When `approval_mechanism` is `cosign`, `params_to_sign.transaction` is a hex-encoded versioned transaction. After signing, the signatures must be in this order:
+1. Deserialize the hex-encoded versioned transaction.
+2. Read the first `message.header.numRequiredSignatures` entries in `message.staticAccountKeys`.
+3. Find the user's public key in those entries.
+4. Sign the transaction in that slot and preserve every other signature.
+5. Submit the hex-encoded transaction with the user's Base58 address.
 
-| Position | Signer |
-| --- | --- |
-| `0` | Resolver |
-| `1` | User |
-| `2` | Backend (optional) |
+Signer positions follow the transaction's account keys. Do not assume fixed positions for the resolver, user, or backend. Do not replace the recent blockhash or broadcast the transaction in this approval flow.
 
 ## Example
+
+This server example uses `@solana/web3.js` 1.x and a local keypair.
 
 ```ts
 import { Keypair, VersionedTransaction } from "@solana/web3.js";
@@ -28,59 +30,65 @@ const keypair = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
 const destinationAddress = process.env.DESTINATION_ADDRESS!;
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method: body === undefined ? "GET" : "POST",
-    headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const text = await response.text();
-  if (!response.ok) throw new Error(`${path} failed: ${response.status} ${text}`);
-  return (text ? JSON.parse(text) : undefined) as T;
+	const response = await fetch(`${BASE_URL}${path}`, {
+		method: body === undefined ? "GET" : "POST",
+		headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+		body: body === undefined ? undefined : JSON.stringify(body),
+	});
+	const text = await response.text();
+	if (!response.ok) throw new Error(`${path} failed: ${response.status} ${text}`);
+	return (text ? JSON.parse(text) : undefined) as T;
 }
 
 const userAddress = keypair.publicKey.toBase58();
 
 // 1. Quote: WSOL on Solana -> WETH on Ethereum
 const quote = await api<any>("/v1/quotes/best", {
-  source_chain: 4,
-  source_token: "So11111111111111111111111111111111111111112",
-  dest_chain: 1,
-  dest_token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-  amount: 0.01,
-  slippage_bps: "50",
-  swap_type: "standard",
-  deposit_type: "escrowed",
-  retail_user_id: null,
-  user_meta: null,
-  affiliate_fees: null,
+	source_chain: 4,
+	source_token: "So11111111111111111111111111111111111111112",
+	dest_chain: 1,
+	dest_token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+	amount: 0.01,
+	slippage_bps: "50",
+	swap_type: "standard",
+	retail_user_id: null,
+	user_meta: null,
+	affiliate_fees: null,
 });
 
 // 2. Intent
 const intent = await api<any>("/v1/intents", {
-  quote_id: quote.id,
-  user_source_address: userAddress,
-  user_destination_address: destinationAddress,
-  refund_address: userAddress,
-  user_source_public_key: userAddress,
+	quote_id: quote.id,
+	user_source_address: userAddress,
+	user_destination_address: destinationAddress,
+	refund_address: userAddress,
+	user_source_public_key: null,
 });
 
-// 3. Cosign, keeping the resolver (0) and backend (2) signatures in place
+if (intent.approval_mechanism !== "cosign") {
+	throw new Error(`Expected cosign, got ${intent.approval_mechanism}`);
+}
+
+// 3. Find the user in the required signers and cosign
 const tx = VersionedTransaction.deserialize(
-  Uint8Array.from(Buffer.from(intent.params_to_sign.transaction, "hex")),
+	Uint8Array.from(Buffer.from(intent.params_to_sign.transaction, "hex")),
 );
-const existing = [...tx.signatures];
+const signerKeys = tx.message.staticAccountKeys.slice(0, tx.message.header.numRequiredSignatures);
+const userIndex = signerKeys.findIndex((key) => key.equals(keypair.publicKey));
+if (userIndex === -1) throw new Error("The user is not a required signer");
+
+const existing = tx.signatures.map((signature) => Uint8Array.from(signature));
 tx.sign([keypair]);
-tx.signatures[0] = existing[0];
-if (tx.signatures[2] !== undefined) {
-  tx.signatures[2] = existing[2];
+for (let index = 0; index < tx.signatures.length; index++) {
+	if (index !== userIndex) tx.signatures[index] = existing[index];
 }
 
 // 4. Approval
 await api(`/v1/intents/${intent.intent_id}/approvals`, {
-  type: "cosign",
-  signed_data: {
-    transaction: Buffer.from(tx.serialize()).toString("hex"),
-    user_address: userAddress,
-  },
+	type: "cosign",
+	signed_data: {
+		transaction: Buffer.from(tx.serialize()).toString("hex"),
+		user_address: userAddress,
+	},
 });
 ```
