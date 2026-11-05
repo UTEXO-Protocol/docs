@@ -1,33 +1,30 @@
 ---
 title: 'Web SDK Reference'
-description: 'Complete reference for @utexo/rgb-sdk-web — browser-native RGB assets and Lightning payments via WebAssembly, no server required.'
+description: 'Complete reference for @utexo/rgb-sdk-web — on-chain RGB assets via WebAssembly. Lightning is WIP, for testing only, and not recommended for production.'
 sidebarTitle: 'Web'
 ---
 
-The `@utexo/rgb-sdk-web` package is the browser SDK for the Utexo stack. All operations run locally via an **RGB Lightning Node (RLN)** compiled to **WebAssembly** — no RGB server, no Node.js, no native binaries. `UTEXOWallet` mirrors the React Native SDK surface, so app code ports across web ↔ mobile with minimal change.
+The `@utexo/rgb-sdk-web` package is the browser SDK for the Utexo stack. All operations run locally via an **RGB Lightning Node (RLN)** compiled to **WebAssembly** — no RGB server, no Node.js, no native binaries. Its on-chain `UTEXOWallet` methods share interfaces with React Native, but the constructors, lifecycle, and backup mechanisms differ. The current React Native package uses rgb-lib and has Lightning disabled.
 
 <Warning>
-  This SDK is designed for **browser environments only**. It is not compatible with Node.js (use [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning)) or React Native (use [`@utexo/rgb-sdk-rn`](/sdk/react-native-sdk)).
+  This SDK is designed for **browser environments only**. It is not compatible with Node.js (use [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb)) or React Native (use [`@utexo/rgb-sdk-rn`](/sdk/react-native-sdk)).
 
-  This is a **beta** release — APIs may change between releases.
+  This is a **beta** release — APIs may change between releases. **On-chain operations are the supported integration path. Lightning is WIP, available only for experimental testing, and not recommended for production.** This applies to channels, BOLT11 payments, HODL invoices, LSP, Lightning Address, and APay.
 </Warning>
 
 ## What You Can Do
 
-- Run a full Lightning node in the browser via the RLN WASM SDK
-- Open Lightning channels and send/receive BTC or RGB asset payments
-- LSP integration: receive RGB via Lightning, send RGB to on-chain recipients, Lightning Address
-- Async payments (APay): hash pool + Lightning Address via utexo-lsp
 - Issue, transfer, and manage RGB assets (NIA, IFA, CFA)
 - Manage UTXOs and BTC on-chain sends — atomic (`sendBtc`) or 3-step begin → sign → end for external signers
 - Encrypted file backup (raw bytes, browser-download friendly) and VSS cloud backup
-- HODL invoices: create, claim, cancel
+
+The [Lightning methods](#lightning-methods) below are retained as an experimental testing reference. Their presence does not make Lightning a supported production feature.
 
 ## Requirements
 
 - Modern browser with WebAssembly and top-level `await` support: Chrome, Firefox, Safari, Edge
 - ESM-only bundler: Vite, Webpack 5, Rollup, or esbuild — CommonJS is not supported
-- At create time: an Esplora indexer, an RGB proxy (transport) endpoint, and — for Lightning — a WebSocket LN gateway. Known networks get defaults — see [Default endpoints](#default-endpoints)
+- At create time: an Esplora indexer, an RGB proxy (transport) endpoint, and — only for experimental Lightning tests — a WebSocket LN gateway. Known networks get defaults — see [Default endpoints](#default-endpoints)
 
 ## Installation
 
@@ -91,7 +88,7 @@ const address = await wallet.getAddress();
 | `network` | `string?` | Bitcoin network (`'utexo'`, `'regtest'`, `'testnet'`, `'mainnet'`, …). Default `'utexo'` |
 | `indexerUrl` | `string?` | Esplora URL for `goOnline`. Defaults per network. `unlock()` always attempts to connect; failure is non-fatal (wallet returned offline) |
 | `transportEndpoint` | `string?` | RGB proxy for consignment delivery. Defaults per network |
-| `proxyUrl` | `string?` | WebSocket LN gateway URL — enables the embedded Lightning node. Defaults per network (`utexo`); on networks without a default, omitting it means no Lightning |
+| `proxyUrl` | `string?` | WebSocket LN gateway URL for experimental Lightning testing only. Defaults per network (`utexo`); on networks without a default, omitting it means no Lightning |
 | `nodeRuntimeId` | `string?` | Stable runtime ID so node state persists across page reloads |
 | `skipConsistencyCheck` | `boolean?` | Skip the indexer consistency check on connect |
 | `vssUrl` | `string? \| null` | VSS server URL. Defaults to `DEFAULT_VSS_SERVER_URL`; pass `null` to disable VSS |
@@ -115,8 +112,8 @@ The `init` → `unlock` gap is the explicit VSS-restore window:
 
 | Environment | Identifier | Use case |
 |---|---|---|
-| Mainnet | `mainnet` | Production |
-| Testnet | `testnet` | Pre-production testing |
+| Mainnet | `mainnet` | On-chain operations only |
+| Testnet | `testnet` | Testing |
 | Utexo (Signet) | `utexo` | Development and integration testing |
 
 <Note>
@@ -127,7 +124,7 @@ The `init` → `unlock` gap is the explicit VSS-restore window:
 |---|---|
 | `/getbtc` | Send your Bitcoin address to receive test satoshis |
 | `/getasset` | Send an RGB invoice to receive test RGB assets |
-| `/getinvoice` | Get an RGB Lightning invoice to test paying |
+| `/getinvoice` | Experimental Lightning testing only: get an RGB Lightning invoice |
 | `/getnodeinfo` | Get the faucet node URI, asset ID, and ticker |
 
 Limited to 2 requests per 24 hours per user.
@@ -142,7 +139,7 @@ Used automatically when the corresponding create param is omitted (`DEFAULT_RLN_
 |---|---|---|---|
 | `utexo` | `wss://ln-gateway-signet.utexo.com` | `https://rgb-proxy.utexo.com/json-rpc` | `https://esplora-api.utexo.com` |
 
-On networks without a `proxyUrl` default, pass one explicitly to enable the Lightning node; without it the wallet is on-chain RGB only.
+An LN gateway is relevant only to experimental Lightning testing. On networks without a `proxyUrl` default, the wallet remains on-chain RGB only unless a gateway is supplied. Gateway availability does not make Lightning suitable for production.
 
 ## Vanilla vs Colored Addresses
 
@@ -280,6 +277,10 @@ await wallet.refreshWallet();
 
 ## Lightning Methods
 
+<Warning>
+  **WIP — experimental testing only. Lightning is not recommended for production.** These examples require a compatible Web build and test network; they do not apply to the current React Native package, where Lightning is disabled.
+</Warning>
+
 Lightning requires a resolved `proxyUrl` (set or defaulted, e.g. `utexo`) and usable peer/channel state.
 
 ```typescript
@@ -325,6 +326,8 @@ For a BTC-only invoice, omit the `asset` field and pass `amountSats`.
 | `createHodlInvoice(params)` / `claimHodlInvoice(paymentHash, preimage)` / `cancelHodlInvoice(paymentHash)` | HODL invoices |
 
 ### LSP & Async Payments (APay)
+
+These Lightning-dependent flows are **WIP and testing-only**, and are **not recommended for production**.
 
 | Method | Description |
 |---|---|
@@ -405,7 +408,7 @@ The same begin/end pattern applies to UTXO creation (`createUtxosBegin` / `creat
 
 ## Demo App
 
-A full working demo is available at [rgb-sdk-web-sandbox](https://github.com/UTEXO-Protocol/rgb-sdk-web-sandbox). It covers the `UTEXOWallet` lifecycle, Lightning, LSP/APay, and file + VSS backup.
+A full working demo is available at [rgb-sdk-web-sandbox](https://github.com/UTEXO-Protocol/rgb-sdk-web-sandbox). It includes on-chain wallet flows and file/VSS backup, plus experimental Lightning and LSP/APay examples for testing only.
 
 ```bash
 git clone https://github.com/UTEXO-Protocol/rgb-sdk-web-sandbox
@@ -417,7 +420,7 @@ npm run dev
 ## Further Reading
 
 - [SDK Overview](/product-suite/sdk) — SDK family, key concepts, and execution model.
-- [wdk-rgb-lightning](/sdk/wdk-rgb-lightning) — Node.js / Bare WDK module for RGB Lightning.
-- [React Native SDK](/sdk/react-native-sdk) — On-device RLN for iOS and Android.
+- [wdk-wallet-rgb](/sdk/wdk-wallet-rgb) — Node.js / Bare on-chain module.
+- [React Native SDK](/sdk/react-native-sdk) — On-chain rgb-lib for iOS and Android; Lightning disabled.
 - [Architecture](/getting-started/architecture) — The Bitcoin + RGB stack the SDK operates on.
 - [rgb-sdk-web README](https://github.com/UTEXO-Protocol/rgb-sdk-web/blob/dev/Readme.md)

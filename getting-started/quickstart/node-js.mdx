@@ -1,248 +1,194 @@
 ---
 title: "Node.js Quickstart"
 sidebarTitle: "Node.js"
-description: "Start an RGB Lightning node on Bitcoin signet and make an on-chain RGB transfer from Node.js using @utexo/wdk-rgb-lightning."
+description: "Use @utexo/wdk-wallet-rgb to prepare an on-chain BFA transfer on public Bitcoin signet."
 ---
 
+Use **[`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb)** for Node.js on-chain RGB integrations. This guide prepares a BFA transfer on public Bitcoin signet.
+
 <Info>
-  This guide covers Node.js server applications. For mobile, see the [React Native guide](/getting-started/quickstart/react-native). For browser applications, see the [Web guide](/getting-started/quickstart/web).
+  For mobile, see the [React Native guide](/getting-started/quickstart/react-native). For browsers, see the [Web guide](/getting-started/quickstart/web). Lightning remains WIP, testing-only, and not recommended for production.
 </Info>
-
-This guide uses [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning), the current Node.js / Bare module for RGB and RGB-over-Lightning. It runs an `rgb-lightning-node` (LDK + `rgb-lib`) node in-process behind WDK's wallet-manager/account contract. The mnemonic stays in the WDK secret manager; channel-state cryptography runs in-process through a VLS signer.
-
-<Warning>
-  `@utexo/wdk-rgb-lightning` is a pre-1.0 beta. This guide was checked against `0.2.0-beta.5` with `@utexo/rgb-lightning-node-nodejs` `0.2.0-beta.5` (RLN `v0.17.0-beta.3`). `0.2.0-beta.5` requires the native binding at exactly the same version. APIs may change between releases — check the installed package's `index.d.ts` before upgrading.
-</Warning>
-
-<Note>
-  The archived `@utexo/rgb-sdk` package (`UTEXOWallet`, `initialize()`, `send()`) is no longer used for new Node.js integrations. Do not mix its method names into WDK code.
-</Note>
 
 ## Prerequisites
 
-- Node.js 18 or later, on a platform supported by the prebuilt `@utexo/rgb-lightning-node-nodejs` binding
-- An ES module project (`"type": "module"` in `package.json`), since the package ships as pure ESM
-- Signet BTC for transaction fees, from a public signet faucet
-- A separately initialized sender wallet that already holds the RGB asset for an end-to-end transfer
-- Secure server-side storage for the mnemonic and a persistent, access-controlled data directory
+- Node.js `^22.21.0` or `>=24.9.0`, using ES modules
+- A matching `utexo-rgb-native` worker and its verified SHA-256
+- Signet BTC for fees on both sender and receiver wallets
+- A separately initialized sender account holding a compatible BFA asset
+- The expected asset ID from verified deployment metadata
+- Secure mnemonic storage, a private persistent directory per wallet, and application-owned transaction approval
 
-<Warning>
-  This guide uses the public Bitcoin `signet`, the network of the Mint staging environment. Never use mainnet keys or real funds while following this guide.
-</Warning>
+The staging RGB profile requires a compatible BFA issuance and matching bridge services. Verify the asset's compatibility before proceeding with transfer steps. See [BFA compatibility](/sdk/wdk-wallet-rgb#assets-and-bfa).
+
+Never use mainnet keys or real funds in this signet guide.
 
 ## Step 1: Install the SDK
 
 ```bash
-npm install @utexo/wdk-rgb-lightning@0.2.0-beta.5 @utexo/rgb-lightning-node-nodejs@0.2.0-beta.5
+npm install @utexo/wdk-wallet-rgb@latest
 ```
 
-`@utexo/rgb-lightning-node-nodejs` is the native binding for Node.js. It is an optional peer dependency, so install it explicitly. Its `postinstall` downloads a prebuilt native artifact; no Rust toolchain is required.
+Package installation alone does not provide the matching native executable. See [installation](/sdk/wdk-wallet-rgb#installation) for native worker setup.
 
-On Node.js, `import '@utexo/wdk-rgb-lightning'` resolves to the Node entry point and wires this binding automatically. For Bare / React Native worklets, install `@utexo/rgb-lightning-node-bare` instead.
+## Step 2: Open and Connect the Wallet
 
-## Step 2: Generate a Seed Phrase
-
-`WalletManagerRgbLightning` extends WDK's `WalletManager`, so the standard seed helpers are available:
+Load a saved BIP39 mnemonic from secure application storage. For a new wallet, generate and save a separate mnemonic first.
 
 ```javascript
-import WalletManagerRgbLightning from '@utexo/wdk-rgb-lightning';
+import WalletManagerRgb from '@utexo/wdk-wallet-rgb';
+import { resolve } from 'node:path';
 
-const mnemonic = WalletManagerRgbLightning.getRandomSeedPhrase();
-
-if (!WalletManagerRgbLightning.isValidSeedPhrase(mnemonic)) {
-  throw new Error('Invalid seed phrase');
+const nativeExecutable = process.env.UTEXO_RGB_NATIVE_EXECUTABLE;
+const nativeSha256 = process.env.UTEXO_RGB_NATIVE_SHA256;
+if (!nativeExecutable || !nativeSha256) {
+  throw new Error('Configure the verified native worker path and SHA-256');
 }
-```
 
-Store the mnemonic securely. Do not log it in production or commit it to source control. Re-using the same mnemonic and `dataDir` reproduces the same Lightning node identity across restarts.
-
-## Step 3: Create the Wallet and Unlock the Node
-
-Construct the manager with the seed and config, get the single account, then bring the node online with `unlock()`:
-
-```javascript
-const manager = new WalletManagerRgbLightning(mnemonic, {
+const mnemonic = await loadMnemonicFromSecureStorage();
+const manager = new WalletManagerRgb(mnemonic, {
   network: 'signet',
-  dataDir: './wallet-data/receiver',
+  mode: 'rgb',
+  profile: 'staging',
+  startupMode: 'offline',
+  dataDir: resolve('./wallet-data/signet-receiver'),
+  indexerUrl: 'ssl://stage.electrs-signet.mint.utexo.com:60602',
+  transportEndpoint: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
+  evmRpcUrls: { '42161': 'https://arb1.arbitrum.io/rpc' },
+  nativeExecutable,
+  nativeSha256,
+  maxFeeSats: 5000n,
+  authorize: (review) => requestWalletApproval(review),
 });
 
-const wallet = await manager.getAccount(0); // RGB Lightning is single-account
-
-const indexerUrl = 'https://mempool.space/signet/api'; // public signet Esplora
-
-await wallet.unlock({
-  ldk_chain_sync: {
-    mode: 'TransactionSync',
-    config: { indexer_url: indexerUrl },
-  },
-  indexer_url: indexerUrl,
-  proxy_endpoint: 'rpcs://proxy.iriswallet.com/0.2/json-rpc', // public signet RGB proxy
-  announce_addresses: [],
-  announce_alias: 'my-node',
-});
+const wallet = await manager.getAccount();
+await wallet.connect();
 ```
 
-`network` and `dataDir` are required at construction. `unlock()` takes the node's chain backend in `ldk_chain_sync` (`TransactionSync` with an Esplora or Electrum indexer, or `BlockSync` with bitcoind RPC), the RGB `indexer_url`, and the RGB transport `proxy_endpoint`. Sender and receiver must use the same network and an RGB proxy that both can reach. Failures throw a typed `UnlockError`.
+`loadMnemonicFromSecureStorage()` and `requestWalletApproval(review)` are application-owned functions. The approval callback returns `true` only after the application approves the exact recipient, amount, fee, and transaction plan. `nativeExecutable` must be an absolute path to the matching worker; the hash must come from the verified build.
 
-<Note>
-  To receive USDT on Bitcoin (BFA asset schema) minted by the Utexo Mint, also pass `eth_rpc_url`: an Ethereum JSON-RPC endpoint for the chain with the bridge contract (Arbitrum One for the Mint). The node uses it to validate the bridge events behind the asset. Without it the node keeps its non-BFA behavior.
-</Note>
+The network is **public Bitcoin signet**. The SDK accepts only the pinned Electrum indexer above; `https://mempool.space/signet/api` is an Esplora endpoint and cannot be used as its `indexerUrl`. The staging proxy is `https://staging.rgb-proxy.utexo.com/json-rpc`, represented by the required `rpcs://` URI in the SDK.
 
-<Warning>
-  Give every wallet its own `dataDir`. `rgb-lib` takes an exclusive lock on a wallet directory, and the sender and receiver in this guide are separate nodes. A mnemonic is necessary for key recovery, but it does not replace a backup of the RGB and channel state in `dataDir` — see VSS backup in the [reference](/sdk/wdk-rgb-lightning#vss).
-</Warning>
+Give the sender a separate mnemonic, manager, and storage directory, using the same signet staging profile. Opening in offline mode permits cached reads; `connect()` is required before allocating addresses, creating invoices, or spending.
 
-## Step 4: Fund the Wallet
+## Step 3: Fund the Wallet
 
 ```javascript
 const address = await wallet.getAddress();
 console.log('Deposit address:', address);
-
-const balance = await wallet.getBalance(); // bigint, satoshis
-console.log('Spendable BTC (sats):', balance);
+console.log('Spendable BTC (sats):', await wallet.getBalance());
 ```
 
-`getAddress()` throws `AccountLockedError` before `unlock()`. It returns a stable address; call `rotateAddress()` when you need a new one.
+Send signet BTC and wait for confirmations. The sender also needs BTC for fees and a spendable RGB balance.
 
-Send signet BTC to this address and wait for confirmation before creating RGB UTXOs. Signet blocks arrive about every 10 minutes.
-
-## Step 5: Create RGB UTXOs
-
-RGB allocations live on dedicated ("colored") UTXOs. `createUtxos()` takes RLN's native request:
+## Step 4: Prepare RGB Outputs
 
 ```javascript
-await wallet.createUtxos({
-  up_to: false,
-  num: 5,
-  size: 1000,     // satoshis per UTXO
-  fee_rate: 2,    // sat/vB
-  skip_sync: false,
+const outputOperationId = await createAndSaveOperationId('receiver-rgb-outputs');
+const outputs = await wallet.createUtxos({
+  operationId: outputOperationId,
+  count: 5,
+  size: '2000',
+  feeRate: '2',
 });
+console.log('RGB output transaction:', outputs.txid);
 ```
 
-## Step 6: Resolve the Asset From the Sender
+`createAndSaveOperationId()` is an application-owned function that persists a unique ID before submitting a new operation. After interruption, recover the saved operation rather than generating another ID and resubmitting. The authorization callback runs before signing.
 
-`listAssets()` forwards RLN's response, grouped by schema, with the snake_case `asset_id` field. USDT on Bitcoin from the Utexo Mint uses the **BFA** schema, so it is in the `bfa` array. Other test assets are in `nia`, `cfa`, `ifa`, or `uda`.
+`size` is in satoshis and `feeRate` is in sat/vB. Both use strings or `bigint`; `count` is a number. Wait for the output transaction's required confirmations before receiving.
+
+## Step 5: Resolve the BFA Asset
+
+`senderWallet` is the separately connected and funded account. Set `expectedAssetId` from the verified staging deployment metadata.
 
 ```javascript
-const { bfa } = await senderWallet.listAssets(['Bfa']);
-const usdt = (bfa ?? []).find((asset) => asset.ticker === 'USDT');
+const assets = await senderWallet.listAssets();
+const asset = assets.find(
+  (item) => item.assetId === expectedAssetId && item.schema === 'Bfa',
+);
+if (!asset) throw new Error('The sender does not hold the expected BFA asset');
 
-if (!usdt) {
-  throw new Error('The sender wallet does not hold USDT on Bitcoin');
-}
-
-const usdtAssetId = usdt.asset_id;
-const amount = 10 ** usdt.precision; // one displayed unit in base units
+const assetId = asset.assetId;
+const amount = 10n ** BigInt(asset.precision); // one displayed unit
 ```
 
-A new receiver wallet will not list an asset it has never received. Resolve the ID and precision from the funded sender or an authoritative asset registry. For issuing assets, use [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb).
+This API returns a flat asset array, not a `bfa` collection. Do not use a ticker alone to select the asset. Amounts use integer base units as decimal strings or `bigint`.
 
-## Step 7: Create a Receive Invoice
-
-Run this on the receiver wallet created above. `min_confirmations` and `witness` are required; `witness: false` creates a blinded invoice.
+## Step 6: Create a Receive Invoice
 
 ```javascript
-const receiveData = await wallet.createRgbInvoice({
-  min_confirmations: 1,
-  witness: false,
-  asset_id: usdtAssetId,
-  assignment_amount: amount,
-  duration_seconds: 3600,
+const receiveData = await wallet.blindReceive({
+  amount,
+  expirationSeconds: 3600,
+  minConfirmations: 3,
 });
-
 console.log('RGB invoice:', receiveData.invoice);
 ```
 
-`assignment_amount` is an integer in asset base units. One displayed unit equals `10 ** precision` base units; it is not always equal to `1`.
+Omit `assetId` when the receiver has not registered or received the asset yet. The sender specifies it explicitly. `createRgbInvoice({ mode: 'blind', ... })` provides the same receive flow.
 
-## Step 8: Send From the Funded Wallet
-
-The WDK-standard `transfer()` method recognizes an RGB invoice, decodes it, and builds the native send request for a fungible amount:
+## Step 7: Send From the Funded Account
 
 ```javascript
-const sendResult = await senderWallet.transfer({
-  recipient: receiveData.invoice,
+const sendOperationId = await createAndSaveOperationId('send-bfa');
+const result = await senderWallet.sendRgbInvoice({
+  operationId: sendOperationId,
+  invoice: receiveData.invoice,
+  assetId,
   amount,
-  token: usdtAssetId,
+  feeRate: '2',
+  minConfirmations: 3,
 });
-
-console.log('Transfer transaction:', sendResult.hash);
+console.log('Transfer transaction:', result.txid);
 ```
 
-For RGB invoices, `hash` is the anchoring Bitcoin txid. `transfer()` also routes BOLT11 invoices, Lightning node pubkeys, and BTC addresses. For non-fungible, multi-recipient, or witness sends, call `sendRgbAsset()` with a full `recipient_groups` request built from `decodeRgbInvoice()` — see the [reference](/sdk/wdk-rgb-lightning#rgb-assets).
+The sender validates the invoice's network, asset, amount, recipient key, and proxy before preparing the transaction. Witness invoices additionally require `witnessAmountSats`. Use `sendRgbInvoice()` for RGB transfers.
 
-The sender must be a separately created and unlocked `WalletAccountRgbLightning` with its own `dataDir`, sufficient signet BTC, and a spendable asset balance.
-
-## Step 9: Refresh and Verify
+## Step 8: Refresh and Verify
 
 ```javascript
-await senderWallet.refreshTransfers({ skip_sync: false });
-await wallet.refreshTransfers({ skip_sync: false });
+await senderWallet.refreshTransfers({ assetId });
+await wallet.refreshTransfers({ assetId });
 
-const receivedBalance = await wallet.getTokenBalance(usdtAssetId); // bigint
-console.log('Receiver asset balance:', receivedBalance);
+console.log('Receiver transfers:', await wallet.listTransfers({ assetId }));
+console.log('Receiver balance:', await wallet.getAssetBalance(assetId));
 ```
 
-A transfer can remain pending while its consignment is delivered and its Bitcoin anchor reaches the required confirmation count. Use `listTransfers(assetId)` to inspect its status.
+Repeat refreshes while consignments arrive and Bitcoin confirmations accumulate. Inspect transfer status until settlement; one refresh is not a settlement guarantee.
 
-## Step 10: Shut Down
+## Step 9: Recover Interrupted Operations and Close
+
+If the application loses a send response after submission was attempted, reopen the same wallet directory and recover using the saved ID:
 
 ```javascript
-manager.dispose();
+const recovered = await senderWallet.recoverSend(sendOperationId);
+console.log('Recovered send state:', recovered.state);
 ```
 
-`manager.dispose()` shuts down the native node and wipes retained seed material. Call it on every manager before the process exits.
-
-## Lightning Payments
-
-The same account exposes channels and BOLT11 payments on signet, testnet and regtest. On `mainnet`, Lightning methods throw `LightningDisabledError` (`code: 'LIGHTNING_DISABLED_ON_MAINNET'`) before any network call; on-chain RGB methods keep working. A payment needs a connected peer and an open channel with enough liquidity — unlocking the node does not create either.
+Use `getOperation()` and `listUnresolvedOperations()` to inspect state. Output creation uses `recoverCreateUtxos()` after submission was attempted; an interrupted `starting` or `prepared` operation uses `recoverUnsubmittedOperation()`. An unresolved result requires reconciliation, not another payment under a new ID.
 
 ```javascript
-await wallet.connectPeer(`${peerPubkey}@${peerHost}:${peerPort}`);
-
-await wallet.openChannel({
-  peer_pubkey_and_opt_addr: `${peerPubkey}@${peerHost}:${peerPort}`,
-  capacity_sat: 500_000,
-  push_msat: 0,
-  public: false,
-  with_anchors: true,
-});
-
-const { invoice } = await wallet.createLightningInvoice({
-  amountMsat: 3_000_000,
-  expirySec: 3600,
-});
-
-// On the paying node:
-await payerWallet.sendPayment({ invoice });
+await manager.shutdown();
 ```
 
-For RGB-over-Lightning, pass `asset_id` / `asset_amount` when opening the channel and creating the invoice. RGB-routed HTLCs have a minimum of 3,000,000 msat. To receive through the Utexo LSP instead of managing channels yourself, configure `lspBaseUrl` and use `account.createLsp()` — see the [wdk-rgb-lightning reference](/sdk/wdk-rgb-lightning).
+Await shutdown on the sender's manager as well. Preserve complete wallet state and operation journals through the application's backup process. The SDK has no `createBackup()` or `restoreAccountFromBackup()` API, and a mnemonic alone does not recover RGB state.
 
 ## Troubleshooting
 
-| Issue | Likely cause | Check |
-| --- | --- | --- |
-| `Cannot find package '@utexo/rgb-lightning-node-nodejs'` | Native binding not installed | Install the binding next to `@utexo/wdk-rgb-lightning` |
-| Native binding version rejected | Binding and WDK versions differ | Install both packages at the same version |
-| `UnlockError` | Unreachable indexer or proxy, or an invalid unlock request | Confirm the endpoints match `network` and that `ldk_chain_sync` sets one chain backend |
-| `AccountLockedError` | Method called before `unlock()` | Await `unlock()` before address, balance, or send calls |
-| Wallet directory lock error | Two wallets share a `dataDir` | Give each wallet its own directory |
-| `createUtxos()` fails | Insufficient confirmed BTC | Fund the wallet and wait for confirmation |
-| Asset cannot be found | Wrong schema, response shape, or unfunded sender | Read `listAssets().bfa` for USDT on Bitcoin (other schemas for test assets) and use `asset_id` |
-| `transfer()` fails | Invoice, amount, balance, or transport problem | Confirm the invoice is unexpired and the amount is in base units |
-| Balance does not update | Transfer is pending or wallet is stale | Call `refreshTransfers()` on both wallets and check `listTransfers()` |
-
-## Implementation References
-
-- [Package README](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/main/README.md)
-- [Type declarations](https://github.com/UTEXO-Protocol/wdk-rgb-lightning/blob/main/index.d.ts)
-- [End-to-end demo (LSP, RGB-over-Lightning, regtest stack)](https://github.com/UTEXO-Protocol/utexo-rgb-wdk-demo)
+| Issue | Check |
+| --- | --- |
+| Constructor rejects the network or endpoint | Use `signet`, `mode: 'rgb'`, `profile: 'staging'`, and the exact Electrum, proxy, and EVM RPC settings above |
+| `NATIVE_IDENTITY_MISMATCH` | Use the worker and hash matching the SDK build |
+| `WALLET_OFFLINE` | Call `connect()` before address allocation, invoices, or transaction preparation |
+| `AUTHORIZATION_DECLINED` | The application did not approve the transaction review |
+| BFA asset is missing or incompatible | Check the official asset ID, schema, contract export, and matching staging deployment |
+| Operation already exists or remains unresolved | Inspect and recover the original persisted operation ID |
+| Transfer stays pending | Refresh both wallets and inspect transfer results and Bitcoin confirmations |
 
 ## Next Steps
 
-- [wdk-rgb-lightning Reference](/sdk/wdk-rgb-lightning)
+- [wdk-wallet-rgb Reference](/sdk/wdk-wallet-rgb)
+- [BFA Burns and Proofs](/sdk/wdk-wallet-rgb#bfa-burns-and-proofs)
 - [WDK Overview](/sdk/wdk-overview)
-- [Architecture](/getting-started/architecture)
-- [Glossary](/getting-started/glossary)
+- [Source repository](https://github.com/UTEXO-Protocol/wdk-wallet-rgb/tree/main)

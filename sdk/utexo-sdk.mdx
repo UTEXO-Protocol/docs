@@ -1,6 +1,6 @@
 ---
 title: 'Utexo SDK Reference'
-description: 'The archived @utexo/rgb-sdk Node.js package. New Node.js integrations should use @utexo/wdk-rgb-lightning.'
+description: 'The archived @utexo/rgb-sdk Node.js package. New Node.js integrations should use @utexo/wdk-wallet-rgb.'
 sidebarTitle: 'Node.js (archived)'
 ---
 
@@ -8,19 +8,19 @@ sidebarTitle: 'Node.js (archived)'
   `@utexo/rgb-sdk` is **archived**. The [source repository](https://github.com/UTEXO-Protocol/rgb-sdk) is read-only; its last committed package version is `1.0.0-beta.9`. Do not start new Node.js integrations on this package.
 </Warning>
 
-For new Node.js (and Bare / React Native worklet) integrations, use [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning). It is the current WDK module for RGB-over-Lightning: channels, invoices, payments, HODL invoices, LSP, APay, and VSS.
+For new Node.js (and Bare / React Native worklet) integrations, use [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb). Use its on-chain RGB operations. Lightning, channels, HODL invoices, LSP, and APay remain **WIP**, for experimental testing only, and **not recommended for production**. The current `@utexo/rgb-sdk-rn` package supports on-chain operations only.
 
 | Instead of | Use |
 |---|---|
-| `@utexo/rgb-sdk` (Node.js, archived) | [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning) |
+| `@utexo/rgb-sdk` (Node.js, archived) | [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb) |
 | Browser | [`@utexo/rgb-sdk-web`](/sdk/web-sdk) |
 | iOS / Android | [`@utexo/rgb-sdk-rn`](/sdk/react-native-sdk) |
-| On-chain RGB issuance (WDK) | [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb) |
+| On-chain RGB wallet (WDK) | [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb) |
 
-New work should start with the [Node.js Quickstart](/getting-started/quickstart/node-js), which uses `@utexo/wdk-rgb-lightning`, and the [wdk-rgb-lightning reference](/sdk/wdk-rgb-lightning).
+New work should start with the [Node.js Quickstart](/getting-started/quickstart/node-js), which uses `@utexo/wdk-wallet-rgb`, and the [wdk-wallet-rgb reference](/sdk/wdk-wallet-rgb).
 
 ## Further Reading
 
-- [wdk-rgb-lightning Reference](/sdk/wdk-rgb-lightning)
+- [wdk-wallet-rgb Reference](/sdk/wdk-wallet-rgb)
 - [SDK Overview](/product-suite/sdk)
 - [WDK Overview](/sdk/wdk-overview)

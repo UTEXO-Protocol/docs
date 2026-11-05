@@ -65,7 +65,7 @@ The transport only delivers data. It never replaces client-side validation.
 
 ## On-chain and Lightning
 
-RGB assets can move on-chain (each transfer anchored by a Bitcoin transaction) or over Lightning through RGB channels, for instant, low-cost payments. With Utexo, on-chain RGB is supported on mainnet and Lightning is available on testnet. One [RGB Lightning Node](/overview) covers both paths, so integrating on-chain now needs no second integration later.
+RGB assets can move on-chain (each transfer anchored by a Bitcoin transaction) or over Lightning through RGB channels, for instant, low-cost payments. With Utexo, on-chain RGB is supported on mainnet. Lightning is WIP, available only for experimental testing where the backend supports it, and not recommended for production. The [RGB Lightning Node](/overview) exposes both paths, but the current React Native SDK uses on-chain rgb-lib with Lightning / RLN disabled on all networks.
 
 ## Next steps
 
