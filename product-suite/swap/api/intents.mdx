@@ -1,26 +1,20 @@
 ---
 title: "Intents"
-description: "What an intent is and how it moves from creation to settlement."
+description: "How a quote becomes an intent and how the user funds it."
 sidebarTitle: "Overview"
 ---
 
-An intent represents a user's request to perform a swap. It can only be created from a quote, to which it is attached. The intent defines **what** the user wants to do; the protocol handles **how** it is executed.
+An intent binds a quote to the user's source, destination, and refund addresses. The quote also supplies the source amount, destination bounds, and selected resolver.
 
-Intents are chain-agnostic and support multiple blockchains and approval mechanisms.
+## Funding flows
 
-## Intent lifecycle
+The affiliate configuration selects the permit or user-broadcast flow. The intent response identifies the flow through `approval_mechanism`.
 
-<Steps>
-  <Step title="Creation">
-    The client [creates an intent](/product-suite/swap/api/intents/creation) from a quote with the user's addresses.
-  </Step>
-  <Step title="Approval">
-    The user authorizes use of their funds with the chain-specific [approval mechanism](/product-suite/swap/api/intents/approvals): Permit2 on EVM and Tron, a PSBT on Bitcoin, or a cosigned transaction on Solana.
-  </Step>
-  <Step title="Execution">
-    Once approved, the resolver processes the intent and executes the swap.
-  </Step>
-  <Step title="Status tracking">
-    The client can [query the intent status](/product-suite/swap/api/intents/status) at any time to track progress or the final outcome.
-  </Step>
-</Steps>
+- In the permit flow, the user signs a Permit2 message, Bitcoin PSBT, or Solana transaction. The client submits an approval, and the resolver broadcasts the transaction.
+- In the user-broadcast flow, the user signs and broadcasts the transaction. For RGB, the user pays the returned witness invoice instead. The client reports the transaction hash.
+
+RGB sources always use the user-broadcast flow, regardless of the affiliate configuration.
+
+## Lifecycle
+
+[Intent creation](/product-suite/swap/api/intents/creation) returns either [approval data](/product-suite/swap/api/intents/approvals) or [user deposit data](/product-suite/swap/api/intents/deposits). Once the source-chain funds are available, the resolver fulfills the swap. [Intent status](/product-suite/swap/api/intents/status) combines the intent state with its execution state.

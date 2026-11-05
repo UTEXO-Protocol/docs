@@ -1,5 +1,5 @@
 ---
-title: "Resolver Overview"
+title: "Resolver overview"
 description: "Understand resolver responsibilities, intent lifecycle, and how Utexo coordinates quoting, settlement, and refunds."
 sidebarTitle: "Overview"
 ---
@@ -28,13 +28,11 @@ A **quote** is a resolver's response to a quote callback. Quotes are:
 - Associated with affiliate fee information supplied by Utexo
 - Optionally routed through an intermediate token (typically USDC) for cross-chain paths
 
-<Note>
-  Utexo does not publish a canonical quote response schema. Return the destination bounds, expiry, and affiliate/intermediate routing data your resolver has agreed with Utexo, and validate against the current integration contract before going live.
-</Note>
+The [quote callback reference](/product-suite/swap/resolver-integration/resolver-api#quote-callback) defines the request and response fields.
 
 ## Lifecycles
 
-Actual signing and settlement differ by chain. See [EVM and Tron Settlement](/product-suite/swap/resolver-integration/evm-tron-settlement), [Solana Settlement](/product-suite/swap/resolver-integration/solana-settlement), and [Bitcoin Settlement](/product-suite/swap/resolver-integration/bitcoin-settlement) for chain-specific details.
+Signing and settlement differ by chain. The settlement guides cover [EVM and Tron](/product-suite/swap/resolver-integration/evm-tron-settlement), [Solana](/product-suite/swap/resolver-integration/solana-settlement), [Bitcoin](/product-suite/swap/resolver-integration/bitcoin-settlement), and [RGB USDT](/product-suite/swap/resolver-integration/rgb-settlement).
 
 ### Standard escrowed swap
 
@@ -61,17 +59,21 @@ Actual signing and settlement differ by chain. See [EVM and Tron Settlement](/pr
     Utexo reveals the secret. Withdraw the source-chain escrow.
   </Step>
   <Step title="Report withdrawal">
-    Report the withdrawal transaction hash through the withdrawal reporting endpoint.
+    Call `POST /v1/intents/batch/withdraw` with `tx_hash` and `intent_ids`.
   </Step>
 </Steps>
 
 ### Optimized single-chain swap
 
-A single atomic step. Utexo signals completion with `SwapConfirmed`; no further resolver action is required.
+Report the atomic swap transaction through `POST /v1/intents/{id}/add-swap`. Utexo signals completion with `SwapConfirmed`.
 
 ### Refund
 
 `RefundConfirmed` is terminal. The user has been refunded and your resolver must stop any in-flight fulfillment attempts for that intent.
+
+## User-broadcast flow
+
+For user-broadcast intents, the affiliate reports the source transaction. The resolver supplies transaction data through the [Resolver API callback](/product-suite/swap/resolver-integration/resolver-api#user-broadcast-transaction-callback), then fulfills after `DepositConfirmed` / `UserDepositConfirmed`. The `flow_kind` field distinguishes `Permit` and `UserBroadcast`.
 
 ## Resolver responsibilities
 

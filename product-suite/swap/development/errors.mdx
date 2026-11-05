@@ -4,15 +4,16 @@ description: "Error response format and error codes returned by the Utexo Swap A
 sidebarTitle: "Errors"
 ---
 
-The API returns errors in a consistent JSON format. Each error includes a numeric code, a short message, and the related entity.
+Service errors include a numeric code, a message, the related entity, and `details`. The `details` field is `null` when no additional information is available.
 
 ## Error response format
 
 ```json
 {
-  "code": 1,
-  "message": "Internal server error",
-  "entity": "Intent"
+	"code": 1,
+	"message": "Internal server error",
+	"entity": "Intent",
+	"details": null
 }
 ```
 
@@ -49,7 +50,7 @@ The API returns errors in a consistent JSON format. Each error includes a numeri
 | 27 | Invalid slippage provided | Slippage value is invalid |
 | 28 | Invalid signature length | Signature length is invalid |
 | 29 | Failed to process withdrawToUser | User withdraw task failed |
-| 31 | Public key is required | Resolver deposit public key is missing |
+| 31 | Public key is required | A required source or resolver public key is missing. |
 | 32 | Invalid public key | Public key is invalid |
 | 33 | Internal server error | BTC transaction builder failed |
 | 34 | Internal server error | The backend could not complete communication with the resolver or could not process the resolver response. |
@@ -62,7 +63,6 @@ The API returns errors in a consistent JSON format. Each error includes a numeri
 | 41 | Swap amount is too large | Resolver quoted an amount above maximum |
 | 42 | Missing required query parameters | Required query parameters were omitted |
 | 43 | Native tokens cannot be used as a source token. Wrapped token should be used instead | Source token is invalid for the request |
-| 44 | Direct deposit (escrow as a feature) is not supported by any resolver | Direct deposit is not supported |
 | 45 | Internal server error | Signature creation failed |
 | 46 | The requested pair cannot be quoted | No quote is available for the requested pair |
 | 47 | Invalid fulfillment submission signature | Fulfillment signature validation failed |
@@ -70,9 +70,21 @@ The API returns errors in a consistent JSON format. Each error includes a numeri
 | 53 | Inactive API key | Affiliate API key is inactive |
 | 57 | Affiliate fee key is reserved | Affiliate tried to use a reserved fee key |
 | 59 | Invalid fee bps provided | Fee basis points are invalid |
-| 60 | Resolver API error | The resolver failed while processing the quote request. |
-| 61 | Call to the resolver API timed out | The resolver did not respond within the allowed time window. The quote request may be retried later. |
+| 60 | Call to the resolver API failed | The resolver returned an internal error. |
+| 61 | Call to the resolver API timed out | The callback exceeded its request timeout. |
+| 62 | Rate limit exceeded | HTTP `429`. The affiliate request limit was exceeded. |
+| 63 | Internal server error | The rate-limit store failed. |
+| 64 | Action not allowed for flow kind | HTTP `409`. The operation does not apply to the intent's funding flow. |
+| 65 | Ownership mismatch | HTTP `403`. The authenticated affiliate or resolver does not own the resource. |
+| 66 | Resolver calldata kind and expected network mismatch | The resolver returned transaction data for a different network family. |
+| 67 | Resolver calldata validation error | The resolver's transaction data failed validation. |
+| 68 | Failed to derive proxy address | Escrow address derivation failed. |
+| 69 | Conversion error | A value could not be converted to the required type. |
+| 70 | Insufficient UTXOs for RGB lock | The wallet cannot fund the RGB lock. |
+| 71 | RGB lock outpoint is missing; deposit must be confirmed first | The RGB lock has no confirmed outpoint. |
+| 72 | Invalid resolver configuration | Resolver configuration is invalid. |
+| 76 | RGB lock consignment check failed | HTTP `409` for a retryable check, `400` for a permanent check failure, or `500` for an internal error. |
 
 <Note>
-  Code **25** during approval submission usually means the user has not yet approved Permit2 for the source token. See [Approve for Permit2](/product-suite/swap/on-chain-helpers/approve-for-permit2). Code **43** means a native token was used as the source; wrap it first, see [Wrap Native Tokens](/product-suite/swap/on-chain-helpers/wrap-native-tokens).
+  Code `25` can mean either an insufficient source-token balance or an insufficient Permit2 allowance. Check both against the quoted source amount. See [Approve for Permit2](/product-suite/swap/on-chain-helpers/approve-for-permit2). Code `43` means the selected funding flow requires a wrapped source token. See [Wrap native tokens](/product-suite/swap/on-chain-helpers/wrap-native-tokens).
 </Note>

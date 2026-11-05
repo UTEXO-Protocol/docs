@@ -1,26 +1,20 @@
 ---
-title: "System Health Check"
-description: "Check that the Utexo Swap API is up and ready to accept requests."
-sidebarTitle: "Health Check"
+title: "System liveness"
+description: "Check whether the affiliate API process responds to requests."
+sidebarTitle: "Health check"
 ---
 
-Use this endpoint to verify that the system is up and ready to accept requests. It returns no data; it only confirms that the API is healthy and responsive.
-
 ```http
-GET /v1/system/live
+GET /affiliate/v1/system/live
 ```
 
-The endpoint requires your API key in the `X-API-Key` header, like the affiliate endpoints. A request without the header returns `400` with error code `14` ("Malformed header").
+The endpoint returns HTTP `200` with an empty body after affiliate authentication. It checks that the API process responds. It does not check database, queue, or blockchain-provider readiness.
 
 ```bash
-curl -i https://stage.api.swap.utexo.com/v1/system/live \
-  -H "X-API-Key: $UTEXO_SWAP_API_KEY"
+curl -i https://stage.api.swap.utexo.com/affiliate/v1/system/live \
+	-H "X-API-Key: $UTEXO_SWAP_API_KEY"
 ```
 
-## Response
+A missing or malformed header returns HTTP `400` with error code `14`. An inactive API key returns HTTP `401` with code `53`. Other authentication or service failures use the [error response format](/product-suite/swap/development/errors).
 
-| Status | Meaning |
-| --- | --- |
-| `200 OK` | The system is healthy and ready to process requests. |
-| `400 Bad Request` | The `X-API-Key` header is missing or malformed (error code `14`). |
-| `500 Internal Server Error` | The system is experiencing issues. |
+`GET /v1/system/live` is the resolver endpoint and requires a resolver API key.

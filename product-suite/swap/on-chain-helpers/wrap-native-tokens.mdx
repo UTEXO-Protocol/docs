@@ -1,12 +1,14 @@
 ---
-title: "Wrap Native Tokens"
+title: "Wrap native tokens"
 description: "Wrap native blockchain assets into token contracts before Utexo Swap execution."
-sidebarTitle: "Wrap Native Tokens"
+sidebarTitle: "Wrap native tokens"
 ---
 
 ## Overview
 
-For source inputs, Utexo Swap interacts with token contracts rather than native blockchain assets. Wrap the source asset before execution, for example, wrap ETH into WETH on Ethereum, and use the wrapped-token contract address as `sourceToken`. This requirement applies to source assets. On EVM destination chains, settlement can return native ETH by having the resolver supply WETH and the protocol unwrap it before transfer to the user.
+For the Permit2 approval flow on EVM and Tron, wrap native source assets before you request a quote. For example, wrap ETH into WETH, then use the WETH contract address as `source_token`. A native source token in this flow returns error code `43`.
+
+The user-broadcast flow can use native source deposits when the network and resolver support them. Bitcoin and Solana also support native source assets. On EVM destination chains, settlement can return native ETH through unwrapping.
 
 ```ts
 import { ethers } from "ethers";
@@ -14,24 +16,24 @@ import { ethers } from "ethers";
 const WETH_ABI = ["function deposit() external payable"];
 
 async function wrapNative(
-  wrappedTokenAddress: string,
-  amount: bigint,
-  signer: ethers.Signer,
+	wrappedTokenAddress: string,
+	amount: bigint,
+	signer: ethers.Signer,
 ): Promise<ethers.TransactionReceipt> {
-  const wrappedToken = new ethers.Contract(
-    wrappedTokenAddress,
-    WETH_ABI,
-    signer,
-  );
+	const wrappedToken = new ethers.Contract(
+		wrappedTokenAddress,
+		WETH_ABI,
+		signer,
+	);
 
-  const transaction = await wrappedToken.deposit({ value: amount });
-  const receipt = await transaction.wait();
+	const transaction = await wrappedToken.deposit({ value: amount });
+	const receipt = await transaction.wait();
 
-  if (!receipt) {
-    throw new Error("The wrapping transaction did not produce a receipt");
-  }
+	if (!receipt) {
+		throw new Error("The wrapping transaction did not produce a receipt");
+	}
 
-  return receipt;
+	return receipt;
 }
 ```
 
