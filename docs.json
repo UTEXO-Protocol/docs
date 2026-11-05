@@ -22,7 +22,7 @@
     },
     {
       "source": "/sdk/utexo-sdk",
-      "destination": "/sdk/wdk-rgb-lightning"
+      "destination": "/sdk/wdk-wallet-rgb"
     },
     {
       "source": "/cloud/rgb-lightning-node-api",

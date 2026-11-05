@@ -1,236 +1,220 @@
 ---
 title: 'wdk-wallet-rgb Reference'
-description: 'Complete reference for @utexo/wdk-wallet-rgb — WDK-compatible RGB asset management for wallet builders.'
+description: 'Node.js on-chain RGB wallets, BFA assets, transfers, burns, and recovery.'
 sidebarTitle: 'wdk-wallet-rgb'
 ---
 
-`@utexo/wdk-wallet-rgb` bridges the Wallet Development Kit (WDK) interfaces with the RGB ecosystem. It wraps the `@utexo/rgb-lib-bare` native addon and the `@utexo/rgb-sdk` Taproot signer inside standard WDK account abstractions, giving wallet builders first-class RGB support without reimplementing the protocol layer.
+**Use `@utexo/wdk-wallet-rgb` for Node.js on-chain RGB integrations.** The API uses a native rgb-lib engine with BFA support, application-side signing, and persistent operation records for recovery.
 
-<Warning>
-  The published `@utexo/wdk-wallet-rgb` (`2.0.3`) predates the BFA asset schema used by USDT on Bitcoin, so it cannot hold or burn Mint USDT. It is being updated to the BFA `rgb-lib`, to become the on-chain path of the wallet SDK: RGB through `rgb-lib` only, without an RGB Lightning Node.
-</Warning>
+The package is on-chain only. Lightning remains WIP, for experimental testing only, and is not recommended for production.
 
 ## Installation
 
 ```bash
-npm install @utexo/wdk-wallet-rgb
+npm install @utexo/wdk-wallet-rgb@latest
 ```
+
+For setup and native worker instructions, see the [source repository](https://github.com/UTEXO-Protocol/wdk-wallet-rgb/tree/main).
+
+The Node.js build requires Node `^22.21.0` or `>=24.9.0`, a matching protocol-2 native worker, and its verified SHA-256. The native engine is Electrum-only. Android Bare uses its matching native addon; it does not use the Node executable.
 
 ## Configuration
 
-| Option | Type | Description |
-|---|---|---|
-| `network` | `string` | Bitcoin network: `'mainnet'`, `'testnet'`, `'testnet4'`, `'signet'`, `'utexo'`, `'regtest'` |
-| `dataDir` | `string` | Path to a persistent directory for SQLite state storage |
-
-## Classes
-
-### `WalletManagerRgb`
-
-The top-level manager. Constructs account instances and manages the underlying `rgb-lib` state.
+Public Bitcoin signet supports an explicit staging RGB profile. Pass the mnemonic and configuration to the default `WalletManagerRgb` export:
 
 ```typescript
-import { WalletManagerRgb } from '@utexo/wdk-wallet-rgb';
+import WalletManagerRgb, { type CandidateConfig } from '@utexo/wdk-wallet-rgb';
 
-const manager = new WalletManagerRgb({
-  network: 'utexo',
-  dataDir: '/path/to/wallet-data',
-});
+const config: CandidateConfig = {
+  network: 'signet',
+  mode: 'rgb',
+  profile: 'staging',
+  startupMode: 'offline',
+  dataDir: '/absolute/path/to/signet-rgb-wallet',
+  indexerUrl: 'ssl://stage.electrs-signet.mint.utexo.com:60602',
+  transportEndpoint: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
+  evmRpcUrls: { '42161': 'https://arb1.arbitrum.io/rpc' },
+  nativeExecutable: '/absolute/path/to/utexo-rgb-native',
+  nativeSha256: verifiedNativeSha256,
+  maxFeeSats: 5000n,
+  authorize: (review) => requestWalletApproval(review),
+};
+
+const manager = new WalletManagerRgb(mnemonic, config);
+const account = await manager.getAccount();
+await account.connect();
 ```
 
-#### Methods
+`verifiedNativeSha256` is the expected digest from the verified native build. `requestWalletApproval(review)` is an application-owned callback returning a boolean or `Promise<boolean>` for the exact transaction being reviewed. Present the recipient, amount, fee, and transaction plan before returning `true`.
 
-| Method | Description |
-|---|---|
-| `getAccount(mnemonic)` | Derive a `WalletAccountRgb` from a BIP39 mnemonic |
-| `restoreFromBackup(backup, mnemonic)` | Restore wallet state from an encrypted backup, then return the account |
-| `getFeeRate()` | Get current fee rate estimate |
-| `dispose()` | Release native resources |
+| Option | Purpose |
+| --- | --- |
+| `network` | `signet` for this guide; the SDK also supports isolated `regtest` |
+| `mode`, `profile` | Public signet RGB requires `mode: 'rgb'` and `profile: 'staging'` |
+| `dataDir` | Absolute, private, persistent directory dedicated to this wallet |
+| `indexerUrl` | Public signet requires `ssl://stage.electrs-signet.mint.utexo.com:60602` |
+| `transportEndpoint` | Staging requires `rpcs://staging.rgb-proxy.utexo.com/json-rpc` |
+| `evmRpcUrls` | Staging requires `{ '42161': 'https://arb1.arbitrum.io/rpc' }` for BFA history validation |
+| `nativeExecutable`, `nativeSha256` | Node worker path and expected SHA-256 matching this SDK build |
+| `maxFeeSats` | Required transaction fee cap, as a decimal string or `bigint` |
+| `authorize(review)` | Required transaction approval callback |
+| `startupMode` | `online` by default; `offline` opens local state before `connect()` |
+| `burnDestinationRoutes` | Optional enabled V1 payout routes; staging permits only `{ chainId: 'eip155:42161', dstEid: 0 }` |
+
+The staging proxy is the service at `https://staging.rgb-proxy.utexo.com/json-rpc`; this SDK requires its `rpcs://` transport URI. The SDK accepts only the configured Electrum endpoint for public signet. Esplora endpoints, including `https://mempool.space/signet/api`, and proxy credentials are not supported.
+
+For BTC-only seed recovery, use `mode: 'btc-only'` with the signet Electrum endpoint and omit the RGB profile, proxy, EVM RPC, and burn-route settings. That mode does not enable RGB operations. Mainnet and the `utexo` network alias are not accepted by this SDK.
+
+## Lifecycle and Amounts
+
+`getAccount()` opens account `0`. With offline startup, reads use cached state until `connect()` succeeds. Address allocation, invoice creation, and transaction preparation need a connected session.
+
+| Method | Purpose |
+| --- | --- |
+| `getAccount()` / `getAccount(0)` | Open the manager's single account |
+| `connect()` | Connect to the configured Electrum service and verify the chain |
+| `getConnectionStatus()` | Report `offline`, `connected`, or `unavailable` |
+| `getNetworkInfo()` | Read the current chain tip |
+| `checkIndexerUrl()` / `checkProxyEndpoint()` | Check the configured services |
+| `manager.shutdown()` / `manager.dispose()` | Stop the session and release resources; **await completion** |
+
+Amounts, UTXO sizes, fee caps, and fee rates use **decimal strings or `bigint`**, not JavaScript numbers. Asset balances and history preserve exact decimal strings; `getBalance()` and `getTokenBalance(assetId)` return `bigint`. Counts and confirmation requirements remain numbers.
+
+## Assets and BFA
+
+`listAssets()` returns a **flat array**. Each entry has `assetId`, `schema`, `ticker`, `name`, `precision`, and `balance`. BFA assets have `schema: 'Bfa'`; there is no `listAssets().bfa` property in this API.
 
 ```typescript
-const account = await manager.getAccount(mnemonic);
+const assets = await account.listAssets();
+const usdt = assets.find(
+  (asset) => asset.assetId === expectedAssetId && asset.schema === 'Bfa',
+);
+if (!usdt) throw new Error('The expected BFA asset is not in this wallet');
 
-// Or restore from backup first
-const account = await manager.restoreFromBackup(backupData, mnemonic);
+const oneDisplayUnit = 10n ** BigInt(usdt.precision);
+const balance = await account.getAssetBalance(usdt.assetId);
 ```
 
----
+Use the asset ID from the official deployment metadata. A ticker alone does not identify the asset.
 
-### `WalletAccountRgb`
+| Method | Purpose |
+| --- | --- |
+| `listAssets()` | List held or registered assets |
+| `getAssetBalance(assetId)` / `getTokenBalance(assetId)` | Read the full balance / spendable base units |
+| `getAssetMetadata(assetId)` | Read asset metadata |
+| `registerAssetContract({ contract, assetId, sha256 })` | Validate and register public contract bytes; `contract` is a `Uint8Array` |
+| `importRgbContract(options)` | Alias for contract registration |
+| `getReceivedMint(recipientId)` | Read the received mint's bridge metadata, or `null` |
 
-The primary account class. Implements the standard WDK account interface plus RGB-specific operations.
+Contract registration does not create an asset balance. The public API does not expose the old `issueAssetNia()` flow.
 
-#### Address & Signing (Standard WDK)
+<Note>
+  Use a compatible BFA issuance with official contract bytes, asset ID, metadata, and export checksum, plus matching deployed bridge services. BFA support in the SDK does not make an older staging asset compatible.
+</Note>
 
-| Method | Description |
-|---|---|
-| `getAddress()` | Get current receive address |
-| `sign(psbt)` | Sign a PSBT with the account's key material |
-| `sendBtc({ address, amount, feeRate })` | On-chain BTC send |
-
-#### RGB Assets
-
-```typescript
-// Issue a Non-Inflationary Asset
-const asset = await account.issueAssetNia({
-  ticker: 'MYTOKEN',
-  name: 'My Token',
-  precision: 6,
-  amounts: [1_000_000],
-});
-
-// Issue a Collectible Fungible Asset
-const cfa = await account.issueAssetCfa({
-  name: 'Collectible',
-  precision: 0,
-  amounts: [100],
-  description: 'A collectible token',
-  fileDigest: null,
-});
-
-// Issue a Unique Digital Asset (NFT)
-const uda = await account.issueAssetUda({
-  name: 'My NFT',
-  precision: 0,
-  details: 'metadata...',
-  fileDigest: null,
-});
-
-// Issue an Inflatable Asset
-const ifa = await account.issueAssetIfa({
-  ticker: 'IFA',
-  name: 'Inflatable',
-  precision: 0,
-  amounts: [500],
-  inflationAmounts: [{ assetId: '', amount: 100 }],
-  rejectListUrl: '',
-});
-```
-
-| Method | Description |
-|---|---|
-| `issueAssetNia({ ticker, name, precision, amounts })` | Issue a Non-Inflationary Asset |
-| `issueAssetCfa({ name, precision, amounts, description?, fileDigest? })` | Issue a Collectible Fungible Asset |
-| `issueAssetUda({ name, precision, details?, fileDigest? })` | Issue a Unique Digital Asset (NFT) |
-| `issueAssetIfa({ ticker, name, precision, amounts, inflationAmounts, rejectListUrl })` | Issue an Inflatable Asset |
-| `inflateAsset({ assetId, amounts })` | Inflate an existing IFA |
-
-#### Inventory & Balances
-
-| Method | Description |
-|---|---|
-| `listAssets()` | List all RGB assets in the wallet |
-| `getAssetBalance(assetId)` | Get balance for a specific asset |
-| `listTransfers(assetId?)` | List RGB transfer history. Statuses: `WaitingCounterparty`, `WaitingConfirmations`, `Settled`, `Failed` |
-| `listUnspents()` | List unspent UTXOs with RGB allocations |
-
-#### Transfers
+## Receive and Send RGB
 
 ```typescript
-// Receive — blinded invoice
-const receiveData = await account.blindReceive({
+const receive = await receiverAccount.blindReceive({
+  amount: '100',
+  expirationSeconds: 3600,
+  minConfirmations: 3,
+});
+
+const result = await account.sendRgbInvoice({
+  operationId: savedSendOperationId,
+  invoice: receive.invoice,
   assetId,
-  amount: 5000,
-  minConfirmations: 1,
-  durationSeconds: 3600,
+  amount: '100',
+  feeRate: '2',
+  minConfirmations: 3,
 });
 
-// Send
-await account.transferAsset({
-  invoice: receiveData.invoice,
+await account.refreshTransfers({ assetId });
+await receiverAccount.refreshTransfers({ assetId });
+```
+
+`receiverAccount` is a separate connected wallet using the same network and proxy. Omit `assetId` from the receive request if the asset is not known to that wallet yet. The sender provides the asset ID and exact amount. A successful send returns `txid`; settlement still needs consignment exchange and Bitcoin confirmations.
+
+| Method | Purpose |
+| --- | --- |
+| `blindReceive(options?)` / `witnessReceive(options?)` | Create an RGB invoice |
+| `createRgbInvoice({ mode?, ...options })` | Select `blind` (default) or `witness` receive |
+| `decodeRgbInvoice(invoice)` | Decode network, asset, recipient, and transport details |
+| `sendRgbInvoice(request)` | Prepare, authorize, sign, and submit an on-chain RGB transfer |
+| `listTransfers({ assetId?, txid? }?)` | Read transfer history |
+| `getInvoiceStatus(recipientId)` | Read the incoming transfer, or `null` |
+| `refresh(assetId?)` / `refreshTransfers({ assetId? }?)` | Advance transfers and return per-transfer results |
+
+For a witness invoice, supply `witnessAmountSats` in `sendRgbInvoice()`. The SDK does not use the legacy `receiveAsset()`, `transfer()`, `witnessData`, or `refreshWallet()` API.
+
+## Bitcoin and RGB UTXOs
+
+| Method | Purpose |
+| --- | --- |
+| `getAddress()` / `getNewAddress()` | Get the current session address / allocate another address |
+| `getBtcBalance()` / `getBalanceDetails()` | Read vanilla and colored balances |
+| `getBalance()` | Read spendable vanilla BTC in satoshis as `bigint` |
+| `createUtxos({ operationId, count, size, feeRate })` | Prepare outputs for RGB allocations |
+| `listUnspents()` / `getTransactions()` | Read UTXOs / Bitcoin history |
+| `sendBtc({ operationId, address, amount, feeRate })` | Send BTC on-chain |
+| `sync()` | Refresh wallet state |
+
+Fund the wallet before creating RGB outputs. For example, `count: 5`, `size: '2000'`, and `feeRate: '2'` creates five outputs of 2,000 satoshis at 2 sat/vB, subject to available balance and authorization.
+
+## BFA Burns and Proofs
+
+Enable a burn route only after verifying the corresponding bridge deployment. The signet staging profile currently permits direct Arbitrum payout only: `burnDestinationRoutes: [{ chainId: 'eip155:42161', dstEid: 0 }]` in the constructor configuration.
+
+```typescript
+import { burnDestinationFor, createBurnPackage } from '@utexo/wdk-wallet-rgb';
+
+const info = account.getInfo();
+if (!('burnDestinationRoutes' in info) || !info.burnDestinationRoutes?.length) {
+  throw new Error('No burn destination route is enabled');
+}
+
+const burnRecipient = { chainId: 'eip155:42161' as const, address: payoutAddress };
+const burnDestination = burnDestinationFor(burnRecipient, info.burnDestinationRoutes);
+const burn = await account.burnAsset({
+  operationId: savedBurnOperationId,
   assetId,
-  amount: 5000,
+  amount: '100',
+  feeRate: '2',
+  minConfirmations: 6,
+  burnRecipient,
+  burnDestination,
 });
+
+const proof = await account.getConsignment({ assetId, txid: burn.txid });
+const burnPackage = createBurnPackage(Buffer.from(proof.data, 'base64'), burnDestination);
 ```
 
-| Method | Description |
-|---|---|
-| `blindReceive({ assetId?, amount?, minConfirmations?, durationSeconds? })` | Generate a blinded RGB invoice |
-| `witnessReceive({ assetId?, amount?, minConfirmations?, durationSeconds? })` | Generate a witness RGB invoice |
-| `transferAsset({ invoice, assetId, amount, donation?, feeRate? })` | Execute an RGB asset transfer |
-| `decodeRgbInvoice(invoice)` | Decode an RGB invoice |
+The application supplies the payout address and persists the operation ID before calling `burnAsset()`. Burns require at least six confirmations in the request. Proof export does not establish Bitcoin finality or confirm the EVM payout. Follow [Mint and Burn Integration](/mint/mint-burn-integration) for the bridge submission and settlement flow.
 
-#### UTXO Management
+`getConsignment()` returns a verified Base64 proof with its asset ID, txid, length, and digest. After interruption, `recoverBurn(operationId)` recovers the recorded burn result, destination, and proof.
 
-| Method | Description |
-|---|---|
-| `createUtxos({ num?, size?, upTo? })` | Create colored UTXOs for RGB operations |
-| `syncWallet()` | Sync blockchain and UTXO state |
-| `refreshWallet()` | Refresh RGB transfer state |
+## Operation Recovery and Wallet State
 
-#### Backup
+Persist a unique `operationId` before `createUtxos()`, `sendBtc()`, `sendRgbInvoice()`, or `burnAsset()`. It belongs to that operation across application restarts. After a lost response, inspect and recover the original operation instead of submitting it under a new ID.
 
-| Method | Description |
-|---|---|
-| `createBackup({ backupPath, password })` | Create encrypted local backup |
+| Method | Purpose |
+| --- | --- |
+| `getOperation(operationId)` / `listUnresolvedOperations()` | Inspect persistent operation records |
+| `recoverSend(operationId)` | Reconcile a send after submission was attempted |
+| `recoverCreateUtxos(operationId)` | Reconcile RGB output creation after submission was attempted |
+| `recoverBurn(operationId)` | Recover a burn and its proof |
+| `recoverUnsubmittedOperation(operationId)` | Reconcile an interrupted `starting` or `prepared` operation before submission |
 
----
+Recovery may remain unresolved; it is not an automatic retry. Keep the same wallet directory and resolve the recorded operation before another spend.
 
-### `WalletAccountReadOnlyRgb`
+The SDK has no `createBackup()` or `restoreAccountFromBackup()` method. Preserve the complete authenticated wallet state and operation journals with an application-managed backup process. A seed alone recovers only the explicit BTC-only flow, not RGB state. Do not reuse an old SDK or RLN wallet directory: the SDK does not migrate it, and the same seed can derive a different wallet identity.
 
-A view-only account that does not hold private key material. Use for watch-only wallet UIs or balance dashboards.
-
-```typescript
-const readOnly = await manager.getReadOnlyAccount(xpub);
-```
-
-| Method | Description |
-|---|---|
-| `getBalance()` | BTC balance (vanilla + colored) |
-| `listAssets()` | List RGB assets |
-| `verifySignature({ message, signature, address })` | Verify a Schnorr or ECDSA signature |
-
-## Full Example
-
-```typescript
-import { WalletManagerRgb } from '@utexo/wdk-wallet-rgb';
-
-const manager = new WalletManagerRgb({
-  network: 'utexo',
-  dataDir: '/path/to/wallet-data',
-});
-
-const account = await manager.getAccount(mnemonic);
-
-// Fund address with BTC, then create UTXOs
-const address = await account.getAddress();
-// ... send BTC to address, wait for confirmation ...
-await account.syncWallet();
-await account.createUtxos({ num: 5 });
-
-// Issue an asset
-const asset = await account.issueAssetNia({
-  ticker: 'USDT',
-  name: 'Test USDT',
-  precision: 6,
-  amounts: [1_000_000],
-});
-
-// Create a receive invoice on another account
-const receiveData = await receiverAccount.blindReceive({
-  assetId: asset.assetId,
-  amount: 100,
-  minConfirmations: 1,
-  durationSeconds: 3600,
-});
-
-// Transfer
-await account.transferAsset({
-  invoice: receiveData.invoice,
-  assetId: asset.assetId,
-  amount: 100,
-});
-
-await account.refreshWallet();
-await receiverAccount.refreshWallet();
-
-// Cleanup
-manager.dispose();
-```
+Always `await manager.shutdown()` before closing or reopening the wallet. Create a new manager for a later session.
 
 ## Further Reading
 
+- [Node.js Quickstart](/getting-started/quickstart/node-js)
 - [WDK Overview](/sdk/wdk-overview)
-- [wdk-rgb-lightning](/sdk/wdk-rgb-lightning) — RGB Lightning for channels and payments
-- [SDK Overview](/product-suite/sdk)
-
+- [Source repository](https://github.com/UTEXO-Protocol/wdk-wallet-rgb/tree/main)
+- [Experimental Lightning Reference](/sdk/wdk-rgb-lightning) — WIP, testing-only; not recommended for production

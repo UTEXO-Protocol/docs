@@ -1,14 +1,16 @@
 ---
 title: 'wdk-rgb-lightning Reference'
-description: 'Reference for @utexo/wdk-rgb-lightning — WDK module for RGB Lightning channels, invoices, and payments. Pre-1.0 beta.'
+description: 'Experimental Lightning reference for @utexo/wdk-rgb-lightning. WIP and testing-only; use @utexo/wdk-wallet-rgb for on-chain Node.js integrations.'
 sidebarTitle: 'wdk-rgb-lightning'
 ---
 
-`@utexo/wdk-rgb-lightning` is a WDK module for RGB-over-Lightning, built on `rgb-lightning-node` (RLN). It runs an LDK + `rgb-lib` node behind WDK's manager/account contract: channels, BOLT11 and RGB invoices, payments, HODL invoices, optional VSS backup, and an LSP client.
+`@utexo/wdk-rgb-lightning` is an experimental RLN-based module. This reference is retained for Lightning testing. **For Node.js on-chain integrations, use [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb).**
 
 The node runs in **external-signer** mode. The BIP-39 mnemonic stays in the WDK secret manager. Channel-state crypto runs in-process through a VLS signer.
 
 <Warning>
+  **This module is WIP, for experimental testing only, and not recommended for production.** It is not the recommended package for Node.js on-chain integrations.
+
   Pre-1.0 beta. This page follows `0.2.0-beta.5`, which requires the native binding (`@utexo/rgb-lightning-node-nodejs` or `@utexo/rgb-lightning-node-bare`) at exactly `0.2.0-beta.5`. APIs may change between releases.
 </Warning>
 
@@ -16,7 +18,7 @@ The node runs in **external-signer** mode. The BIP-39 mnemonic stays in the WDK 
 
 This module complements [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb). Each owns its own `rgb-lib` SQLite state and they do **not** share asset records. Give each module a **separate** `dataDir` — `rgb-lib` takes an exclusive lock on a wallet directory.
 
-This module holds and transfers RGB assets for channels and invoices. For issuance, use `@utexo/wdk-wallet-rgb`. Node-level issuance calls are forwarded on the account, but `wdk-wallet-rgb` is the supported path.
+Use `@utexo/wdk-wallet-rgb` for on-chain wallets and transfers; its BFA API is documented separately. The RLN operations documented below are part of the experimental module’s testing surface.
 
 ## Installation
 
@@ -43,7 +45,7 @@ On Node, `import '@utexo/wdk-rgb-lightning'` wires `@utexo/rgb-lightning-node-no
 | `dataDir` | `string` | Persistent directory for RLN SQLite + LDK state |
 | `daemonListeningPort` | `number` | RLN daemon port. Default `0` (ephemeral) |
 | `ldkPeerListeningPort` | `number` | LDK peer port. Default `0` (ephemeral) |
-| `enableVirtualChannelsV0` | `boolean` | Required for APay against a production LSP. Default `false` |
+| `enableVirtualChannelsV0` | `boolean` | Required for experimental APay tests. Default `false` |
 | `virtualPeerPubkeys` | `string[]` | Peer node IDs allowed to open `trusted_no_broadcast` virtual channels |
 | `vssUrl` | `string` | VSS cloud backup URL. Omit to disable |
 | `vssAllowHttp` | `boolean` | Allow plain `http://` for non-loopback VSS hosts. Default `false` |
@@ -92,7 +94,7 @@ await account.unlock({
 `ldk_chain_sync` sets the node's chain backend: `{ mode: 'TransactionSync', config: { indexer_url } }` for an Esplora or Electrum indexer, or `{ mode: 'BlockSync', config: { bitcoind_rpc_username, bitcoind_rpc_password, bitcoind_rpc_host, bitcoind_rpc_port } }` for bitcoind. `indexer_url` is the RGB wallet's indexer and is also valid alongside `BlockSync`. `proxy_endpoint` is the RGB transport. To validate BFA bridge events (USDT on Bitcoin from the Utexo Mint), also pass `eth_rpc_url` for the chain with the bridge contract.
 
 <Note>
-  Lightning is disabled on `mainnet`. Channel, peer, invoice and payment methods throw `LightningDisabledError` (`code: 'LIGHTNING_DISABLED_ON_MAINNET'`) before any native or HTTP call. On-chain BTC and RGB methods keep working on mainnet. `account.getCapabilities()` reports what the configured network supports.
+  Lightning is WIP and testing-only on supported test networks, and is not recommended for production. It is disabled on `mainnet`. Channel, peer, invoice and payment methods throw `LightningDisabledError` (`code: 'LIGHTNING_DISABLED_ON_MAINNET'`) before any native or HTTP call. On-chain BTC and RGB methods keep working on mainnet. `account.getCapabilities()` reports what the configured network supports.
 </Note>
 
 ---
@@ -116,13 +118,15 @@ Returned by `getAccount(0)`. RGB Lightning is single-account; RLN owns one LDK n
 |---|---|
 | `getNodeInfo()` | Node pubkey, channel counts, sync status |
 | `getNetworkInfo()` | Bitcoin network and chain info |
-| `refreshWalletSnapshot(options?)` | Production refresh. `options.mode` is `'routine'` (default) or `'recovery'` |
+| `refreshWalletSnapshot(options?)` | Refresh wallet state. `options.mode` is `'routine'` (default) or `'recovery'` |
 | `sync()` | Deprecated. Colored FastSync only — do not use for portfolio state |
 | `getAddress()` | Current receive address. Throws `AccountLockedError` before unlock |
 | `getAddressState()` | `{ status: 'ready', address }` or `{ status: 'locked', address: null }` |
 | `rotateAddress()` | Advance the receive address. Returns the new address |
 
 #### Peers
+
+**WIP — Lightning testing only; not recommended for production.**
 
 | Method | Description |
 |---|---|
@@ -131,6 +135,8 @@ Returned by `getAccount(0)`. RGB Lightning is single-account; RLN owns one LDK n
 | `listPeers()` | Connected peers |
 
 #### Channels
+
+**WIP — Lightning testing only; not recommended for production.**
 
 | Method | Description |
 |---|---|
@@ -142,6 +148,8 @@ Returned by `getAccount(0)`. RGB Lightning is single-account; RLN owns one LDK n
 Set `virtual_open_mode: 'trusted_no_broadcast'` for APay virtual channels. Requires `enableVirtualChannelsV0: true` and the peer in `virtualPeerPubkeys`.
 
 #### Invoices & Payments
+
+**WIP — these are Lightning invoices and payments, for testing only.** For supported on-chain invoices, use `createRgbInvoice()` under [RGB Assets](#rgb-assets).
 
 | Method | Description |
 |---|---|
@@ -155,6 +163,8 @@ Set `virtual_open_mode: 'trusted_no_broadcast'` for APay virtual channels. Requi
 | `getPayment(paymentHash, type)` | One payment. `type` is `'Outbound'`, `'InboundAutoClaim'`, or `'InboundHodl'` |
 
 #### HODL Invoices
+
+**WIP — Lightning testing only; not recommended for production.**
 
 | Method | Description |
 |---|---|
@@ -217,7 +227,7 @@ await sender.transfer({
 | `importRgbContract({ contract_base64, expected_asset_id })` | Register trusted contract metadata only — no allocation |
 | `importRgbTransferConsignment({ consignment_base64, offchain_txid })` | Persist metadata for a transfer the native receive path already accepted |
 
-Issuance (`issueAssetNia`, `issueAssetUda`, `issueAssetCfa`, `issueAssetIfa`, `inflate`) is forwarded to the binding. Prefer [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb) for issuance.
+In this experimental module, issuance (`issueAssetNia`, `issueAssetUda`, `issueAssetCfa`, `issueAssetIfa`, `inflate`) is forwarded to the binding. The [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb) API uses contract registration and does not expose these issuance methods.
 
 Atomic swaps are on the native binding but are **not** on the WDK account.
 
@@ -251,7 +261,7 @@ VSS replicates RLN's LDK and wallet KV state. It does not replicate the VLS sign
 
 #### APay / LSP
 
-Production APay needs `enableVirtualChannelsV0: true` and the LSP node ID in `virtualPeerPubkeys`.
+**WIP — APay and LSP are for experimental testing only and are not recommended for production.** APay tests need `enableVirtualChannelsV0: true` and the LSP node ID in `virtualPeerPubkeys`.
 
 | Method | Description |
 |---|---|
@@ -281,7 +291,7 @@ await lsp.awaitReceiveSettlement(lnInvoice);
 
 | Method | Description |
 |---|---|
-| `transfer({ recipient, amount, token?, feeRate?, witnessData? })` | Routes BOLT11, LN pubkey, BTC address, or RGB invoice. `token` is an RGB asset id. Amounts are msats (LN) or sats (on-chain). Witness RGB invoices require `witnessData.amountSats` |
+| `transfer({ recipient, amount, token?, feeRate?, witnessData? })` | Supports on-chain BTC addresses and RGB invoices. BOLT11 and LN pubkey routing is WIP/testing-only. `token` is an RGB asset id. Amounts are asset base units for RGB invoices, satoshis for BTC addresses, and msats for experimental Lightning routes. Witness RGB invoices require `witnessData.amountSats` |
 | `quoteTransfer(options)` / `quoteSendTransaction(tx)` | Fee quote |
 | `getTransactionReceipt(hash)` | Receipt, or `null` if pending/unknown |
 | `sign(message)` / `verify(message, signature)` | Lightning message sign/verify |
@@ -317,55 +327,15 @@ try {
 
 LSP HTTP failures throw `LspError` / `LspProtocolError`. Channel and liquidity waits throw `LspChannelTimeoutError` and `LspLiquidityTimeoutError`.
 
-## Usage Example
+## Integration Guides
 
-```typescript
-import WalletManagerRgbLightning from '@utexo/wdk-rgb-lightning';
+For supported Node.js on-chain integrations, follow the [Node.js Quickstart](/getting-started/quickstart/node-js) using `@utexo/wdk-wallet-rgb`.
 
-const manager = new WalletManagerRgbLightning(mnemonic, {
-  network: 'regtest',
-  dataDir: '/path/to/wallet-data',
-});
-
-const account = await manager.getAccount(0);
-
-await account.unlock({
-  ldk_chain_sync: {
-    mode: 'TransactionSync',
-    config: { indexer_url: 'tcp://localhost:50001' },
-  },
-  indexer_url: 'tcp://localhost:50001',
-  proxy_endpoint: 'rpc://localhost:3000/json-rpc',
-  announce_addresses: [],
-  announce_alias: 'my-node',
-});
-
-const info = await account.getNodeInfo();
-console.log('Node pubkey:', info.pubkey);
-
-await account.connectPeer(`${peerPubkey}@127.0.0.1:9736`);
-await account.openChannel({
-  peer_pubkey_and_opt_addr: `${peerPubkey}@127.0.0.1:9736`,
-  capacity_sat: 500_000,
-  push_msat: 0,
-  public: false,
-  with_anchors: true,
-});
-
-const invoice = await account.createInvoice({
-  amt_msat: 5_000,
-  expiry_sec: 3600,
-});
-await account.sendPayment({ invoice: bolt11 });
-
-manager.dispose();
-```
-
-End-to-end LSP + RGB-over-Lightning examples live in [utexo-rgb-wdk-demo](https://github.com/UTEXO-Protocol/utexo-rgb-wdk-demo).
+Experimental LSP and RGB-over-Lightning examples are available in [utexo-rgb-wdk-demo](https://github.com/UTEXO-Protocol/utexo-rgb-wdk-demo). They are WIP, for testing only, and not recommended for production.
 
 ## Using with `wdk-wallet-rgb`
 
-Both packages use `rgb-lib`, but they do **not** share asset records. Use `@utexo/wdk-wallet-rgb` for issuance and on-chain inventory; use this module for channels, invoices, and Lightning transfers. Give each module its own `dataDir`.
+Both packages use `rgb-lib`, but they do **not** share asset records. Use `@utexo/wdk-wallet-rgb` for on-chain inventory, invoices, and transfers. Use this module only for experimental Lightning testing. Channels and Lightning transfers remain WIP, for testing only, and are not recommended for production. Give each module its own `dataDir`.
 
 ## Further Reading
 

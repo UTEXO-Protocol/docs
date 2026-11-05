@@ -123,7 +123,7 @@ Key terms used throughout the Utexo documentation.
 
 **USDT0** Tether's omnichain USDT, which moves between networks through LayerZero. The Utexo Mint locks USDT0 on Arbitrum to mint USDT on Bitcoin, and releases it after a burn.
 
-**UTEXOWallet** The primary class exported by the `@utexo/rgb-sdk-rn` and `@utexo/rgb-sdk-web` packages. It encapsulates wallet operations including initialization, asset transfers, Lightning invoice creation and payment, balance checking, and backup/restore. Node.js integrations use `@utexo/wdk-rgb-lightning` (`WalletManagerRgbLightning`) instead of `UTEXOWallet`.
+**UTEXOWallet** The primary class exported by the `@utexo/rgb-sdk-rn` and `@utexo/rgb-sdk-web` packages. It encapsulates on-chain wallet initialization, asset transfers, balances, and backup/restore. The current `@utexo/rgb-sdk-rn` package supports on-chain operations only. Lightning APIs elsewhere are WIP, for experimental testing only, and not recommended for production. Node.js integrations use **`@utexo/wdk-wallet-rgb`** (`WalletManagerRgb`) for on-chain RGB.
 
 **UTXO (Unspent Transaction Output)** A unit of Bitcoin that has been received but not yet spent. In RGB, UTXOs serve as anchors for asset state — each RGB asset allocation is bound to a specific UTXO.
 

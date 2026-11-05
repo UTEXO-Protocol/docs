@@ -8,6 +8,10 @@ description: "Initialize a browser wallet and prepare an RGB transfer using @ute
   This guide covers browser applications. For Node.js, see the [Node.js guide](/getting-started/quickstart/node-js). For iOS and Android, see the [React Native guide](/getting-started/quickstart/react-native).
 </Info>
 
+<Warning>
+  Current SDK integrations support on-chain operations. Lightning is WIP, available only for experimental testing, and not recommended for production.
+</Warning>
+
 ## Prerequisites
 
 - A modern browser with WebAssembly support
@@ -25,7 +29,7 @@ description: "Initialize a browser wallet and prepare an RGB transfer using @ute
 npm install @utexo/rgb-sdk-web
 ```
 
-The package targets browser environments and stores wallet state in browser storage. It is not interchangeable with `@utexo/wdk-rgb-lightning` or `@utexo/rgb-sdk-rn`.
+The package targets browser environments and stores wallet state in browser storage. It is not interchangeable with `@utexo/wdk-wallet-rgb` or `@utexo/rgb-sdk-rn`.
 
 ## Step 2: Initialize the Wallet
 
@@ -96,7 +100,7 @@ const amount = 10 ** testAsset.precision; // one displayed unit in base units
 ```
 
 <Note>
-  USDT on Bitcoin from the Utexo Mint uses the **BFA** asset schema. `@utexo/rgb-sdk-web` `1.0.0-beta.12` does not list BFA assets yet. To hold or move Mint USDT, use the [React Native SDK](/sdk/react-native-sdk), [`@utexo/wdk-rgb-lightning`](/sdk/wdk-rgb-lightning), or `rgb-lib` (see [Mint and Burn Integration](/mint/mint-burn-integration)).
+  USDT on Bitcoin from the Utexo Mint uses the **BFA** asset schema. `@utexo/rgb-sdk-web` `1.0.0-beta.12` does not list BFA assets yet. To hold or move Mint USDT, use the [React Native SDK](/sdk/react-native-sdk), the [on-chain WDK](/sdk/wdk-wallet-rgb#assets-and-bfa), or a BFA-compatible `rgb-lib` integration (see [Mint and Burn Integration](/mint/mint-burn-integration)).
 </Note>
 
 A new receiver wallet will not list an asset it has never received. Resolve the asset ID and precision from the funded sender or an authoritative asset registry. Do not use the removed `assets.find(...).id` pattern.
@@ -153,25 +157,9 @@ console.log('Receiver asset balance:', receivedAsset?.balance);
 
 A transfer can remain pending while its consignment is delivered and its Bitcoin anchor reaches the required confirmation state. Refresh both wallets before treating a missing settled balance as a failure.
 
-## Lightning Payments
+## Lightning Status
 
-Lightning requires usable peer and channel state in addition to an initialized wallet. For a BTC-only invoice, omit the `asset` field.
-
-```javascript
-const invoice = await wallet.createLightningInvoice({
-  amountSats: 3000,
-  expirySeconds: 900,
-});
-
-const payment = await senderWallet.payLightningInvoice({
-  lnInvoice: invoice.lnInvoice,
-});
-
-const status = await senderWallet.getLightningSendStatus(payment.txid);
-console.log('Lightning payment status:', status);
-```
-
-For an RGB-asset Lightning invoice, pass `asset: { assetId, amount }` when creating the invoice. Do not pass an empty asset object for a BTC-only invoice.
+This quickstart covers the supported on-chain flow. Lightning remains **WIP**, is available only for experimental testing, and is **not recommended for production**. Channel, BOLT11 payment, LSP, and APay examples in the [platform reference](/sdk/web-sdk#lightning-methods) are testing-only and require a build and test network that support them.
 
 ## Web-Specific Notes
 

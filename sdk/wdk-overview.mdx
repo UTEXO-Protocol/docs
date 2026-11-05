@@ -1,36 +1,37 @@
 ---
 title: 'WDK Overview'
-description: 'Overview of the Utexo Wallet Development Kit — WDK abstractions over RGB asset management and RGB Lightning for wallet builders.'
+description: 'Use @utexo/wdk-wallet-rgb for on-chain RGB integrations with WDK. Lightning remains WIP and testing-only.'
 sidebarTitle: 'Overview'
 ---
 
-The Wallet Development Kit (WDK) is a set of packages that expose RGB capabilities through standardised wallet abstraction interfaces. `@utexo/wdk-rgb-lightning` is the current Node.js / Bare module for RGB-over-Lightning. `@utexo/rgb-sdk-web` and `@utexo/rgb-sdk-rn` target application developers building end-to-end Web and mobile flows. The archived `@utexo/rgb-sdk` Node.js package is not used for new integrations.
+The Wallet Development Kit (WDK) exposes RGB capabilities through wallet manager and account interfaces. **Use `@utexo/wdk-wallet-rgb` for Node.js on-chain integrations.** Browser applications use `@utexo/rgb-sdk-web`; React Native applications use `@utexo/rgb-sdk-rn`, which supports on-chain operations only.
 
 ## WDK Packages
 
-| Package | Platform | Description | Status |
-|---|---|---|---|
-| `@utexo/wdk-wallet-rgb` | Node.js & Bare | RGB asset management — issuance, transfers, inventory, backup | Being updated for BFA |
-| `@utexo/wdk-rgb-lightning` | Node.js & Bare | RGB Lightning node — channels, invoices, payments, LSP, VSS | Pre-1.0 beta |
+| Package | Purpose | Status |
+| --- | --- | --- |
+| `@utexo/wdk-wallet-rgb` | On-chain RGB wallets, BFA transfers, burns, and operation recovery | On-chain only |
+| `@utexo/wdk-rgb-lightning` | Experimental Lightning channels and payments | WIP, testing-only; not recommended for production |
 
-Both packages are built on `rgb-lib`, so the on-chain experience — UTXO management, asset state, and RGB operations — is consistent between them. They do **not** share asset records: give each module a **separate** `dataDir`.
-
-`wdk-rgb-lightning` runs in external-signer mode: the mnemonic stays in the WDK secret manager, and channel-state cryptography happens in-process through a VLS signer. Use `wdk-wallet-rgb` for issuance; use `wdk-rgb-lightning` for channels, invoices, and Lightning transfers.
+See the [reference](/sdk/wdk-wallet-rgb) for installation, configuration, and BFA compatibility requirements, or browse the [source repository](https://github.com/UTEXO-Protocol/wdk-wallet-rgb/tree/main).
 
 ## When to Use the WDK
 
-Use the WDK packages when:
-- You are building a **new Node.js** integration (use `@utexo/wdk-rgb-lightning`, not the archived `@utexo/rgb-sdk`)
-- Your application already builds on WDK-style account and manager abstractions
-- You want to plug RGB or RGB Lightning into an existing wallet architecture without adopting the `UTEXOWallet` lifecycle
-- You need lower-level control over account management, signing policy, and key derivation
+Use `@utexo/wdk-wallet-rgb` when:
 
-If you are building a **browser** or **React Native** app from scratch, `@utexo/rgb-sdk-web` and `@utexo/rgb-sdk-rn` provide a higher-level `UTEXOWallet` API.
+- You are building a Node.js application with on-chain RGB operations
+- Your application uses WDK manager and account abstractions
+- You need BFA inventory, on-chain transfers, burns, or operation recovery through a wallet account
 
+Construct `WalletManagerRgb` with the mnemonic, native worker details, fee cap, and transaction approval callback, then call `getAccount()`. With offline startup, call `connect()` before network operations. The SDK uses Electrum; its public signet RGB configuration requires the staging profile. Each wallet needs its own persistent `dataDir` for RGB state and operation journals. Await `shutdown()` before closing or reopening it. The archived `@utexo/rgb-sdk` is not the entry point for new integrations.
+
+## Lightning Status
+
+Lightning remains **WIP**, available only for experimental testing, and **not recommended for production**. The `wdk-rgb-lightning` reference is retained for those tests. Use `wdk-wallet-rgb` for the on-chain integration path. Keep experimental wallet state in a separate directory.
 
 ## Further Reading
 
-- [wdk-wallet-rgb Reference](/sdk/wdk-wallet-rgb) — Full API for RGB asset management
-- [wdk-rgb-lightning Reference](/sdk/wdk-rgb-lightning) — Full API for RGB Lightning
-- [SDK Overview](/product-suite/sdk) — How the WDK fits into the broader Utexo SDK family
-
+- [Node.js Quickstart](/getting-started/quickstart/node-js)
+- [wdk-wallet-rgb Reference](/sdk/wdk-wallet-rgb)
+- [Experimental Lightning Reference](/sdk/wdk-rgb-lightning)
+- [SDK Overview](/product-suite/sdk)
