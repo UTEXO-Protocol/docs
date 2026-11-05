@@ -74,6 +74,8 @@ The `data` object contains `intent_id`, `deposit_tx`, `fulfillment_deadline`, `f
 
 This event authorizes destination-chain fulfillment after the source deposit is confirmed. Fulfillment reporting uses `POST /v1/intents/{id}/fulfill`.
 
+For user-broadcast intents the event `type` is `UserDepositConfirmed` instead of `DepositConfirmed`, but the `data` has the same structure.
+
 ## FulfillmentConfirmed
 
 The `data` object contains `intent_id` and `fulfill_tx`. It records confirmation of the destination transaction.
