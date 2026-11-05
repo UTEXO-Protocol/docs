@@ -73,7 +73,7 @@ Report the atomic swap transaction through `POST /v1/intents/{id}/add-swap`. Ute
 
 ## User-broadcast flow
 
-For user-broadcast intents, the affiliate reports the source transaction. The resolver supplies transaction data through the [Resolver API callback](/product-suite/swap/resolver-integration/resolver-api#user-broadcast-transaction-callback), then fulfills after `DepositConfirmed`. The `flow_kind` field distinguishes `Permit` and `UserBroadcast`.
+For user-broadcast intents, the affiliate reports the source transaction. The resolver supplies transaction data through the [Resolver API callback](/product-suite/swap/resolver-integration/resolver-api#user-broadcast-transaction-callback), then fulfills after `DepositConfirmed` / `UserDepositConfirmed`. The `flow_kind` field distinguishes `Permit` and `UserBroadcast`.
 
 ## Resolver responsibilities
 
