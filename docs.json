@@ -9,6 +9,10 @@
   },
   "redirects": [
     {
+      "source": "/product-suite/swap/rgb",
+      "destination": "/product-suite/swap/api/intents/approvals/rgb"
+    },
+    {
       "source": "/cloud/self-hosted-rgb-lightning-node",
       "destination": "/rgb-lightning-node/self-hosted-rgb-lightning-node"
     },
@@ -170,9 +174,11 @@
                           "product-suite/swap/api/intents/approvals/evm",
                           "product-suite/swap/api/intents/approvals/tron",
                           "product-suite/swap/api/intents/approvals/solana",
-                          "product-suite/swap/api/intents/approvals/bitcoin"
+                          "product-suite/swap/api/intents/approvals/bitcoin",
+                          "product-suite/swap/api/intents/approvals/rgb"
                         ]
                       },
+                      "product-suite/swap/api/intents/deposits",
                       "product-suite/swap/api/intents/status"
                     ]
                   },
@@ -187,7 +193,6 @@
                   "product-suite/swap/on-chain-helpers/approve-for-permit2"
                 ]
               },
-              "product-suite/swap/rgb",
               {
                 "group": "Resolver Integration",
                 "pages": [
@@ -197,7 +202,8 @@
                   "product-suite/swap/resolver-integration/webhooks-and-lifecycle",
                   "product-suite/swap/resolver-integration/evm-tron-settlement",
                   "product-suite/swap/resolver-integration/solana-settlement",
-                  "product-suite/swap/resolver-integration/bitcoin-settlement"
+                  "product-suite/swap/resolver-integration/bitcoin-settlement",
+                  "product-suite/swap/resolver-integration/rgb-settlement"
                 ]
               }
             ]

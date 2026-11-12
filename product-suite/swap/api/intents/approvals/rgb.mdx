@@ -1,0 +1,42 @@
+---
+title: "Fund an RGB intent"
+description: "Pay the witness invoice for an RGB USDT source and report the deposit transaction."
+sidebarTitle: "RGB USDT"
+---
+
+Use this procedure when RGB USDT is the source asset. The invoice locks the RGB allocation at a Bitcoin HTLC output.
+
+Use an RGB wallet that can pay a witness invoice, post the consignment, and broadcast the transfer. See [RGB concepts](/getting-started/rgb-concepts) and the [RGB Lightning Node quick start](/rgb-lightning-node/quickstart).
+
+## Fund the intent
+
+1. Request a quote with the RGB asset identifier as `source_token`.
+2. Create the intent with the user's Bitcoin address and `user_source_public_key`.
+3. Check that `approval_mechanism` is `broadcast`.
+4. Read `deposit_tx_data.RgbLock.witness_invoice`.
+5. Pay the invoice from the user's RGB wallet. Post the consignment and broadcast the wallet's colored transaction.
+6. Submit the broadcast transaction hash to `POST /affiliate/v1/intents/{intent_id}/deposit`.
+7. [Track the intent status](/product-suite/swap/api/intents/status).
+
+The intent response includes these fields:
+
+```json
+{
+	"intent_id": "8a2d3f92-2a2b-4e4c-9d8a-3c9f92e4a111",
+	"deadline_secs": 1793700000,
+	"secret_hash": "0x19875e12d834bc245b834c4c031d4b89c6354fba4575e44dd26f37d367a44926",
+	"approval_mechanism": "broadcast",
+	"params_to_sign": {},
+	"deposit_tx_data": {
+		"RgbLock": {
+			"witness_invoice": "wvout:..."
+		}
+	}
+}
+```
+
+The invoice contains the asset, amount, and lock destination. The user's wallet creates the colored transaction. Do not sign the resolver's template PSBT or submit a `psbt` approval for this flow.
+
+The deposit check validates both the on-chain lock and the RGB consignment. Error code `76` with HTTP `409` permits a retry with the same transaction hash. See [Report a user deposit](/product-suite/swap/api/intents/deposits).
+
+For lock templates and claims, see [RGB USDT settlement](/product-suite/swap/resolver-integration/rgb-settlement).

@@ -4,7 +4,7 @@ description: "Endpoints resolvers call on Utexo to discover networks, retrieve i
 sidebarTitle: "Protocol API"
 ---
 
-The Protocol API is the direction resolvers call **on Utexo**. Callbacks Utexo makes on the resolver are documented in the [Resolver API](/product-suite/swap/resolver-integration/resolver-api).
+Resolvers call the Protocol API on Utexo. Utexo calls the resolver through the [Resolver API callbacks](/product-suite/swap/resolver-integration/resolver-api).
 
 The interactive reference for these endpoints is the [Resolver API Swagger](https://stage.swagger.swap.utexo.com/docs/).
 
@@ -24,9 +24,10 @@ Protocol errors use this envelope:
 
 ```json
 {
-  "code": 1,
-  "message": "Internal server error",
-  "entity": "Intent"
+	"code": 1,
+	"message": "Internal server error",
+	"entity": "Intent",
+	"details": null
 }
 ```
 
@@ -34,7 +35,7 @@ Protocol errors use this envelope:
 
 ### `GET /v1/networks`
 
-Lists supported networks. Response items include:
+Lists supported networks. The optional `token` query parameter filters networks by token. Response items include:
 
 | Field | Description |
 | --- | --- |
@@ -60,22 +61,22 @@ Response:
 
 ```json
 {
-  "data": [
-    {
-      "network_id": "<integer>",
-      "name": "<token name>",
-      "contract_address": "<token address>",
-      "symbol": "<symbol>",
-      "icon_url": "<URL>",
-      "wrapped_token_address": null
-    }
-  ],
-  "pagination": {
-    "limit": "<integer>",
-    "offset": "<integer>",
-    "pages": "<integer>",
-    "total": "<integer>"
-  }
+	"data": [
+		{
+			"network_id": 1,
+			"name": "<token name>",
+			"contract_address": "<token address>",
+			"symbol": "<symbol>",
+			"icon_url": "<URL>",
+			"wrapped_token_address": null
+		}
+	],
+	"pagination": {
+		"limit": 20,
+		"offset": 0,
+		"pages": 1,
+		"total": 1
+	}
 }
 ```
 
@@ -95,22 +96,24 @@ Retrieves an intent. Statuses:
 
 | Status | Meaning |
 | --- | --- |
-| `Initiated` | Intent created; awaiting user approval. |
+| `Initiated` | Intent created and awaiting user approval. |
 | `ApprovalAdded` | User approval received. |
 | `Accepted` | Intent accepted by the resolver and being executed. |
-| `Declined` | Intent declined; will not execute. |
+| `Declined` | Intent declined. |
+| `Lapsed` | Intent deadline passed before the required action. |
+| `AwaitingBroadcast` | The user must fund the intent and report the source transaction. |
 
-Notable fields (non-exhaustive): chain and token identifiers, source and destination addresses, `resolver_id`, `deadline`, `nonce`, amount lots and decimals, `quote_id`, `slippage_tolerance_bps`, intermediate-token bounds, `affiliate_id`, `swap_type` (`standard` or `optimized`), `resolver_deposit_address`, `deposit_type` (`escrowed` or `direct`), and lifecycle timestamps.
+The response includes `from_chain`, `to_chain`, `from_token`, `to_token`, user addresses, amounts, `quote_id`, `resolver_id`, `affiliate_id`, `flow_kind`, `swap_type`, `deposit_type`, `nonce`, `deadline`, and lifecycle timestamps. `deadline` is an RFC 3339 timestamp. `secret_hash` is not included in this response.
 
 ### `GET /v1/intents/status/pending`
 
-Lists intents that are waiting for a resolver decision. Query parameters: `limit` (default page size `20`) and `offset`. The response is paginated.
+Lists `ApprovalAdded` intents assigned to the authenticated resolver. Query parameters are `limit`, with default `20`, and `offset`, with default `0`. The response uses `data` and `pagination`.
 
 ### `POST /v1/intents/{id}/accept`
 
 Accepts an intent. The response carries the data the resolver needs for the `deposit` transaction: `system_contract_address`, `permit2_contract_address`, `permit2_signature`, `proxy_address`, `fulfillment_signature`, `psbt`, and `cosign_transaction`. Which fields are meaningful depends on the source chain.
 
-Errors: `403` (this resolver may not update the intent), `404`, `409` (the intent is no longer in a state that can be accepted), `500`.
+Accept applies to the permit flow. Other funding flows return HTTP `409` with error code `64`. Ownership mismatches return HTTP `403` with code `65`.
 
 ### `POST /v1/intents/{id}/decline`
 
@@ -120,7 +123,7 @@ Declines an intent. The body is optional:
 { "error_code": 1, "message": "quote expired" }
 ```
 
-Errors: `403`, `404`, `409`, `500`.
+Decline applies to the permit flow. Success returns HTTP `200` with an empty body.
 
 ### `POST /v1/intents/{intent_id}/refund`
 
@@ -130,13 +133,13 @@ Refunds the user's locked funds without waiting for the timelock to expire.
 
 Opens a WebSocket stream for the resolver (HTTP `101 Switching Protocols`). Send the `X-API-Key` header on the upgrade request.
 
-### `GET /v1/swaps/{intent_id}/swap`
+### `GET /v1/intents/{intent_id}/swap`
 
-Retrieves the on-chain execution record for an intent. Notable fields: `status`, `proxy_address`, deposit/fulfill/withdraw/swap transaction hashes, intermediate-token data, and lifecycle timestamps.
+Retrieves the on-chain execution record for an intent. The response includes `status`, `proxy_address`, transaction hashes for deposit, fulfillment, withdrawal, swap, and refund, intermediate-token data, and lifecycle timestamps.
 
 ## Reporting transactions
 
-Resolvers must report each on-chain step. For standard swaps, report the **Deposit**, then the **Fulfill**.
+The reporting endpoints record source deposits, destination fulfillments, source withdrawals, and atomic swaps.
 
 ### `POST /v1/intents/{id}/deposit`
 
@@ -148,23 +151,44 @@ Resolvers must report each on-chain step. For standard swaps, report the **Depos
 
 ```json
 {
-  "tx_hash": "<transaction hash>",
-  "signature": "<signature>"
+	"tx_hash": "<transaction hash>",
+	"signature": "<signature>"
 }
 ```
 
-`signature` is optional for EVM, Solana, and Tron. It is required for Bitcoin.
+`signature` is required when the destination network is Bitcoin. It is a hex-encoded Ed25519 signature made with the resolver's registered fulfillment key. The signed bytes are the decoded transaction hash followed by the intent UUID's 16 raw bytes, with no separator. The hash bytes stay in the order supplied in `tx_hash`.
 
-<Note>
-  Optimized swaps report only the `Swap` step. Confirm the reporting endpoint for optimized swaps with Utexo during onboarding.
-</Note>
+For other destination networks, `signature` is optional. Success returns HTTP `200` with `estimated_verification_time`, an estimate in seconds.
+
+### `POST /v1/intents/{id}/add-swap`
+
+Reports an optimized single-chain swap:
+
+```json
+{ "tx_hash": "<transaction hash>" }
+```
+
+Success returns HTTP `200` with an empty body.
+
+### `POST /v1/intents/batch/withdraw`
+
+Reports a withdrawal transaction for one or more intents:
+
+```json
+{
+	"tx_hash": "<transaction hash>",
+	"intent_ids": ["8a2d3f92-2a2b-4e4c-9d8a-3c9f92e4a111"]
+}
+```
+
+Success returns HTTP `200` with an empty body. The deposit-reporting endpoint returns `fulfillment_deadline` as a Unix timestamp in seconds.
 
 ## Secret retrieval
 
 ### `GET /v1/intents/{id}/reveal-secret`
 
 ```json
-{ "secret": "<32-byte secret>" }
+{ "secret": "<0x-prefixed 32-byte secret>" }
 ```
 
 ### `POST /v1/intents/batch/reveal-secrets`
@@ -181,14 +205,10 @@ Response:
 { "secrets": { "<uuid>": "<secret>" } }
 ```
 
+The single-secret endpoint requires `Fulfilled` status. Batch retrieval fails if any requested intent is not fulfilled.
+
 ## Health
 
 ### `GET /v1/system/live`
 
-Requires the `X-API-Key` header, like every Protocol API request.
-
-- `200` — healthy
-- `400` — the `X-API-Key` header is missing or malformed (error code `14`)
-- `500` — unhealthy
-
-No response body is documented.
+Requires a resolver `X-API-Key`. Success returns HTTP `200` with an empty body. The handler checks liveness, not dependency readiness. A missing or malformed header returns HTTP `400` with error code `14`. An inactive key returns HTTP `401` with code `53`.

@@ -1,29 +1,29 @@
 ---
-title: "Networks and Tokens"
+title: "Networks and tokens"
 description: "List the networks and tokens supported by Utexo Swap."
 sidebarTitle: "Networks and Tokens"
 ---
 
 ## List networks
 
-Retrieve all blockchain networks supported by Utexo Swap.
+The response lists networks visible to the authenticated affiliate. The optional `token` query parameter filters networks by token, for example `?token=USDC`.
 
 ```http
 GET /affiliate/v1/networks
 ```
 
-**Response example**
+### Response example
 
 ```json
 [
-  {
-    "id": 1,
-    "name": "Ethereum",
-    "type": "EVM",
-    "supports_optimized_swap": false,
-    "icon_url": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png",
-    "supports_custom_tokens": false
-  }
+	{
+		"id": 1,
+		"name": "Ethereum",
+		"type": "EVM",
+		"supports_optimized_swap": false,
+		"icon_url": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png",
+		"supports_custom_tokens": false
+	}
 ]
 ```
 
@@ -39,35 +39,35 @@ Retrieve a paginated list of tokens supported across all networks. Supports pagi
 GET /affiliate/v1/tokens
 ```
 
-**Query parameters**
+### Query parameters
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `limit` | integer | No | Maximum number of tokens to return |
-| `offset` | integer | No | Number of tokens to skip before returning results |
+| `limit` | integer | No | Page size. Default `20`, capped by the server configuration. |
+| `offset` | integer | No | Number of tokens to skip. Default `0`. |
 | `q` | string | No | Search query for token symbol, token name, or contract address |
 | `network_id` | integer | No | Filter tokens by network |
 
-**Response example**
+### Response example
 
 ```json
 {
-  "data": [
-    {
-      "network_id": 1,
-      "name": "Tether USD",
-      "contract_address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
-      "symbol": "USDT",
-      "icon_url": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png",
-      "wrapped_token_address": null
-    }
-  ],
-  "pagination": {
-    "limit": 10,
-    "offset": 0,
-    "pages": 10,
-    "total": 500
-  }
+	"data": [
+		{
+			"network_id": 1,
+			"name": "Tether USD",
+			"contract_address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+			"symbol": "USDT",
+			"icon_url": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png",
+			"wrapped_token_address": null
+		}
+	],
+	"pagination": {
+		"limit": 10,
+		"offset": 0,
+		"pages": 50,
+		"total": 500
+	}
 }
 ```
 

@@ -1,5 +1,5 @@
 ---
-title: "Bitcoin Settlement"
+title: "Bitcoin settlement"
 description: "Settle Utexo Bitcoin swaps with Taproot HTLC PSBTs, script-path withdrawals, and cooperative fast refunds."
 sidebarTitle: "Bitcoin"
 ---
@@ -8,7 +8,7 @@ Bitcoin settlement uses Taproot (P2TR) outputs and BIP 174 PSBTs. No smart contr
 
 ## HTLC lock output
 
-Every deposit locks funds to a unique Taproot output with three script leaves:
+An escrowed deposit locks funds to a Taproot output with three script leaves. A direct deposit transfers to the resolver instead.
 
 | Leaf | Script |
 | --- | --- |
@@ -17,7 +17,7 @@ Every deposit locks funds to a unique Taproot output with three script leaves:
 | Fast refund | `<protocolPubKey> OP_CHECKSIG <resolverPubKey> OP_CHECKSIGADD 2 OP_EQUAL` |
 
 - `secretHash` is double SHA-256 of the 32-byte secret.
-- The internal key may be a NUMS point or a resolver-selected key. RGB USDT swaps use a NUMS internal key; see [RGB USDT in Utexo Swap](/product-suite/swap/rgb#for-resolvers).
+- The internal key may be a NUMS point or a resolver-selected key. RGB USDT swaps use a NUMS internal key; see [RGB USDT settlement](/product-suite/swap/resolver-integration/rgb-settlement).
 - The resolver returns the refund and fast-refund control blocks to Utexo and keeps the withdraw control block internally.
 
 ## Deposit transaction
@@ -46,9 +46,7 @@ OP_RETURN <protocolPrefix> <flag> <intentID>
 | `0` | `OP_RETURN` with `0` sats. |
 | `1` | P2TR HTLC lock. The amount is the deposit minus a proportional share of network fees. |
 
-<Warning>
-  The deposit transaction has two or three outputs. Confirm the purpose of the optional third output with Utexo before adding change outputs.
-</Warning>
+The deposit has at least two outputs. Additional outputs can return change. Utexo verifies the user's total charge and the escrow control blocks.
 
 ## Spend paths
 
@@ -72,36 +70,22 @@ Witness:
 
 ### Fast refund (script-path)
 
-Cooperative script-path spend co-signed by the protocol and the resolver.
+Cooperative script-path spend co-signed by the protocol and the resolver. The witness stack is:
+
+```text
+[resolver_signature, protocol_signature, tap_script, control_block]
+```
 
 ### Timelock refund
 
 Script-path refund after `deadline`.
 
-<Note>
-  Confirm the final witness stack for the timelock refund path with Utexo before constructing this witness.
-</Note>
-
-## Fee model
-
-The resolver computes fees from a header plus per-input and per-output costs:
+The refund transaction uses `nLockTime = deadline + 1` and this witness stack:
 
 ```text
-header         = 11 vBytes
-size           = header
-               + sum(input_size + witness_size) * count
-               + sum(output_size) * count
-fee            = size * fee_rate
+[protocol_signature, tap_script, control_block]
 ```
 
-Default fee rate: `3 sat/vB`.
+## Fees
 
-### Size table
-
-| Type | Input | Witness | Output |
-| --- | --- | --- | --- |
-| P2TR | 41 | 17 | 43 |
-| P2WPKH | 41 | 27 | 31 |
-| P2SH (2-of-3) | 43 | 254 | 32 |
-| P2PKH | 41 | 107 | 34 |
-| P2WSH (2-of-3) | 41 | 64 | 43 |
+The resolver supplies the deposit PSBT and chooses its fee rate. The API does not publish a fixed fee rate or a per-input fee table. The returned PSBT determines the user's Bitcoin charge and change.
