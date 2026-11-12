@@ -53,7 +53,7 @@ Service errors include a numeric code, a message, the related entity, and `detai
 | 31 | Public key is required | A required source or resolver public key is missing. |
 | 32 | Invalid public key | Public key is invalid |
 | 33 | Internal server error | BTC transaction builder failed |
-| 34 | Internal server error | The backend could not complete communication with the resolver or could not process the resolver response. |
+| 34 | Resolver communication error | The backend could not complete communication with the resolver or could not process the resolver response. |
 | 35 | Forbidden operation | Network pair is forbidden |
 | 36 | Internal server error | Bincode serialization/deserialization failed |
 | 37 | Invalid amount provided | Amount is invalid |
@@ -83,7 +83,10 @@ Service errors include a numeric code, a message, the related entity, and `detai
 | 70 | Insufficient UTXOs for RGB lock | The wallet cannot fund the RGB lock. |
 | 71 | RGB lock outpoint is missing; deposit must be confirmed first | The RGB lock has no confirmed outpoint. |
 | 72 | Invalid resolver configuration | Resolver configuration is invalid. |
-| 76 | RGB lock consignment check failed | HTTP `409` for a retryable check, `400` for a permanent check failure, or `500` for an internal error. |
+| 73 | User transfer unsupported on network | Swaps following the user transfer flow are not supported for the provided source network. |
+| 74 | User transfer unsupported | None of the available resolvers support swaps following the user transfer flow. |
+| 75 | Swap not approved by the resolver | Resolver disapproved the swap. |
+| 76 | RGB wallet error | Internal error related to validations specific for RGB. |
 
 <Note>
   Code `25` can mean either an insufficient source-token balance or an insufficient Permit2 allowance. Check both against the quoted source amount. See [Approve for Permit2](/product-suite/swap/on-chain-helpers/approve-for-permit2). Code `43` means the selected funding flow requires a wrapped source token. See [Wrap native tokens](/product-suite/swap/on-chain-helpers/wrap-native-tokens).

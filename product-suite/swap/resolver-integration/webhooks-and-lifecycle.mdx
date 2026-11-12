@@ -104,6 +104,8 @@ Withdrawal reporting uses `POST /v1/intents/batch/withdraw`.
 
 The `data` object contains `intent_id`, `flow_kind`, and `swap_tx`. This event marks completion of an optimized single-chain swap.
 
+For user-broadcast intents the event `type` is `UserSwapConfirmed` instead of `SwapConfirmed`, but the `data` has the same structure.
+
 ## RefundInProgress
 
 The `data` object contains `intent_id` and `tx_hash`. A refund transaction is in progress.
