@@ -46,4 +46,4 @@ For an optimized single-chain swap, report the hash to `POST /affiliate/v1/inten
 
 [Poll the intent status](/product-suite/swap/api/intents/status) until the swap completes or enters a refund path.
 
-For an RGB deposit, error code `76` with HTTP `409` means the consignment check can be retried. Wait for the consignment to become available, then submit the same transaction hash again. HTTP `400` for that code means the consignment check failed permanently.
+For an RGB deposit, the core returns HTTP 200 along with the fulfillment deadline once the transaction hash has been accepted and scheduled for verification. Consignment verification is handled internally by the service. If the core returns HTTP 500, try resubmitting the same transaction hash a couple of times.
