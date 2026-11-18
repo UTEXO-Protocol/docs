@@ -46,4 +46,4 @@ For an optimized single-chain swap, report the hash to `POST /affiliate/v1/inten
 
 [Poll the intent status](/product-suite/swap/api/intents/status) until the swap completes or enters a refund path.
 
-For an RGB deposit, the core returns HTTP 200 along with the fulfillment deadline once the transaction hash has been accepted and scheduled for verification. Consignment verification is handled internally by the service. If the core returns HTTP 500, try resubmitting the same transaction hash a couple of times.
+For an RGB deposit, the API returns HTTP 200 with the fulfillment deadline once it accepts the transaction hash. The consignment is then verified in the background; follow the result through the [intent status](/product-suite/swap/api/intents/status). If the API returns HTTP 500, wait briefly and submit the same transaction hash again.
