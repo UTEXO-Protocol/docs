@@ -527,22 +527,29 @@ Test your implementation against the published vectors before you burn. For exam
       <Tab title="WebRGB wallet">
         A browser app can ask a connected RGB wallet to burn through [WebRGB](https://github.com/UTEXO-Protocol/webrgb), directly or over WalletConnect with [`@utexo/webrgb-walletconnect`](https://github.com/UTEXO-Protocol/webrgb-walletconnect). The wallet asks the user to approve the burn, burns, and returns the transaction ID; `getConsignment` then returns the burn consignment as base64.
 
-        Check the wallet's capabilities first: it must support `burnAsset` and `getConsignment`, report `burnDestinationVersion: 1`, and list the payout route in `burnDestinationRoutes`.
+        Check that the wallet advertises `burnAsset` and `getConsignment`. With the current WebRGB API, send one native `burnDestination`; the wallet validates its chain and endpoint against its configured payout routes. Routes are no longer advertised in `getInfo()`. A provider over `RgbLibWeb` cannot export consignments and therefore does not offer this burn flow.
 
         ```ts
         import { supports } from "@utexo/webrgb";
 
         const info = await provider.getInfo();
-        if (!supports(info, "burnAsset") || !supports(info, "getConsignment")) {
+        if (
+          !supports(info, "burnAsset") || !supports(info, "getConsignment") ||
+          !provider.burnAsset || !provider.getConsignment
+        ) {
           throw new Error("This wallet cannot burn for the Mint");
         }
 
         const burn = await provider.burnAsset({
-          network,                    // the wallet's RGB network, as in info.network
+          network: info.network,
           assetId,                    // the USDT asset ID, "rgb:..."
           amount: "1000000",          // gross amount to burn, in base units
-          burnRecipient: { chainId: "eip155:42161", address: evmAddress },
-          burnDestination,            // the V1 record from "Choose the burn destination"
+          burnDestination: {
+            version: 1,
+            chainId: "eip155:42161",   // direct payout on Arbitrum One
+            address: evmAddress,      // native EVM address
+            dstEid: 0,
+          },
           minConfirmations: 6,
         });
         // Persist burn.txid before you continue. Never request a second burn if this call times out:
@@ -552,7 +559,9 @@ Test your implementation against the published vectors before you burn. For exam
         // proof.data is the base64 consignment for /unlock.
         ```
 
-        For a payout on Tron, `burnRecipient.chainId` is `tron:728126428` and `address` is the Tron address; the wallet must list `tron` in `burnRecipientNamespaces`. Check that the wallet's returned `burnDestination`, amount and recipient match the request before you submit the burn.
+        For a payout on Tron, use `chainId: "tron:728126428"`, `dstEid: 30420`, and the native Base58Check address in `burnDestination`. The wallet must have that exact route configured. Check the returned asset ID, amount, and destination against the request before submitting the proof to the bridge.
+
+        WebRGB's native destination and `/unlock`'s encoded V1 record have different field names. For the Arbitrum example, submit `{ version: 1, destinationChainId: 42161, dstEid: 0, recipient: evmAddress }` to `/unlock`. For Tron, decode the native address to its 21-byte `0x` hex representation as described above. Preserve both representations with the burn; they must describe the same destination and commitment. Do not send `burnRecipient`, `destinationChainId`, or `recipient` in the WebRGB request.
       </Tab>
     </Tabs>
 
