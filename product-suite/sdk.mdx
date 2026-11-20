@@ -1,152 +1,117 @@
 ---
-title: "General Overview"
-description: "Overview of the Utexo SDK family — Web, React Native, and WDK (Node.js / Bare) client libraries for on-chain RGB asset operations. Lightning is WIP and testing-only."
-sidebarTitle: "General Overview"
+title: 'Utexo SDK'
+description: 'A shared on-chain wallet facade for React Native and Web, plus WDK integration for Node.js and Bare.'
+sidebarTitle: 'Overview'
 ---
 
-The Utexo SDK provides programmatic access to the Utexo execution layer, enabling applications to issue, transfer, and receive RGB assets on Bitcoin without operating nodes, managing channels, or handling protocol-level infrastructure.
+The Utexo SDK provides non-custodial Bitcoin and RGB wallet operations. **`@utexo/rgb-sdk` exports `UTEXOWallet`, a shared facade over the engine your application creates.** React Native uses `RgbLibRn`; browsers use `RgbLibWeb`. Node.js and Bare integrations use the separate `@utexo/wdk-wallet-rgb` API.
 
-It exposes async methods for wallet management, RGB asset operations, and on-chain Bitcoin interactions. RGB ownership proofs are validated client-side.
+Both current facade engines support **on-chain operations only**, including BFA assets. Lightning is WIP, available only in separate experimental integrations, and not recommended for production.
 
-<Warning>
-  **Current SDK packages support on-chain operations only.** Lightning is **work in progress (WIP)**, available only for experimental testing in builds that include it, and **not recommended for production**. Test-network availability does not make Lightning a supported production feature.
+## Packages
 
-  In `@utexo/rgb-sdk-rn`, **Lightning / RLN is disabled on all networks**. The package supports **on-chain operations only**, through rgb-lib.
-</Warning>
-
-## SDK Family
-
-The Utexo SDK is available across three application platforms. `@utexo/rgb-sdk` (Node.js) is archived; new Node.js integrations should use **`@utexo/wdk-wallet-rgb`** for on-chain RGB. A separate Wallet Development Kit (WDK) layer is available for builders who need lower-level wallet abstractions:
-
-| Package | Platform | Current scope |
+| Package | Role | Runtime |
 | --- | --- | --- |
-| `@utexo/rgb-sdk-web` | Browser / JS/TS | On-chain RGB via WASM; Lightning is WIP, testing-only |
-| `@utexo/rgb-sdk-rn` | React Native | On-chain operations only, via rgb-lib |
-| `@utexo/wdk-wallet-rgb` | Node.js & Bare | On-chain RGB, BFA transfers, and burns |
-| `@utexo/rgb-sdk` | Node.js (archived) | Legacy server-side SDK — do not use for new integrations |
+| `@utexo/rgb-sdk` | `UTEXOWallet` facade and the `/webrgb` provider integration | Runs where its engine runs |
+| `@utexo/rgb-sdk-rn` | `RgbLibRn`, backed by native rgb-lib | React Native on iOS and Android |
+| `@utexo/rgb-sdk-web` | `RgbLibWeb`, backed by rgb-lib WASM | Browser |
+| `@utexo/rgb-sdk-core` | Shared wallet contract, types, errors, and key helpers | Platform-independent |
+| `@utexo/wdk-wallet-rgb` | WDK manager/account API for on-chain RGB | Node.js and Bare |
+| `@utexo/wdk-rgb-lightning` | Experimental Lightning integration | Testing only |
 
-`@utexo/wdk-rgb-lightning` is retained as an experimental Lightning reference for testing only. It is not the recommended Node.js integration path. React Native integrations use `@utexo/rgb-sdk-rn` for on-chain operations only.
+The facade does not bundle or choose an engine. Install the facade, core, and platform engine together, and satisfy their peer dependency requirements. `@utexo/wdk-wallet-rgb` is not yet integrated into the facade; use its manager/account API separately for Node.js and Bare. See [Platform API Differences](/getting-started/quickstart/overview#platform-api-differences) for constructors and send methods by package.
 
-The Web and React Native SDKs share types and interfaces from `@utexo/rgb-sdk-core`, but use different backends, constructors, lifecycles, and network defaults. Check the platform reference before reusing code.
+## Create a Wallet
 
-This page covers the SDK family. Refer to the platform reference pages for method-level details. The WDK source is available in the [main branch](https://github.com/UTEXO-Protocol/wdk-wallet-rgb/tree/main).
+```typescript
+import { UTEXOWallet } from '@utexo/rgb-sdk';
+import { RgbLibRn } from '@utexo/rgb-sdk-rn';
 
-## What the SDK Provides
+const wallet = new UTEXOWallet({
+  engine: new RgbLibRn(
+    {
+      network: 'signet',
+      storageDirPath,
+      indexerUrl: 'ssl://stage.electrs-signet.mint.utexo.com:60602',
+      proxyEndpoint: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
+      evmRpcUrls: { '42161': 'https://arb1.arbitrum.io/rpc' },
+    },
+    mnemonic,
+  ),
+});
+await wallet.init();
+```
 
-- **Wallet management** — key generation, derivation, initialisation, backup, and restore using the mechanisms supported by each package; address rotation following HD wallet best practices
-- **RGB asset operations** — blinded and witness invoices, asset transfers, and balance queries; issuance where exposed by the selected package
-- **On-chain interactions** — deposit address generation, BTC balance queries, on-chain withdrawal
-- **UTXO management** — UTXO creation, listing, and state sync
+The application supplies a persistent native directory and securely stored mnemonic. For the browser, pass `new RgbLibWeb({ network, mnemonic, dataDir, ...connectionSettings })` instead. The Web engine requires an HTTP Esplora indexer.
 
-Lightning payments, HODL invoices, Lightning Address, LSP, and async payments (APay) remain **WIP and testing-only** where an experimental backend is available. They are not recommended for production and are disabled in the current React Native package.
+Construction checks the engine contract. `init()` opens local state, and the first network operation connects automatically. The facade owns the session: use `wallet.destroy()` when finished. See the [facade reference](/sdk/rgb-sdk) for lifecycle and engine extensions.
+
+## Core Capabilities
+
+- Bitcoin addresses, balances, UTXO management, and sends
+- RGB invoices, on-chain transfers, asset balances, and history
+- NIA and IFA issuance through the shared facade API; further schemas depend on the engine
+- BFA inventory, transfer, mint verification, and burn capabilities
+- Transaction preparation, fee review, and separate PSBT signing and submission
+- Encrypted wallet-state backups using each engine's supported storage mechanism
+
+`wallet.capabilities` describes the engine and signing configuration. Both engines expose `wallet.beginEnd` for separate preparation and submission. `wallet.psbt` provides signing and fee estimation when signing keys are available; watch-only wallets use an external signer. See [Transaction Approval](/sdk/rgb-sdk#transaction-approval).
 
 ## Key Concepts
 
-### Vanilla vs Colored Addresses
+### Vanilla vs Colored Balances
 
-The SDK operates two distinct address and key derivation paths:
-
-- **Vanilla** — the standard Bitcoin derivation path. Vanilla outputs hold regular BTC and are used for fee payments, on-chain withdrawals, and funding operations. `getAddress()` returns a vanilla bech32 receive address.
-- **Colored** — the RGB-specific derivation path. Colored outputs carry RGB asset allocations anchored to Bitcoin UTXOs. This path is used internally when creating UTXOs for RGB operations.
-
-Balance methods expose the vanilla and colored paths separately. Method names and key-export result shapes vary by package; see the platform reference.
-
-<Note>
-  Before issuing or receiving RGB assets, the wallet must have colored UTXOs prepared. Call `createUtxos()` after funding the vanilla address to set up the UTXO structure required for RGB allocations.
-</Note>
+`getBtcBalance()` separates vanilla BTC used for fees from colored UTXOs that can carry RGB allocations. Fund the wallet before spending or creating RGB outputs.
 
 ### Invoice Types: Blinded vs Witness
 
-RGB receive flows support two invoice styles:
+`onchainReceive()` creates a witness invoice by default. The sender funds the new receiver output with `witnessData.amountSat`. A blinded invoice uses `witness: false` or `blindReceive()` and needs a prepared RGB UTXO on the receiver.
 
-- **Blinded invoice** — most common. The receiver creates a blinded endpoint; the sender pays the invoice directly. Use this for standard app-to-app RGB transfers.
-- **Witness invoice** — the receiver binds the transfer to witness data. When sending, Web and React Native require `witnessData.amountSat`; the WDK API requires `witnessAmountSats`. Use this when the integration requires witness-bound receive semantics.
+Both facade engines send with `onchainSend()` and refresh settlement with `refresh()`. WDK uses `sendRgbInvoice()`, a persisted `operationId`, exact string or `bigint` amounts, and `witnessAmountSats` for witness invoices.
 
-On Web and React Native, receive with `onchainReceive({ witness: false })` for blinded or the default witness invoice, then send with `onchainSend()`. On `@utexo/wdk-wallet-rgb`, receive with `blindReceive()` / `witnessReceive()` or `createRgbInvoice({ mode: 'blind' | 'witness', ... })`, then send with `sendRgbInvoice()`. WDK sends require a persistent `operationId` and string or `bigint` amounts.
+### BFA Assets
+
+React Native and Web return BFA assets in `listAssets().bfa`; WDK returns a flat array with `schema: 'Bfa'`. Select the authoritative asset ID rather than only its ticker. Supply EVM validation RPCs for BFA mint locks.
+
+React Native supports burn proof export. Web supports local burns but currently has no consignment export. The WebRGB provider consequently does not advertise `burnAsset` or `getConsignment` over `RgbLibWeb`.
+
+Both engines expose `getReceivedMint()` to read a checked mint's EVM lock terms. React Native also returns its checked asset ID. See [received mint verification](/sdk/rgb-sdk#check-a-received-bfa-mint) before integrating the payment step.
 
 ### Backup and Restore
 
-Back up wallet state after significant changes such as UTXO creation, asset issuance, and transfers. A mnemonic alone does not recover RGB state. Backup APIs are package-specific:
+A mnemonic restores keys and Bitcoin, but RGB also requires wallet state. Backups are engine-specific:
 
-- **React Native** — `createBackup({ backupPath, password })` creates an encrypted file. Restore with `restoreFromBackup({ backupFilePath, password, dataDir })` before `init()`, then supply the original keys and wallet settings. VSS is unavailable on this backend.
-- **Web** — use the file or VSS backup methods documented in the [Web reference](/sdk/web-sdk#backup-and-restore).
-- **WDK** — preserve the complete wallet directory and operation journals with an application-managed backup process. The SDK exposes operation recovery, but no `createBackup()` or `restoreAccountFromBackup()` API. A seed-only restore is explicitly BTC-only.
+| Engine | Backup | Restore |
+| --- | --- | --- |
+| React Native | `exportBackupToFile()` or `exportBackup()` | `restoreBackupFromFile()` before opening a wallet in a new directory |
+| Web | `exportBackup()` or `backupToVss()` | `restoreBackup()` or `restoreFromVss()` after `init()` and before connecting |
+| WDK | Application-managed complete wallet directory and operation journals | Reopen the matching state and recover recorded operations |
 
-An RLN directory or VSS backup cannot be opened by the current React Native on-chain wallet.
-
-### Private Key Export
-
-Where a package exposes private-key export, treat the resulting key material with the same sensitivity as the mnemonic. Check the installed package’s API; key-export helpers are not shared across all SDKs.
-
-## Execution Model
-
-New Node.js integrations use **`@utexo/wdk-wallet-rgb`** for on-chain RGB. Construct `WalletManagerRgb` with the mnemonic and complete staging configuration, then connect the account:
-
-```ts
-import WalletManagerRgb from '@utexo/wdk-wallet-rgb';
-
-const manager = new WalletManagerRgb(mnemonic, {
-  network: 'signet',
-  mode: 'rgb',
-  profile: 'staging',
-  startupMode: 'offline',
-  dataDir: '/absolute/path/to/signet-rgb-wallet',
-  indexerUrl: 'ssl://stage.electrs-signet.mint.utexo.com:60602',
-  transportEndpoint: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
-  evmRpcUrls: { '42161': 'https://arb1.arbitrum.io/rpc' },
-  nativeExecutable: '/absolute/path/to/utexo-rgb-native',
-  nativeSha256: verifiedNativeSha256,
-  maxFeeSats: 5000n,
-  authorize: (review) => requestWalletApproval(review),
-});
-const account = await manager.getAccount();
-await account.connect();
-```
-
-`verifiedNativeSha256` and `requestWalletApproval()` are supplied by the application; see [WDK configuration](/sdk/wdk-wallet-rgb#configuration). Await `manager.shutdown()` when finished.
-
-The Web package uses `UTEXOWallet` with `init()` then `unlock()`. React Native uses `new UTEXOWallet({ params, keys })` and `init()`; the wallet connects automatically on the first network operation, or explicitly through `goOnline(params)`. See the platform references for lifecycle details.
-
-Key execution properties:
-
-- All operations are **non-custodial** — the SDK never transmits private keys or mnemonics
-- **Web** uses `@utexo/rgb-sdk-web` (WASM); **React Native** uses `@utexo/rgb-sdk-rn`; **Node.js** uses `@utexo/wdk-wallet-rgb`
-- **Signing** — WDK derives account keys from the mnemonic passed to its manager; React Native uses its `keys` provider
+The earlier RLN backups and wallet directories are not migrated by changing the constructor.
 
 ## Networks
 
-Pass the network identifier supported by the selected package. Web and React Native use `utexo` for their hosted signet profile. The WDK accepts `signet` and isolated `regtest`, not `mainnet` or `utexo`. Its Node.js quickstart keeps public Bitcoin signet with the required Electrum indexer and the Utexo staging proxy.
+Configure the indexer and RGB proxy for the same deployment on both parties. Public signet examples use the staging RGB proxy. React Native uses the Utexo Electrum indexer; Web uses HTTP Esplora. The `utexo` profile on Web and React Native targets hosted Dev infrastructure, separate from public signet.
 
-Indexer and proxy defaults differ by package. Use the [React Native defaults](/sdk/react-native-sdk#connection-settings), [Web defaults](/sdk/web-sdk#default-endpoints), or [WDK configuration](/sdk/wdk-wallet-rgb#configuration). A test network does not enable Lightning in the current React Native build.
+WDK has its own configuration and profile rules. See [React Native connection settings](/sdk/react-native-sdk#connection-settings), [Web endpoints](/sdk/web-sdk#default-endpoints), and [WDK configuration](/sdk/wdk-wallet-rgb#configuration).
 
-<Note>
-  Testnet3 (`testnet`) is not recommended: Bitcoin confirmations there can take hours. For hosted signet development, use `utexo` in Web and React Native, or `signet` with the staging profile in the WDK API.
-</Note>
+## WebRGB for dApps
 
-## In This Section
+Wallet applications expose a provider using `@utexo/rgb-sdk/webrgb`. dApps use `@utexo/webrgb` to request a provider and inspect its advertised methods. The application handles trusted origins, user confirmation, and persistent operation storage. See [WebRGB integration](/sdk/rgb-sdk#webrgb-integration).
 
-Platform references for `@utexo/wdk-wallet-rgb` (Node.js / Bare), `@utexo/rgb-sdk-web` (browser), and `@utexo/rgb-sdk-rn` (iOS and Android).
+## Build and Integrate
 
-## Further Reading
+| Guide | Use |
+| --- | --- |
+| [RGB SDK Facade](/sdk/rgb-sdk) | Shared wallet API and supported engine extensions |
+| [React Native Quickstart](/getting-started/quickstart/react-native) | Mobile wallet with `RgbLibRn` |
+| [Web Quickstart](/getting-started/quickstart/web) | Browser wallet with `RgbLibWeb` |
+| [Node.js Quickstart](/getting-started/quickstart/node-js) | On-chain WDK manager and account |
+| [WDK Overview](/sdk/wdk-overview) | WDK packages and integration model |
 
-- [Product Suite](/getting-started/product-suite) — How the SDK fits into the full Utexo product surface.
-- [Architecture](/getting-started/architecture) — The Bitcoin \+ RGB stack the SDK operates on.
-- [Quickstart](/getting-started/quickstart/overview) — Step-by-step guide to your first Utexo integration.
+## References
 
-## Platform SDKs
-
-| Page | Package | Platform |
-| --- | --- | --- |
-| [wdk-wallet-rgb](/sdk/wdk-wallet-rgb) | `@utexo/wdk-wallet-rgb` | Node.js & Bare — on-chain RGB |
-| [React Native SDK](/sdk/react-native-sdk) | `@utexo/rgb-sdk-rn` | iOS and Android — rgb-lib, on-chain only |
-| [Web SDK](/sdk/web-sdk) | `@utexo/rgb-sdk-web` | Browser — on-chain RGB via WASM; Lightning WIP/testing-only |
-
-## Wallet Development Kit (WDK)
-
-The WDK packages expose RGB capabilities through standard wallet abstraction interfaces for builders who already use WDK-compatible account and signing layers.
-
-| Page | Package | Status |
-| --- | --- | --- |
-| [WDK Overview](/sdk/wdk-overview) | — | Shared architecture and `dataDir` coordination |
-| [wdk-wallet-rgb](/sdk/wdk-wallet-rgb) | `@utexo/wdk-wallet-rgb` | On-chain RGB wallets, BFA transfers, burns, and recovery |
-| [wdk-rgb-lightning](/sdk/wdk-rgb-lightning) | `@utexo/wdk-rgb-lightning` | Experimental Lightning — WIP, testing-only; not recommended for production |
+- [React Native Reference](/sdk/react-native-sdk)
+- [Web Reference](/sdk/web-sdk)
+- [WDK Reference](/sdk/wdk-wallet-rgb)
+- [Experimental Lightning Reference](/sdk/wdk-rgb-lightning) — WIP, testing-only

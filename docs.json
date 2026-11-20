@@ -22,7 +22,7 @@
     },
     {
       "source": "/sdk/utexo-sdk",
-      "destination": "/sdk/wdk-wallet-rgb"
+      "destination": "/sdk/rgb-sdk"
     },
     {
       "source": "/cloud/rgb-lightning-node-api",
@@ -85,10 +85,6 @@
       "destination": "/product-suite/swap/development/authorization"
     },
     {
-      "source": "/sdk/rgb-sdk",
-      "destination": "/product-suite/sdk"
-    },
-    {
       "source": "/sdk/rgb-lightning-sdk",
       "destination": "/sdk/wdk-rgb-lightning"
     }
@@ -127,6 +123,7 @@
             "group": "SDK",
             "pages": [
               "product-suite/sdk",
+              "sdk/rgb-sdk",
               "sdk/react-native-sdk",
               "sdk/web-sdk",
               {

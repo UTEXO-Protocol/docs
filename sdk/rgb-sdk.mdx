@@ -1,0 +1,214 @@
+---
+title: 'RGB SDK Facade'
+description: 'Use UTEXOWallet from @utexo/rgb-sdk with the React Native or browser RGB engine.'
+sidebarTitle: 'RGB SDK Facade'
+---
+
+`@utexo/rgb-sdk` provides **`UTEXOWallet`**, a shared wallet facade over an engine created by your application. Use `RgbLibRn` on React Native or `RgbLibWeb` in the browser. Both engines support **on-chain RGB only**.
+
+The facade contains no native bindings or browser runtime. It forwards wallet operations to the selected engine, preserves its parameter and return types, and checks compatibility with the shared contract from `@utexo/rgb-sdk-core`.
+
+For Node.js and Bare, use the separate [WDK integration](/sdk/wdk-wallet-rgb). `@utexo/wdk-wallet-rgb` is not yet integrated into this facade; use its manager/account API directly.
+
+## Installation
+
+Install the facade, shared core, and the engine for your runtime:
+
+<CodeGroup>
+```bash React Native
+npm install @utexo/rgb-sdk@latest @utexo/rgb-sdk-core@latest @utexo/rgb-sdk-rn@latest
+```
+
+```bash Browser
+npm install @utexo/rgb-sdk@latest @utexo/rgb-sdk-core@latest @utexo/rgb-sdk-web@latest
+```
+</CodeGroup>
+
+Follow the engine's [native setup](/sdk/react-native-sdk#requirements-and-installation) or [browser bundler setup](/sdk/web-sdk#installation-and-bundler-setup). Keep the installed packages compatible with their `@utexo/rgb-sdk-core` peer requirements.
+
+## Create a Wallet
+
+The application constructs the engine and passes it to the facade. The facade owns the session from that point onward.
+
+<CodeGroup>
+```typescript React Native
+import { UTEXOWallet } from '@utexo/rgb-sdk';
+import { RgbLibRn } from '@utexo/rgb-sdk-rn';
+
+const wallet = new UTEXOWallet({
+  engine: new RgbLibRn(
+    {
+      network: 'signet',
+      storageDirPath,
+      indexerUrl: 'ssl://stage.electrs-signet.mint.utexo.com:60602',
+      proxyEndpoint: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
+      evmRpcUrls: { '42161': 'https://arb1.arbitrum.io/rpc' },
+    },
+    mnemonic,
+  ),
+});
+
+await wallet.init();
+```
+
+```typescript Browser
+import { UTEXOWallet } from '@utexo/rgb-sdk';
+import { RgbLibWeb } from '@utexo/rgb-sdk-web';
+
+const wallet = new UTEXOWallet({
+  engine: new RgbLibWeb({
+    network: 'signet',
+    mnemonic,
+    dataDir: 'signet-wallet',
+    indexerUrl: 'https://mempool.space/signet/api',
+    proxyEndpoint: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
+    evmRpcUrls: { '42161': 'https://arb1.arbitrum.io/rpc' },
+  }),
+});
+
+await wallet.init();
+```
+</CodeGroup>
+
+Load `mnemonic` from secure application storage. React Native's `storageDirPath` is a persistent absolute native path; Web's `dataDir` identifies an IndexedDB profile. The browser requires an HTTP Esplora indexer, while React Native also supports Electrum.
+
+Construction validates the engine contract without opening a session. `init()` opens local state, and the first operation that needs the network connects automatically. Call `unlock(params)` or the forwarded `goOnline(params)` to connect explicitly. When finished, `await wallet.destroy()`; reopening requires a new instance.
+
+Manage the lifecycle through the facade. Do not separately initialize, unlock, or destroy `wallet.engine`.
+
+## Shared Wallet API
+
+| Group | Methods |
+| --- | --- |
+| Lifecycle | `init()`, `unlock()`, `destroy()`, `isDisposed()` |
+| Network and identity | `getNetwork()`, `getNetworkInfo()`, `getWalletIdentity()`, `estimateFeeRate()` |
+| Bitcoin | `getAddress()`, `getBtcBalance()`, `listUnspents()`, `createUtxos()`, `sendBtc()` |
+| Assets | `listAssets()`, `getAssetBalance()`, `issueAssetNia()`, `issueAssetIfa()`, `inflate()` |
+| Invoices and transfers | `onchainReceive()`, `blindReceive()`, `witnessReceive()`, `decodeRGBInvoice()`, `onchainSend()` |
+| History and settlement | `listTransfers()`, `listTransactions()`, `refresh()`, `refreshWallet()`, `syncWallet()`, `failTransfers()` |
+
+`initialize()` aliases `init()`, and `dispose()` aliases `destroy()`. The facade has no static `create()` factory; construct it with `{ engine }` and call `init()`.
+
+`listAssets()` groups assets by schema, including `bfa`. Invoice and balance amounts use safe JavaScript integers in base units. `burn()` uses an exact decimal string instead. `refresh()` returns transfer outcomes keyed by batch transfer ID; `refreshWallet()` discards that result, and `syncWallet()` synchronizes chain and wallet state.
+
+## Engine Extensions
+
+The facade exposes supported extensions with the engine's own types. It does not add methods missing from the engine.
+
+| Extension | React Native | Browser |
+| --- | --- | --- |
+| `burn()`, `getBfaCapabilities()` | Yes | Yes |
+| `getReceivedMint(recipientId, options?)` | Yes; includes the checked asset ID | Yes; checked asset ID currently unavailable |
+| `getConsignment()`, `getConsignmentPath()` | Yes | Unavailable |
+| `beginEnd` | Prepare and submit separately, including burns | Prepare and submit separately, including burns |
+| `psbt` | Signing and fee estimation; absent on watch-only wallets | Signing and fee estimation; absent on watch-only wallets |
+| `exportBackup({ password })` | Encrypted bytes | Encrypted bytes |
+| `exportBackupToFile({ filePath, password })` | Yes | Unavailable |
+| `restoreBackup({ bytes, password })` | Use the engine's standalone file restore function | After `init()`, before connection |
+| `backupToVss()`, `restoreFromVss()`, `getVssBackupInfo()` | Unavailable | Yes |
+| `shutdown()`, `reinit()` | Yes | Unavailable; create a new instance after `destroy()` |
+| `issueAssetCfa()`, `issueAssetUda()`, `getAssetMetadata()` | Yes | Unavailable |
+| `goOnline()` | Yes | Yes |
+
+On React Native, restore with `restoreBackupFromFile()` from `@utexo/rgb-sdk-rn` before creating and opening the wallet. Backups are engine-specific. The deprecated engine method `createBackup()` is not forwarded by the facade; use `exportBackupToFile()` or `exportBackup()`.
+
+Check `wallet.capabilities.canSignTransactions` for signing availability and `getBfaCapabilities()` for BFA operations. Both engines expose `beginEnd`; `psbt` is available when the wallet has signing keys.
+
+### Transaction Approval
+
+One-step methods such as `onchainSend()` and `burn()` sign and submit in the same call. Use `wallet.beginEnd` to prepare the transaction, review it, and obtain approval before signing:
+
+```typescript
+const signer = wallet.psbt;
+if (!signer) throw new Error('This wallet requires an external signer');
+
+const burnParams = {
+  assetId,
+  amount: '100',
+  burnRecipient, // 64 hex characters: the payout destination commitment, without 0x
+  feeRate: 2,
+  minConfirmations: 6,
+};
+const begun = await wallet.beginEnd.burnBegin(burnParams);
+
+// Show the asset, amount, payout destination, transaction, and exact fee.
+if (await requestBurnApproval({ ...burnParams, ...begun })) {
+  const signedPsbt = await signer.signPsbt(begun.psbt);
+  await saveSignedPsbt(begun.txid, signedPsbt);
+  const result = await wallet.beginEnd.burnEnd({ signedPsbt });
+} else {
+  await wallet.failTransfers({ batchTransferIdx: begun.batchTransferIdx });
+}
+```
+
+`requestBurnApproval()` and `saveSignedPsbt()` are application-owned functions. The latter must persist the signed PSBT durably before submission. `burnBegin()` reserves inputs and returns `psbt`, `txid`, `batchTransferIdx`, `fee` in sats, and `vbytes`. For a bridge burn, derive `burnRecipient` from the intended [V1 payout destination](/mint/mint-burn-integration#choose-the-burn-destination) and show that destination in the approval UI.
+
+The same API also provides `createUtxosBegin/End`, `sendBtcBegin/End`, `onchainSendBegin/End`, and `inflateBegin/End`. Use `wallet.psbt.estimateFee(psbt)` for fee details. Watch-only wallets can prepare and submit through `beginEnd`, but must sign externally.
+
+After an interrupted `burnEnd()`, `onchainSendEnd()`, or `inflateEnd()`, call the same end method with the saved signed PSBT. It returns the existing result if the operation was already submitted. The engine cannot retrieve that signed PSBT later; the application must retain it.
+
+### Check a Received BFA Mint
+
+Call `getReceivedMint(recipientId, { refreshIncoming: true })` with the exact recipient ID from an invoice this wallet created. It refreshes pending incoming transfers only, without progressing outgoing sends or burns. Omitting `refreshIncoming` reads local state without connecting. Configure `evmRpcUrls` for the mint's EVM chain.
+
+The result contains `opid`, `lockId`, `amount`, `beforeBlock`, `evmChainId`, and `bridgeContract`. Integer fields are exact decimal strings; use `BigInt` for arithmetic. React Native also reads `assetId` from the checked consignment; the Web engine currently cannot return it. Before paying the EVM lock, match these terms and the asset identity against the intended mint. A checked mint does not establish payment or settlement.
+
+`undefined` means no checked mint is available for that recipient. Inspect transfer status to distinguish a pending receive from a refused or failed one. BFA asset entries also have optional `initialSupply` and `knownCirculatingSupply`; do not treat an absent supply field as zero.
+
+## Error Handling
+
+Engine errors pass through unchanged. Use `isEngineError()` to read their stable `code`, `operation`, and `protocol` fields:
+
+```typescript
+import { isEngineError } from '@utexo/rgb-sdk';
+
+try {
+  await wallet.refresh();
+} catch (error) {
+  if (isEngineError(error)) {
+    console.warn(error.code, error.operation);
+  } else {
+    throw error;
+  }
+}
+```
+
+The facade reports `INVALID_CONFIG` for an invalid engine, `ENGINE_CONTRACT_MISMATCH` for an incompatible contract version, and `UNSUPPORTED_CAPABILITY` when a requested capability cannot run. The current facade accepts contract version `1`.
+
+## WebRGB Integration
+
+Wallet applications import `WebRgbProvider` and `BurnOperations` from **`@utexo/rgb-sdk/webrgb`**. dApps use **`@utexo/webrgb`** to discover and call a provider; they do not instantiate a wallet engine.
+
+Install a compatible `@utexo/webrgb` peer before using this entry point; the provider uses the `0.1.7` API. The application supplies the trusted dApp origin, a confirmation callback, and durable storage for burn operations shared across its provider sessions.
+
+Read `(await provider.getInfo()).methods` before offering an action. Optional methods depend on the engine:
+
+| Method | Behavior |
+| --- | --- |
+| `createUtxos()` | Requests user approval for output preparation; does not retry automatically |
+| `getBtcBalance()` | Returns balances and the number of free colorable UTXOs, without outpoints |
+| `refresh(assetId?)` | Refreshes transfers and rejects if a transfer in scope fails to refresh |
+| `getAssetMetadata(assetId)` | Available when the engine supports metadata reads |
+| `getReceivedMint({ invoice })` | Checks a mint for the exact invoice this wallet created; returns `null` while none is ready |
+
+WebRGB mint verification refreshes incoming transfers without a prompt. Foreign, failed, or invalid receives reject. An any-asset invoice requires the engine to return the checked consignment's `assetId`, which React Native supports. With the current Web engine, the invoice must name the asset. The dApp must compare the returned asset ID and mint terms before payment; `txid` may remain absent until the EVM lock is paid.
+
+WebRGB burn requires both burning and consignment export. `RgbLibWeb` can burn locally but cannot export a consignment, so its provider does not advertise `burnAsset` or `getConsignment`. To enable `burnAsset` on a supported engine, configure `burn.destinationRoutes` with the exact deployment routes, for example `[{ chainId: 'eip155:42161', dstEid: 0 }]`, alongside the shared `BurnOperations` service.
+
+A dApp supplies one `burnDestination: { version: 1, chainId, address, dstEid }`, using the chain-native address. The provider validates the exact route and computes the V1 commitment before requesting approval. `getInfo()` no longer advertises payout routes. The WebRGB request must not include `burnRecipient` or the bridge API's encoded destination fields; those requests reject with `INVALID_PARAMS`. See the [WebRGB burn example](/mint/mint-burn-integration#burn-and-unlock).
+
+The burn journal validates the destination against its commitment. Earlier SDK journal formats are not migrated automatically and cannot be read by this provider.
+
+## Migration
+
+Import `UTEXOWallet` from `@utexo/rgb-sdk`, and replace platform-specific wallet constructors with `new UTEXOWallet({ engine })`. The platform packages now export `RgbLibRn` and `RgbLibWeb` as their wallet classes.
+
+The facade is not the earlier Node.js implementation that used the same package name. It does not migrate old wallet directories, RLN state, or backups. Node.js integrations continue to use [WDK](/sdk/wdk-wallet-rgb).
+
+## Further Reading
+
+- [React Native Quickstart](/getting-started/quickstart/react-native)
+- [Web Quickstart](/getting-started/quickstart/web)
+- [React Native Engine](/sdk/react-native-sdk)
+- [Web Engine](/sdk/web-sdk)
+- [Package on npm](https://www.npmjs.com/package/@utexo/rgb-sdk)

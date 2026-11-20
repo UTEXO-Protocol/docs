@@ -16,11 +16,15 @@ npm install @utexo/wdk-wallet-rgb@latest
 
 For setup and native worker instructions, see the [source repository](https://github.com/UTEXO-Protocol/wdk-wallet-rgb/tree/main).
 
-The Node.js build requires Node `^22.21.0` or `>=24.9.0`, a matching protocol-2 native worker, and its verified SHA-256. The native engine is Electrum-only. Android Bare uses its matching native addon; it does not use the Node executable.
+The Node.js build requires Node `^22.21.0` or `>=24.9.0`, a matching protocol-2 native worker, and its verified SHA-256. Bare requires `>=1.37.1` and the matching platform addon. Public signet and mainnet use Electrum; the hosted Dev profile uses its configured Esplora service.
 
 ## Configuration
 
 Public Bitcoin signet supports an explicit staging RGB profile. Pass the mnemonic and configuration to the default `WalletManagerRgb` export:
+
+<Note>
+  The example retains Utexo's staging indexer. The currently reviewed WDK implementation still pins public signet to `ssl://electrum.iriswallet.com:50033` in its types and runtime validation. It must admit `ssl://stage.electrs-signet.mint.utexo.com:60602` before this configuration can run; changing the URL in application code alone does not enable it.
+</Note>
 
 ```typescript
 import WalletManagerRgb, { type CandidateConfig } from '@utexo/wdk-wallet-rgb';
@@ -49,21 +53,21 @@ await account.connect();
 
 | Option | Purpose |
 | --- | --- |
-| `network` | `signet` for this guide; the SDK also supports isolated `regtest` |
-| `mode`, `profile` | Public signet RGB requires `mode: 'rgb'` and `profile: 'staging'` |
+| `network` | `signet` for this guide; also supports `mainnet` and isolated `regtest` |
+| `mode`, `profile` | This bridge example uses `mode: 'rgb'` and `profile: 'staging'`; ordinary signet RGB uses `profile: 'public'` |
 | `dataDir` | Absolute, private, persistent directory dedicated to this wallet |
-| `indexerUrl` | Public signet requires `ssl://stage.electrs-signet.mint.utexo.com:60602` |
+| `indexerUrl` | Utexo staging uses `ssl://stage.electrs-signet.mint.utexo.com:60602`; the WDK build must admit it as described above |
 | `transportEndpoint` | Staging requires `rpcs://staging.rgb-proxy.utexo.com/json-rpc` |
 | `evmRpcUrls` | Staging requires `{ '42161': 'https://arb1.arbitrum.io/rpc' }` for BFA history validation |
 | `nativeExecutable`, `nativeSha256` | Node worker path and expected SHA-256 matching this SDK build |
 | `maxFeeSats` | Required transaction fee cap, as a decimal string or `bigint` |
 | `authorize(review)` | Required transaction approval callback |
 | `startupMode` | `online` by default; `offline` opens local state before `connect()` |
-| `burnDestinationRoutes` | Optional enabled V1 payout routes; staging permits only `{ chainId: 'eip155:42161', dstEid: 0 }` |
+| `burnDestinationRoutes` | Explicitly enabled V1 payout routes; see the route table below |
 
-The staging proxy is the service at `https://staging.rgb-proxy.utexo.com/json-rpc`; this SDK requires its `rpcs://` transport URI. The SDK accepts only the configured Electrum endpoint for public signet. Esplora endpoints, including `https://mempool.space/signet/api`, and proxy credentials are not supported.
+The staging proxy is the service at `https://staging.rgb-proxy.utexo.com/json-rpc`; this SDK requires its `rpcs://` transport URI. Public signet uses an admitted Electrum endpoint and rejects proxy credentials. The separate `profile: 'dev'` uses `https://dev.esplora-01.mint.utexo.com` with the Dev proxy and its own chain checkpoint. Dev funds and public signet funds are not interchangeable.
 
-For BTC-only seed recovery, use `mode: 'btc-only'` with the signet Electrum endpoint and omit the RGB profile, proxy, EVM RPC, and burn-route settings. That mode does not enable RGB operations. Mainnet and the `utexo` network alias are not accepted by this SDK.
+For BTC-only seed recovery, use `mode: 'btc-only'` and omit RGB profile, proxy, EVM RPC, and burn-route settings. Mainnet supports ordinary RGB and BTC-only modes with its admitted Electrum endpoint; ordinary RGB rejects bridge routes and EVM settings. The `utexo` network alias is not a WDK network identifier.
 
 ## Lifecycle and Amounts
 
@@ -72,7 +76,8 @@ For BTC-only seed recovery, use `mode: 'btc-only'` with the signet Electrum endp
 | Method | Purpose |
 | --- | --- |
 | `getAccount()` / `getAccount(0)` | Open the manager's single account |
-| `connect()` | Connect to the configured Electrum service and verify the chain |
+| `getPublicKeys()` | Read immutable public account xpubs, master fingerprint, and network; available offline |
+| `connect()` | Connect to the configured indexer and verify the chain |
 | `getConnectionStatus()` | Report `offline`, `connected`, or `unavailable` |
 | `getNetworkInfo()` | Read the current chain tip |
 | `checkIndexerUrl()` / `checkProxyEndpoint()` | Check the configured services |
@@ -99,14 +104,17 @@ Use the asset ID from the official deployment metadata. A ticker alone does not 
 
 | Method | Purpose |
 | --- | --- |
-| `listAssets()` | List held or registered assets |
+| `listAssets()` | List known assets |
 | `getAssetBalance(assetId)` / `getTokenBalance(assetId)` | Read the full balance / spendable base units |
 | `getAssetMetadata(assetId)` | Read asset metadata |
-| `registerAssetContract({ contract, assetId, sha256 })` | Validate and register public contract bytes; `contract` is a `Uint8Array` |
-| `importRgbContract(options)` | Alias for contract registration |
+| `issueAssetNia({ operationId, ticker, name, precision, amounts })` | Issue an ordinary NIA asset using confirmed RGB outputs |
+| `issueAssetCfa({ operationId, name, details?, precision, amounts })` | Issue an ordinary CFA asset |
+| `getCapabilities()` | Inspect contract-registration and mint-verification availability |
+| `registerAssetContract()` / `importRgbContract()` | Currently reject with `CONTRACT_IMPORT_UNAVAILABLE`; standalone genesis import is unavailable |
 | `getReceivedMint(recipientId)` | Read the received mint's bridge metadata, or `null` |
+| `getReceivedMintForInvoice({ invoice, expectedAssetId? })` | Verify a mint against an exact wallet-owned invoice |
 
-Contract registration does not create an asset balance. The public API does not expose the old `issueAssetNia()` flow.
+An unknown asset can be learned through a validated receive. Contract registration is not a prerequisite that can currently be completed through this build. Issuance requires a persisted `operationId`; replay the exact request with the same ID to recover an interrupted issuance. `amounts` accepts decimal strings or `bigint`, with safe integer numbers retained for compatibility. NIA/CFA issuance does not issue a bridge-backed BFA asset.
 
 <Note>
   Use a compatible BFA issuance with official contract bytes, asset ID, metadata, and export checksum, plus matching deployed bridge services. BFA support in the SDK does not make an older staging asset compatible.
@@ -145,6 +153,7 @@ await receiverAccount.refreshTransfers({ assetId });
 | `listTransfers({ assetId?, txid? }?)` | Read transfer history |
 | `getInvoiceStatus(recipientId)` | Read the incoming transfer, or `null` |
 | `refresh(assetId?)` / `refreshTransfers({ assetId? }?)` | Advance transfers and return per-transfer results |
+| `cancelReceiveInvoice({ batchTransferIdx, recipientId })` | Cancel an eligible expired ordinary-asset receive after checking delivery; BFA and unknown-asset receives remain protected |
 
 For a witness invoice, supply `witnessAmountSats` in `sendRgbInvoice()`. The SDK does not use the legacy `receiveAsset()`, `transfer()`, `witnessData`, or `refreshWallet()` API.
 
@@ -164,7 +173,17 @@ Fund the wallet before creating RGB outputs. For example, `count: 5`, `size: '20
 
 ## BFA Burns and Proofs
 
-Enable a burn route only after verifying the corresponding bridge deployment. The signet staging profile currently permits direct Arbitrum payout only: `burnDestinationRoutes: [{ chainId: 'eip155:42161', dstEid: 0 }]` in the constructor configuration.
+Enable a burn route only after verifying the corresponding bridge deployment. The staging and Dev profiles accept these exact route pairs:
+
+| Destination | `chainId` | `dstEid` |
+| --- | --- | --- |
+| Arbitrum | `eip155:42161` | `0` |
+| Ethereum | `eip155:1` | `30101` |
+| Polygon | `eip155:137` | `30109` |
+| Plasma | `eip155:9745` | `30383` |
+| Tron | `tron:728126428` | `30420` |
+
+The example uses `burnDestinationRoutes: [{ chainId: 'eip155:42161', dstEid: 0 }]` in the constructor configuration. A route being accepted by the SDK does not establish that the deployed bridge settles it.
 
 ```typescript
 import { burnDestinationFor, createBurnPackage } from '@utexo/wdk-wallet-rgb';
@@ -208,7 +227,7 @@ Persist a unique `operationId` before `createUtxos()`, `sendBtc()`, `sendRgbInvo
 
 Recovery may remain unresolved; it is not an automatic retry. Keep the same wallet directory and resolve the recorded operation before another spend.
 
-The SDK has no `createBackup()` or `restoreAccountFromBackup()` method. Preserve the complete authenticated wallet state and operation journals with an application-managed backup process. A seed alone recovers only the explicit BTC-only flow, not RGB state. Do not reuse an old SDK or RLN wallet directory: the SDK does not migrate it, and the same seed can derive a different wallet identity.
+The SDK has no `createBackup()` or `restoreAccountFromBackup()` method. Preserve the complete authenticated wallet state and operation journals with an application-managed backup process. A seed alone recovers only the explicit BTC-only flow, not RGB state. Do not reuse an old SDK or RLN wallet directory: the SDK does not migrate it, and the same seed can derive a different wallet identity. This also applies to earlier BFA.7/BFA.8 engine directories; retain their original SDK and complete state.
 
 Always `await manager.shutdown()` before closing or reopening the wallet. Create a new manager for a later session.
 

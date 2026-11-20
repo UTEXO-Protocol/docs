@@ -1,219 +1,184 @@
 ---
-title: "React Native Quickstart"
-sidebarTitle: "React Native"
-description: "Initialize an on-chain mobile wallet with rgb-lib and transfer RGB assets using @utexo/rgb-sdk-rn."
+title: 'React Native Quickstart'
+sidebarTitle: 'React Native'
+description: 'Create an on-chain mobile wallet with the RGB SDK facade and the RgbLibRn engine.'
 ---
 
-<Info>
-  This guide covers iOS and Android applications. For Node.js, see the [Node.js guide](/getting-started/quickstart/node-js). For browser applications, see the [Web guide](/getting-started/quickstart/web).
-</Info>
-
-<Warning>
-  The current `@utexo/rgb-sdk-rn` package supports **on-chain RGB only**, through **rgb-lib**. Lightning / RLN is disabled on all networks. Lightning is WIP, for experimental testing only, and is not recommended for production.
-</Warning>
+Use `UTEXOWallet` from **`@utexo/rgb-sdk`** with **`RgbLibRn` from `@utexo/rgb-sdk-rn`**. The engine uses native rgb-lib and supports on-chain operations only. For other runtimes, see the [Node.js](/getting-started/quickstart/node-js) or [Web](/getting-started/quickstart/web) guide.
 
 ## Prerequisites
 
 - React Native with a working iOS or Android native build environment
 - Node.js for the development toolchain
 - A persistent, writable application directory
-- Bitcoin test funds for transaction fees
-- A separately initialized sender wallet that already holds the RGB asset for an end-to-end transfer
+- Signet BTC for transaction fees
+- A separately initialized sender holding the expected BFA asset
 
-<Warning>
-  This guide uses the `utexo` network profile for Utexo's hosted signet infrastructure. Never use mainnet keys or real funds while following this guide.
-</Warning>
+This guide uses public Bitcoin signet and the Utexo staging proxy. Use separate test wallet profiles for the sender and receiver.
 
 ## Step 1: Install the SDK
 
 ```bash
-npm install @utexo/rgb-sdk-rn react-native-fs
-```
-
-For iOS, install the native dependencies after adding the package:
-
-```bash
+npm install @utexo/rgb-sdk@latest @utexo/rgb-sdk-core@latest @utexo/rgb-sdk-rn@latest
+npm install react-native-fs react-native-get-random-values buffer
 cd ios && pod install
 ```
 
-The package includes native bindings and is not interchangeable with the Node.js or Web packages.
+Load these polyfills in the app entry file before SDK imports:
 
-## Step 2: Generate Wallet Keys
+```javascript
+import 'react-native-get-random-values';
+import { Buffer } from 'buffer';
+globalThis.Buffer ??= Buffer;
+```
+
+Rebuild the native application after installation. See the [engine setup](/sdk/react-native-sdk#requirements-and-installation) for details.
+
+## Step 2: Generate and Save Keys
 
 ```javascript
 import { generateKeys } from '@utexo/rgb-sdk-rn';
 
-
-const keys = await generateKeys('utexo');
+const keys = await generateKeys('signet');
+await saveMnemonicToSecureStorage(keys.mnemonic);
 ```
 
-Generate keys only for a new wallet. Store the mnemonic in platform-backed secure storage before calling `init()`, and load the same mnemonic on subsequent launches. Do not log it in production or persist it in AsyncStorage.
+`saveMnemonicToSecureStorage()` represents application-owned secure storage. Generate a mnemonic only for a new wallet; load the saved one on subsequent launches.
 
-## Step 3: Initialize the On-chain Wallet
-
-Use the wallet constructor with wallet parameters and keys. Create a persistent directory dedicated to this wallet:
+## Step 3: Create the Engine and Facade
 
 ```javascript
-import { UTEXOWallet } from '@utexo/rgb-sdk-rn';
+import { UTEXOWallet } from '@utexo/rgb-sdk';
+import { RgbLibRn } from '@utexo/rgb-sdk-rn';
 import RNFS from 'react-native-fs';
 
-const storageDirPath = `${RNFS.DocumentDirectoryPath}/utexo-onchain-wallet`;
+const storageDirPath = `${RNFS.DocumentDirectoryPath}/signet-rgb-receiver`;
 await RNFS.mkdir(storageDirPath);
 
 const wallet = new UTEXOWallet({
-  params: {
-    storageDirPath,
-    network: 'utexo',
-  },
-  keys: keys.mnemonic,
+  engine: new RgbLibRn(
+    {
+      network: 'signet',
+      storageDirPath,
+      indexerUrl: 'ssl://stage.electrs-signet.mint.utexo.com:60602',
+      proxyEndpoint: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
+      evmRpcUrls: { '42161': 'https://arb1.arbitrum.io/rpc' },
+    },
+    keys.mnemonic,
+  ),
 });
 
 await wallet.init();
 ```
 
-`init()` opens the local wallet; the first network operation connects automatically using the package's network defaults. For custom endpoints or `regtest`, call `goOnline(params)` after `init()` and before network operations. The RGB proxy must support protocol 1.0.
+`init()` opens local state. The first network operation connects automatically with the engine's configuration; `wallet.goOnline()` connects explicitly. The EVM RPC is needed to validate BFA mint locks from Arbitrum.
 
-<Note>
-  The previous `new UTEXOWallet(nodeParams, signer)` example selects the disabled RLN backend. The on-chain flow uses `keys`, requires no daemon or peer ports, and needs no separate `unlock()` step. Use a new mnemonic and directory for an on-chain wallet profile; an existing RLN directory or VSS backup cannot be opened as a wallet for the current on-chain implementation.
-</Note>
+The facade owns the session. Do not initialize or destroy `wallet.engine` separately. The current platform package exports `RgbLibRn`; `UTEXOWallet` comes from the facade package.
 
-## Step 4: Fund the Wallet
+## Step 4: Fund the Receiver and Prepare RGB Outputs
 
 ```javascript
 const address = await wallet.getAddress();
-console.log('Deposit address:', address);
+console.log('Signet deposit address:', address);
 ```
 
-Send signet BTC to the address and wait for the required confirmation before creating RGB UTXOs.
-
-## Step 5: Create RGB UTXOs
+Send signet BTC and wait for confirmations before preparing the outputs:
 
 ```javascript
 await wallet.syncWallet();
 await wallet.createUtxos({ upTo: true, num: 5, size: 1000, feeRate: 2 });
-await wallet.syncWallet();
 ```
 
-`size` is denominated in satoshis.
+Wait for the output transaction to confirm. This guide uses a blinded receive, which needs an existing RGB-capable UTXO. Witness receives instead use a new sender-funded output and do not require this receiver setup.
 
-## Step 6: Resolve the Asset From the Sender
+## Step 5: Resolve the BFA Asset
 
-`listAssets()` returns arrays grouped by schema, with the `assetId` field. USDT on Bitcoin from the Utexo Mint uses the **BFA** schema, so it is in `bfa` (from `@utexo/rgb-sdk-rn` `1.0.0-beta.39`). Other test assets are in `nia`, `cfa`, `ifa`, or `uda`.
+`senderWallet` is a separate connected wallet with the same network settings, its own mnemonic and directory, and a spendable BFA balance. Obtain `expectedAssetId` from the authoritative deployment metadata.
 
 ```javascript
 const { bfa } = await senderWallet.listAssets();
-const usdt = bfa.find((asset) => asset.ticker === 'USDT');
+const asset = bfa.find((item) => item.assetId === expectedAssetId);
+if (!asset) throw new Error('The sender does not hold the expected BFA asset');
 
-
-if (!usdt) {
-  throw new Error('The sender wallet does not hold USDT on Bitcoin');
-}
-
-
-const usdtAssetId = usdt.assetId;
-const amount = 10 ** usdt.precision; // one displayed unit in base units
+const assetId = asset.assetId;
+const amount = 10 ** asset.precision;
+if (!Number.isSafeInteger(amount)) throw new Error('Amount exceeds the safe integer range');
 ```
 
-A new receiver wallet will not list an asset it has never received. Resolve the ID and precision from the funded sender or an authoritative asset registry.
+Amounts are integer base units; this sends one displayed unit. A ticker alone does not identify an asset.
 
-## Step 7: Create a Receive Invoice
-
-Run this on the receiver wallet initialized above:
+## Step 6: Create a Receive Invoice
 
 ```javascript
-const receiveData = await wallet.onchainReceive({
+const receive = await wallet.onchainReceive({
   witness: false,
   minConfirmations: 1,
   durationSeconds: 3600,
 });
-
-
-console.log('RGB invoice:', receiveData.invoice);
+console.log('RGB invoice:', receive.invoice);
 ```
 
-This receiver has not received the asset before, so omit `assetId` and `amount` from the invoice. Supply both on the sender in Step 8. For an asset already known to the receiver, they may be included in the invoice. Amounts must be safe integer base units; one displayed unit equals `10 ** precision` base units.
+The receiver has not learned this asset yet, so the invoice omits `assetId` and `amount`. The sender supplies both explicitly.
 
-## Step 8: Send From the Funded Wallet
-
-The current React Native API uses `onchainSend()`, not `send()`.
+## Step 7: Send the Asset
 
 ```javascript
-const sendResult = await senderWallet.onchainSend({
-  invoice: receiveData.invoice,
-  assetId: usdtAssetId,
+const result = await senderWallet.onchainSend({
+  invoice: receive.invoice,
+  assetId,
   amount,
-  donation: false,
-  feeRate: 7,
+  feeRate: 2,
   minConfirmations: 1,
 });
-
-
-console.log('Transfer transaction:', sendResult.txid);
+console.log('Transfer transaction:', result.txid);
 ```
 
-The sender wallet must be a separately initialized `UTEXOWallet` with its own mnemonic and storage directory, sufficient signet BTC, and a spendable asset balance.
+For a witness invoice, also supply `witnessData: { amountSat: 1000 }` to fund the recipient output. Omit it for the blinded invoice above.
 
-## Step 9: Refresh and Verify
+## Step 8: Refresh and Verify
 
 ```javascript
-await senderWallet.refreshWallet();
-await wallet.refreshWallet();
-
-
-const receiverAssets = await wallet.listAssets();
-const receivedAsset = receiverAssets.bfa.find(
-  (asset) => asset.assetId === usdtAssetId
-);
-
-
-console.log('Receiver asset balance:', receivedAsset?.balance);
+await senderWallet.refresh();
+await wallet.refresh();
+console.log('Transfers:', await wallet.listTransfers(assetId));
+console.log('Receiver balance:', await wallet.getAssetBalance(assetId));
 ```
 
-A transfer can remain pending while its consignment is delivered and its Bitcoin anchor reaches the required confirmation state.
+Repeat refreshes on both wallets while consignments arrive and Bitcoin confirmations accumulate. Inspect transfer status until settlement. `refresh()` exposes detailed outcomes; `refreshWallet()` performs the refresh without returning them.
 
-## Step 10: Stop or Dispose of the Wallet
+## Step 9: Back Up and Close
 
 ```javascript
-await wallet.shutdown(); // preserve data and allow init() on the same instance
-// When finished with the instance, release it permanently:
-await wallet.dispose();
+await wallet.exportBackupToFile({
+  filePath: backupFilePath,
+  password: backupPassword,
+});
+await wallet.destroy();
 ```
 
-Close the sender session as well. Use encrypted file backups through `createBackup()` and `restoreFromBackup()` to preserve RGB state; the mnemonic alone is not a complete wallet backup. See [Backup and Restore](/sdk/react-native-sdk#backup-and-restore).
+The application supplies an absolute backup path outside wallet storage and a securely handled password. A mnemonic alone does not recover RGB state. Restore with `restoreBackupFromFile()` before opening a new wallet instance; see [Backup and Restore](/sdk/react-native-sdk#backup-and-restore).
 
-## Lightning Status
-
-Lightning, channels, LSP, APay, and RLN VSS are **unavailable in the current React Native package**, including on test networks. There is no Lightning payment step in this quickstart. Any separate experimental Lightning build is WIP, for testing only, and is not recommended for production.
-
-## React Native-Specific Notes
-
-- Store the wallet database in a persistent application document directory, not a cache directory.
-- Keep the mnemonic and backup encryption password in platform-backed secure storage.
-- Give wallet profiles distinct storage directories; never reuse an RLN directory for the current on-chain wallet.
-- Plan for application lifecycle changes. Shut down or dispose of the wallet according to the SDK lifecycle before replacing an instance.
-- Network access is required for indexer and RGB transport operations.
+Close and back up the sender as well. For a temporary pause, `shutdown()` closes the session and `init()` reopens the same instance; `destroy()` permanently closes it.
 
 ## Troubleshooting
 
-| Issue | Likely cause | Check |
-| --- | --- | --- |
-| Native build fails | Missing platform dependencies | Reinstall pods or rebuild the Android native project |
-| `init()` fails | Storage, keys, or native binding problem | Check the absolute directory path, saved mnemonic, and native rebuild |
-| `goOnline()` or a network operation fails | Endpoint or proxy incompatibility | Check the network, indexer, and protocol 1.0 RGB proxy |
-| RLN backend unavailable | An older RLN constructor is still in use | Use `new UTEXOWallet({ params, keys })` for on-chain operations |
-| Asset cannot be found | Wrong response shape or unfunded sender | Read `listAssets().bfa` for Mint USDT and use `assetId` |
-| `onchainSend()` fails | Invoice, amount, balance, or transport problem | Confirm the invoice is unexpired and amount is in base units |
+| Issue | Check |
+| --- | --- |
+| `UTEXOWallet` is not exported by the platform package | Import it from `@utexo/rgb-sdk` and supply `new RgbLibRn(params, keys)` |
+| Native module or version mismatch | Reinstall pods and rebuild the native app |
+| Key generation fails | Load random-values and Buffer polyfills before SDK imports |
+| Engine contract mismatch | Install compatible facade, engine, and core packages |
+| BFA transfer stays pending | Check `evmRpcUrls`, asset ID, proxy compatibility, and refresh results |
+| Network operation fails | Check the explicit signet indexer and staging proxy |
+| A method is absent on the facade | Use the shared method or supported extension; inspect the [facade reference](/sdk/rgb-sdk#engine-extensions) |
 
-## Implementation References
+## Lightning Status
 
-- [React Native wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/utexo-wallet.ts)
-- [React Native network defaults](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/network-endpoints.ts)
-- [Wallet configuration](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/rgb-lib/config.ts)
-- [Key providers](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/rgb-lib/key-provider.ts)
-- [Shared wallet models](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/types/wallet-model.ts)
+Lightning, channels, LSP, and APay are unavailable in the current React Native engine. Experimental Lightning remains WIP, testing-only, and not recommended for production.
 
 ## Next Steps
 
-- [SDK Reference](/product-suite/sdk)
-- [Architecture](/getting-started/architecture)
-- [Glossary](/getting-started/glossary)
+- [RGB SDK Facade](/sdk/rgb-sdk)
+- [React Native Reference](/sdk/react-native-sdk)
+- [Mint and Burn Integration](/mint/mint-burn-integration)
+- [React Native source](https://github.com/UTEXO-Protocol/rgb-sdk-rn/tree/dev)

@@ -36,7 +36,7 @@ The SDK provides programmatic access to:
 - **Balance and audit** — balance tracking, transaction status, and transfer history
 - **On-chain Bitcoin operations** — addresses, UTXOs, and transaction fees
 
-The SDK enables non-custodial, client-side validated flows without requiring developers to manage RGB infrastructure directly. Current SDK packages support on-chain operations. **Lightning is WIP, available only for experimental testing, and not recommended for production.** The current React Native package uses rgb-lib with Lightning / RLN disabled on all networks.
+The SDK enables non-custodial, client-side validated flows without requiring developers to manage RGB infrastructure directly. The `@utexo/rgb-sdk` facade provides a shared API over the native `RgbLibRn` and browser `RgbLibWeb` engines. Both use rgb-lib and support on-chain operations only. **Lightning is WIP, available only for experimental testing, and not recommended for production.** Node.js integrations use the separate `@utexo/wdk-wallet-rgb` API.
 
 <Info>
   See the [SDK reference](/product-suite/sdk) for installation, method reference, and integration examples.

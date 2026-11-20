@@ -227,7 +227,7 @@ await sender.transfer({
 | `importRgbContract({ contract_base64, expected_asset_id })` | Register trusted contract metadata only — no allocation |
 | `importRgbTransferConsignment({ consignment_base64, offchain_txid })` | Persist metadata for a transfer the native receive path already accepted |
 
-In this experimental module, issuance (`issueAssetNia`, `issueAssetUda`, `issueAssetCfa`, `issueAssetIfa`, `inflate`) is forwarded to the binding. The [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb) API uses contract registration and does not expose these issuance methods.
+In this experimental module, issuance (`issueAssetNia`, `issueAssetUda`, `issueAssetCfa`, `issueAssetIfa`, `inflate`) is forwarded to the binding. The separate [`@utexo/wdk-wallet-rgb`](/sdk/wdk-wallet-rgb) API supports NIA and CFA issuance with persistent operation IDs; its signatures differ from this module.
 
 Atomic swaps are on the native binding but are **not** on the WDK account.
 

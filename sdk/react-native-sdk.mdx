@@ -1,124 +1,102 @@
 ---
-title: "React Native SDK Reference"
-description: "Reference for @utexo/rgb-sdk-rn — on-chain RGB assets and Bitcoin wallets via rgb-lib on iOS and Android. Lightning is disabled in the current release."
-sidebarTitle: "React Native"
+title: 'React Native SDK Reference'
+description: 'Use the RgbLibRn engine with the shared RGB SDK facade for on-chain wallets on iOS and Android.'
+sidebarTitle: 'React Native SDK'
 ---
 
-The `@utexo/rgb-sdk-rn` package provides on-chain RGB and Bitcoin wallet operations for iOS and Android through native **rgb-lib** bindings.
+`@utexo/rgb-sdk-rn` exports **`RgbLibRn`**, the on-chain RGB and Bitcoin wallet engine for React Native. It uses native rgb-lib bindings on iOS and Android. Wrap it in **`UTEXOWallet` from `@utexo/rgb-sdk`** for the shared wallet API, or use the engine directly.
 
-<Warning>
-  **The current package supports on-chain operations only.** RLN (`RGB_LN`) and Lightning are disabled in this release on every network, including test networks. Lightning remains work in progress (WIP); experimental builds are for testing only and are not recommended for production.
-
-  This is a beta release, so APIs may change. The API examples below follow `1.0.0-beta.39` and its on-chain wallet API.
-</Warning>
-
-## What You Can Do
-
-- Issue, receive, transfer, and manage RGB assets (NIA, CFA, IFA, UDA)
-- Receive and transfer BFA assets, including USDT on Bitcoin; check burn and consignment capabilities through `getBfaCapabilities()`
-- Manage Bitcoin addresses, balances, UTXOs, and on-chain BTC sends
-- Track Bitcoin transactions and RGB transfer settlement
-- Back up and restore wallet state with encrypted files
-
-Lightning channels, BOLT11 payments, HODL invoices, LSP, APay, virtual channels, and RLN VSS recovery are unavailable in the current package. An exported method or type for these features does not mean that the native backend is enabled.
+The package supports **on-chain operations only**. It has no Lightning / RLN backend. Experimental Lightning remains WIP, testing-only, and not recommended for production.
 
 ## Requirements and Installation
 
-- React Native with **New Architecture** enabled
-- iOS 16.0 or later
-- Android `minSdkVersion` 24, with `arm64-v8a` or `x86_64`
+- React Native with a working iOS or Android native build environment
 - A persistent, writable wallet directory
-- A Bitcoin indexer and an RGB proxy implementing **protocol 1.0**; known networks provide defaults
+- A Bitcoin indexer and a protocol 1.0 RGB proxy
 
 ```bash
-npm install @utexo/rgb-sdk-rn
-```
-
-The package installs native rgb-lib dependencies during `postinstall`. On iOS, set the application's deployment target to 16.0 or later, then install pods:
-
-```bash
+npm install @utexo/rgb-sdk@latest @utexo/rgb-sdk-core@latest @utexo/rgb-sdk-rn@latest
+npm install react-native-get-random-values buffer
 cd ios && pod install
 ```
 
-Android resolves the pinned `com.utexo:rgb-lib-bfa-android` dependency through Gradle. Rebuild the native application after installing or updating the SDK. The current build does not require an RLN framework, daemon port, or Lightning peer port.
+Load the polyfills in the app entry file before importing the SDK:
 
-## Primary Class: `UTEXOWallet`
-
-### Construction
-
-Pass one options object containing wallet parameters and keys. Omitting `protocol` selects `RGB_L1`; `protocol: 'RGB_L1'` is also accepted.
-
-```typescript
-import {
-  UTEXOWallet,
-  generateKeys,
-  type RgbLibWalletParams,
-} from '@utexo/rgb-sdk-rn';
-
-const network = 'utexo';
-// First use only: persist this mnemonic in secure storage before init().
-// On subsequent launches, load the saved mnemonic instead.
-const { mnemonic } = await generateKeys(network);
-const walletParams: RgbLibWalletParams = {
-  network,
-  storageDirPath: '/path/to/wallet-storage',
-};
-
-const wallet = new UTEXOWallet({ params: walletParams, keys: mnemonic });
-await wallet.init();
-const address = await wallet.getAddress(); // available offline
+```javascript
+import 'react-native-get-random-values';
+import { Buffer } from 'buffer';
+globalThis.Buffer ??= Buffer;
 ```
 
-`storageDirPath` must be an absolute native filesystem path. Give each wallet profile its own directory.
+Rebuild the native application after installing or upgrading. Each engine release pins its native rgb-lib bindings. See the [package setup instructions](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/Readme.md) for platform build configuration.
 
-### `RgbLibWalletParams`
+## Construction
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `network` | `BitcoinNetwork` | `mainnet`, `testnet`, `testnet4`, `signet`, `utexo`, or `regtest` |
-| `storageDirPath` | `string` | Absolute path dedicated to this wallet |
-| `witnessVersion` | `'taproot' \| 'segwit-v0'` | Optional witness version; preserve the setting when restoring |
-| `maxAllocationsPerUtxo` | `number?` | Maximum RGB allocations per UTXO; default `5` |
-| `reuseAddresses` | `boolean?` | Reuse addresses; default `false` |
+Create `RgbLibRn(params, keys)`, then pass it to the facade:
 
-### Keys
+```typescript
+import { UTEXOWallet } from '@utexo/rgb-sdk';
+import { RgbLibRn, type RgbLibRnParams } from '@utexo/rgb-sdk-rn';
 
-`keys` accepts a mnemonic string, a synchronous or asynchronous mnemonic reader, or an object with `getMnemonic()`. A reader lets the application load the mnemonic from platform-backed secure storage for each new session. An empty or failed read rejects `init()` with `KEYS_UNAVAILABLE`.
+const walletParams: RgbLibRnParams = {
+  network: 'signet',
+  storageDirPath: '/absolute/path/to/signet-wallet',
+  indexerUrl: 'ssl://stage.electrs-signet.mint.utexo.com:60602',
+  proxyEndpoint: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
+  evmRpcUrls: { '42161': 'https://arb1.arbitrum.io/rpc' },
+};
 
-Public-key-only configurations create a watch-only wallet. See the [`RgbLibKeys` types](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/rgb-lib/key-provider.ts) for supported key providers. `PasswordRLNSigner` and `NativeExternalRLNSigner` belong to the disabled RLN backend and are not used for on-chain wallet initialization.
+const wallet = new UTEXOWallet({
+  engine: new RgbLibRn(walletParams, mnemonic),
+});
+await wallet.init();
+const address = await wallet.getAddress();
+```
+
+Load `mnemonic` from secure application storage. For a new wallet, generate keys with `generateKeys(network)` and save the mnemonic before opening it. Each wallet profile needs its own absolute `storageDirPath`.
+
+### Wallet Parameters and Keys
+
+| Field | Description |
+| --- | --- |
+| `network` | `mainnet`, `testnet`, `testnet4`, `signet`, `utexo`, or `regtest` |
+| `storageDirPath` | Absolute persistent directory dedicated to this wallet |
+| `witnessVersion` | `taproot` by default; `segwit-v0` is also supported |
+| `maxAllocationsPerUtxo` | Maximum RGB allocations per UTXO; default `5` |
+| `reuseAddresses` | Reuse the receive address |
+| Connection fields | Indexer, proxy, and BFA validation settings used when connecting |
+
+The second engine argument, `keys`, accepts a mnemonic string, a synchronous or asynchronous mnemonic reader, an object with `getMnemonic()`, or account public keys for a watch-only wallet. A failed mnemonic read rejects with `KEYS_UNAVAILABLE`. Inspect `wallet.capabilities.canSignTransactions` before offering a spend.
 
 ## Lifecycle
 
-1. Call **`init()`** to open the local wallet.
-2. Network operations connect automatically using the configured network defaults. For custom endpoints or `regtest`, call **`goOnline(params)`** before the first network operation.
-3. Call **`shutdown()`** to stop the session while preserving wallet data. Reopen the same instance with **`init()`**.
-4. Call **`dispose()`** or **`destroy()`** to release the instance permanently. Stored wallet data is preserved; create a new instance to reopen it.
+1. `init()` opens local wallet state without connecting to services.
+2. The first network operation connects using constructor settings and network defaults. `unlock(params)` or `goOnline(params)` connects explicitly.
+3. `shutdown()` closes the session and preserves data. Reopen the same instance with `init()` or `reinit()`.
+4. `destroy()` closes the instance permanently. Use a new instance to reopen the wallet.
 
-`initialize()` aliases `init()`. `reinit(params)` opens the wallet and connects with the supplied parameters; without parameters it only opens the local session. A separate RLN-style `unlock()` step is not required. `unlock(params)` remains available as a connection alias.
-
-```typescript
-await wallet.syncWallet(); // connects automatically
-
-await wallet.shutdown();
-await wallet.init();
-await wallet.refreshTransfers(); // reconnects automatically
-
-// When finished with this instance:
-await wallet.dispose();
-```
+`initialize()` aliases `init()`, and `dispose()` aliases `destroy()`. `reinit(params)` opens and connects when parameters are supplied. The facade owns the session; call lifecycle methods on `wallet`, not separately on `wallet.engine`.
 
 ### Connection Settings
 
-To override defaults, call `goOnline()` after `init()` and before network operations:
+Connection fields can be stored in the constructor or supplied to `goOnline()`:
 
 ```typescript
 await wallet.goOnline({
-  indexer: { type: 'electrum', url: indexerUrl }, // tcp:// or ssl://
-  proxyEndpoint, // a protocol 1.0 RGB proxy on the same network
+  indexerUrl: 'ssl://stage.electrs-signet.mint.utexo.com:60602',
+  proxyEndpoint: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
+  evmRpcUrls: { '42161': 'https://arb1.arbitrum.io/rpc' },
 });
 ```
 
-`RgbLibUnlockParams` also supports Esplora or bitcoind indexers, `evmRpcUrls` for BFA validation, and `proxyAuthKeys` for authenticated proxies. Supply custom settings again after `shutdown()` and `init()`.
+| Setting | Description |
+| --- | --- |
+| `indexerUrl` | Electrum (`tcp://`, `ssl://`) or Esplora (`http://`, `https://`) |
+| `indexer` | Explicit indexer object; also supports bitcoind authentication. Use this or `indexerUrl`, not both |
+| `proxyEndpoint` | Protocol 1.0 RGB transport URI |
+| `evmRpcUrls` | EVM JSON-RPC URLs keyed by decimal chain ID; required to validate BFA mint locks on that chain |
+| `evmMintLockBlocks` | Accepted lock window `{ min, max }` per EVM chain; default `{ min: 1200, max: 28800 }` |
+| `proxyAuthKeys` | Proxy endpoint to 32-byte hex authentication key |
 
 | Network | Indexer | RGB proxy |
 | --- | --- | --- |
@@ -126,66 +104,35 @@ await wallet.goOnline({
 | `utexo` | `https://dev.esplora-01.mint.utexo.com` | `rpcs://dev.rgb-proxy.utexo.com/json-rpc` |
 | `signet` | `ssl://stage.electrs-signet.mint.utexo.com:60602` | `rpcs://staging.rgb-proxy.utexo.com/json-rpc` |
 
-Use `goOnline()` to configure these endpoints explicitly. The package's `DEFAULT_INDEXER_URLS` and `DEFAULT_TRANSPORT_ENDPOINTS` exports reflect the defaults in the installed version. Defaults differ between SDK packages; `utexo` and `signet` select different hosted endpoint profiles.
+Configure these endpoints explicitly when targeting a deployment. The package's `DEFAULT_INDEXER_URLS` and `DEFAULT_TRANSPORT_ENDPOINTS` exports reflect the installed version's defaults. `regtest` requires explicit connection settings. The `utexo` Dev profile and public `signet` use different hosted infrastructure; their funds are not interchangeable.
 
 ## Wallet Methods
 
-### Balances, Addresses, and UTXOs
+These methods are available through the facade as well as directly on `RgbLibRn`.
 
-| Method | Description |
+| Group | Methods |
 | --- | --- |
-| `getAddress()` / `rotateVanillaAddress()` | Get the current BTC deposit address / derive a fresh address |
-| `getBtcBalance({ skipSync? }?)` | Vanilla and colored BTC balances |
-| `getNetwork()` | Configured network |
-| `createUtxos({ upTo?, num?, size?, feeRate?, skipSync? })` | Prepare UTXOs for RGB allocations; `size` is in satoshis and `feeRate` is an integer in sat/vB |
-| `listUnspents({ skipSync? }?)` | Unspent outputs and RGB allocations |
-| `sendBtc({ address, amount, feeRate, skipSync? })` | Send BTC on-chain |
-| `estimateFeeRate(blocks)` | Estimate an integer sat/vB fee rate |
+| Bitcoin | `getAddress()`, `rotateVanillaAddress()`, `getBtcBalance(options?)`, `listUnspents(options?)`, `sendBtc(params)` |
+| UTXOs and fees | `createUtxos({ upTo?, num?, size?, feeRate?, skipSync? })`, `estimateFeeRate(blocks)` |
+| Assets | `listAssets(options?)`, `getAssetBalance(assetId)`, `getAssetMetadata(assetId)` |
+| Issuance | `issueAssetNia()`, `issueAssetCfa()`, `issueAssetUda()`, `issueAssetIfa()`, `inflate()` |
+| Invoices | `onchainReceive(params)`, `blindReceive(params)`, `witnessReceive(params)`, `decodeRGBInvoice({ invoice })` |
+| Sending | `onchainSend({ invoice, assetId?, amount?, feeRate?, minConfirmations?, witnessData?, donation?, skipSync? })` |
+| History | `listTransfers(assetId?)`, `listTransfersByTxid(txid)`, `listTransactions(options?)`, `listTransactionsByTxid(txid)` |
+| Settlement | `refresh(options?)`, `refreshWallet()`, `syncWallet()`, `failTransfers(params)` |
+| Maintenance | `drainTo({ address, feeRate? })`, `deleteTransfers(params?)` |
 
-### RGB Assets and Transfers
+`listAssets()` groups assets into `nia`, `cfa`, `ifa`, `uda`, and `bfa`. Invoice, balance, and BTC amounts use safe JavaScript integers in base units. Fee rates are integer sat/vB. `refresh()` reports changes keyed by batch transfer ID; `refreshWallet()` returns no result. `syncWallet()` synchronizes chain state rather than completing an RGB transfer by itself.
 
-| Method | Description |
-| --- | --- |
-| `listAssets({ filterAssetSchemas? }?)` | Assets grouped into `nia`, `cfa`, `ifa`, `uda`, and `bfa` |
-| `getAssetMetadata(assetId)` / `getAssetBalance(assetId)` | Asset metadata / balance |
-| `issueAssetNia({ ticker, name, precision, amounts })` | Issue a non-inflationary asset |
-| `issueAssetCfa(params)` / `issueAssetIfa(params)` / `issueAssetUda(params)` | Issue other supported asset schemas |
-| `inflate({ assetId, inflationAmounts, feeRate?, minConfirmations? })` | Inflate an IFA asset |
-| `onchainReceive({ assetId?, amount?, assignmentKind?, durationSeconds?, minConfirmations?, witness? })` | Create an RGB invoice; witness by default, blinded with `witness: false` |
-| `blindReceive(params)` / `witnessReceive(params)` | Explicit blinded / witness receive methods |
-| `decodeRGBInvoice({ invoice })` | Decode an RGB invoice |
-| `onchainSend({ invoice, assetId?, amount?, donation?, feeRate?, minConfirmations?, witnessData? })` | Send RGB on-chain; `assetId` and `amount` can come from the invoice |
-| `listTransfers(assetId?)` / `listOnchainTransfers(assetId?)` | RGB transfer history |
-| `listTransfersByTxid(txid)` | RGB transfers for a Bitcoin transaction |
-| `listTransactions({ skipSync? }?)` | On-chain transaction history |
-| `syncWallet()` | Sync Bitcoin and UTXO state |
-| `refreshWallet()` | Advance RGB transfers; returns `Promise<void>` |
-| `refreshTransfers(skipSync?)` | Detailed refresh result keyed by batch transfer ID |
+Use `refresh()` and `listTransfers()` in shared facade code. The engine's older aliases such as `refreshTransfers()` and `listOnchainTransfers()` are not forwarded by the facade.
 
-Amounts in invoice and balance APIs must fit safe JavaScript integers. One displayed asset unit equals `10 ** precision` base units. The default on-chain send fee rate is `2` sat/vB; `onchainSend()` always syncs even if `skipSync` is supplied.
-
-### BFA and Consignments
-
-USDT on Bitcoin from the Utexo Mint uses the BFA schema and appears in `listAssets().bfa`.
-
-| Method | Description |
-| --- | --- |
-| `getBfaCapabilities()` | Report `{ bfa, burn, consignment }` for the native build and available keys |
-| `burn({ assetId, amount, burnRecipient?, feeRate, minConfirmations })` | Burn asset units; returns `{ txid, batchTransferIdx }` |
-| `getConsignment(assetId, txid)` | Export a saved consignment as Base64 |
-| `getConsignmentPath(assetId, txid)` | Get its local proof path |
-
-Check capabilities before offering burn. Burn amounts are positive decimal u64 strings; BFA requires a 32-byte hex `burnRecipient` without `0x`. See [Mint and Burn Integration](/mint/mint-burn-integration) for the bridge flow.
+`wallet.beginEnd` exposes separate preparation and submission for RGB sends, BTC sends, UTXO creation, inflation, and burns. `wallet.psbt` provides `signPsbt()` and `estimateFee()` when signing keys are available. Watch-only wallets can use `beginEnd` with an external signer. See [Transaction Approval](/sdk/rgb-sdk#transaction-approval) for approval, cancellation, and recovery with a saved signed PSBT.
 
 ## On-chain Transfer Example
 
-Fund both wallets with BTC and prepare RGB UTXOs before receiving. The sender must already hold the asset. Use a blinded invoice for this example:
+The default invoice is a witness invoice, which does not need a free receiver UTXO. The sender funds its witness output with `witnessData.amountSat`. A blinded invoice receives on an existing RGB-capable UTXO; prepare and confirm the receiver's outputs first.
 
 ```typescript
-await receiverWallet.syncWallet();
-await receiverWallet.createUtxos({ upTo: true, num: 4, feeRate: 2 });
-
-// Omit assetId/amount when the receiver has not received this asset before.
 const receive = await receiverWallet.onchainReceive({
   witness: false,
   minConfirmations: 1,
@@ -195,60 +142,72 @@ const receive = await receiverWallet.onchainReceive({
 const { txid } = await senderWallet.onchainSend({
   invoice: receive.invoice,
   assetId,
-  amount: 100, // base units
+  amount: 100,
   feeRate: 2,
   minConfirmations: 1,
 });
 
-await senderWallet.refreshTransfers();
-await receiverWallet.refreshTransfers();
+await senderWallet.refresh();
+await receiverWallet.refresh();
 ```
 
-Refresh both wallets as the transfer progresses and inspect `listTransfers(assetId)` until settlement. A single refresh does not guarantee that the required Bitcoin confirmations have arrived. For witness invoices, supply `witnessData` with at least `amountSat` when sending.
+`senderWallet` and `receiverWallet` are separately initialized wallets on the same network. The sender holds the asset and BTC for fees. Omit `assetId` in the receive request when the receiver has not learned the asset yet. Refresh both wallets and inspect `listTransfers(assetId)` until settlement.
+
+## BFA and Consignments
+
+USDT on Bitcoin from the Utexo Mint uses BFA and appears in `listAssets().bfa`. Select the asset by its expected asset ID, not only by ticker. Configure `evmRpcUrls` for its issuing EVM chain.
+
+| Method | Description |
+| --- | --- |
+| `getBfaCapabilities()` | Current `{ bfa, burn, consignment }` availability |
+| `getReceivedMint(recipientId, { refreshIncoming? }?)` | Read a checked mint, including its asset ID, or `undefined` |
+| `burn({ assetId, amount, burnRecipient?, feeRate, minConfirmations })` | Burn exact decimal-string base units |
+| `getConsignment(assetId, txid)` | Export a saved consignment as a Base64 string |
+| `getConsignmentPath(assetId, txid)` | Get its local file path |
+
+Check capabilities before offering a burn. For bridge BFA burns, `burnRecipient` is the 32-byte commitment to the payout destination, encoded as 64 hex characters without `0x`. It is not the payout address itself. See [Mint and Burn Integration](/mint/mint-burn-integration) for destination encoding and settlement.
+
+`getReceivedMint()` reads local state by default. Set `refreshIncoming: true` to check newly arrived mint consignments without progressing sends or burns. React Native reads `assetId` from the checked consignment; the mint's amount, deadline block, and EVM chain ID are exact decimal strings. See [received mint verification](/sdk/rgb-sdk#check-a-received-bfa-mint) for return fields and pending or failed receives. BFA supply fields are optional.
 
 ## Backup and Restore
 
-The on-chain wallet uses encrypted file backups. **VSS and `backupNow()` belong to RLN and are unavailable for this backend.**
+`exportBackupToFile()` writes an encrypted archive, and `exportBackup()` returns encrypted bytes for application-managed storage. React Native has no VSS backup extension.
 
 ```typescript
-import { restoreFromBackup } from '@utexo/rgb-sdk-rn';
+import { restoreBackupFromFile } from '@utexo/rgb-sdk-rn';
 
-// Use a new file in an existing directory outside wallet storage.
-const backupPath = '/path/to/backups/wallet.rgb';
-await wallet.createBackup({ backupPath, password });
-await wallet.shutdown(); // stop the original before switching to the restored copy
+const filePath = '/absolute/path/to/backups/wallet.rgb';
+await wallet.exportBackupToFile({ filePath, password });
+await wallet.shutdown();
 
-const dataDir = '/path/to/restored-storage';
-await restoreFromBackup({
-  backupFilePath: backupPath,
-  password,
-  dataDir,
-});
+const dataDir = '/absolute/path/to/restored-wallet';
+await restoreBackupFromFile({ filePath, password, dataDir });
 
 const restored = new UTEXOWallet({
-  params: { ...walletParams, storageDirPath: dataDir },
-  keys: mnemonic, // the original wallet's mnemonic
+  engine: new RgbLibRn({ ...walletParams, storageDirPath: dataDir }, mnemonic),
 });
 await restored.init();
 ```
 
-Restore before `init()` into a new, empty directory. Paths must be absolute native paths, not `file://` URIs; the encryption password must be nonempty. Keep the original mnemonic and wallet settings (`network`, `witnessVersion`, `maxAllocationsPerUtxo`) separately. The archive and password do not supply the constructor's keys. Update backups after wallet changes and arrange off-device storage in the application.
+Restore into a new, empty directory before opening it. Keep the original mnemonic and wallet settings separately; the archive does not provide the constructor's keys. Store backup files outside wallet storage and retain an off-device copy. Backups are specific to this engine.
 
-## Migrating from the Previous RLN Examples
+`createBackup({ backupPath, password })` and `restoreFromBackup({ backupFilePath, password, dataDir })` remain deprecated engine APIs. The facade forwards `exportBackupToFile()`, not `createBackup()`.
 
-The old `new UTEXOWallet(nodeParams, signer)` constructor selects `RGB_LN`. Replace it with `new UTEXOWallet({ params, keys })` for the current on-chain backend. Remove RLN signer, daemon/peer port, channel, LSP, APay, and VSS setup from the on-chain flow.
+## Migration and Errors
 
-Use a separate mnemonic and storage directory for the new on-chain wallet profile. An existing RLN directory or VSS backup is not a backup for the current on-chain wallet, and changing the constructor does not migrate its assets or channel state. Preserve the previous profile and its recovery material.
+The platform package no longer exports `UTEXOWallet` or RLN signers. Import the facade from `@utexo/rgb-sdk` and replace `new UTEXOWallet({ params, keys })` with `new UTEXOWallet({ engine: new RgbLibRn(params, keys) })`.
+
+Use `isEngineError()` from `@utexo/rgb-sdk` or `@utexo/rgb-sdk-core` to inspect stable error codes. A native/JavaScript version mismatch requires a native rebuild. An engine contract mismatch requires compatible facade, engine, and core packages.
+
+An earlier RLN directory or VSS backup cannot be opened by this engine. Keep its original recovery material and use a separate profile for the on-chain wallet.
 
 ## Lightning Status
 
-Lightning is **WIP and testing-only**, and is **not recommended for production**. It is **disabled in the current `@utexo/rgb-sdk-rn` package on all networks**. Selecting `RGB_LN`, switching to signet, or calling an exported Lightning method does not enable the missing native backend. Earlier RLN, channel, payment, and LSP examples require a separate experimental build and are not part of this integration guide.
+Lightning channels, payments, LSP, and APay are absent from this engine and the facade's shared API. Changing networks does not enable them. Separate experimental Lightning integrations remain WIP, testing-only, and not recommended for production.
 
 ## Further Reading
 
 - [React Native Quickstart](/getting-started/quickstart/react-native)
+- [RGB SDK Facade](/sdk/rgb-sdk)
 - [SDK Overview](/product-suite/sdk)
-- [Wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/utexo-wallet.ts)
-- [Wallet configuration types](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/rgb-lib/config.ts)
-- [React Native network defaults](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/src/wallet/network-endpoints.ts)
-- [rgb-sdk-rn README](https://github.com/UTEXO-Protocol/rgb-sdk-rn/blob/dev/Readme.md)
+- [React Native source](https://github.com/UTEXO-Protocol/rgb-sdk-rn/tree/dev)

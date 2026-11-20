@@ -4,7 +4,7 @@ description: 'Use @utexo/wdk-wallet-rgb for on-chain RGB integrations with WDK. 
 sidebarTitle: 'Overview'
 ---
 
-The Wallet Development Kit (WDK) exposes RGB capabilities through wallet manager and account interfaces. **Use `@utexo/wdk-wallet-rgb` for Node.js on-chain integrations.** Browser applications use `@utexo/rgb-sdk-web`; React Native applications use `@utexo/rgb-sdk-rn`, which supports on-chain operations only.
+The Wallet Development Kit (WDK) exposes RGB capabilities through wallet manager and account interfaces. **Use `@utexo/wdk-wallet-rgb` for Node.js on-chain integrations.** Browser and React Native applications use the [RGB SDK facade](/sdk/rgb-sdk) over `RgbLibWeb` or `RgbLibRn`. Both engines support on-chain operations only; a WDK account is a separate API, not a facade engine.
 
 ## WDK Packages
 
@@ -23,7 +23,7 @@ Use `@utexo/wdk-wallet-rgb` when:
 - Your application uses WDK manager and account abstractions
 - You need BFA inventory, on-chain transfers, burns, or operation recovery through a wallet account
 
-Construct `WalletManagerRgb` with the mnemonic, native worker details, fee cap, and transaction approval callback, then call `getAccount()`. With offline startup, call `connect()` before network operations. The SDK uses Electrum; its public signet RGB configuration requires the staging profile. Each wallet needs its own persistent `dataDir` for RGB state and operation journals. Await `shutdown()` before closing or reopening it. The archived `@utexo/rgb-sdk` is not the entry point for new integrations.
+Construct `WalletManagerRgb` with the mnemonic, native worker details, fee cap, and transaction approval callback, then call `getAccount()`. With offline startup, call `connect()` before network operations. Ordinary signet RGB uses the public profile; BFA bridge integration uses staging or Dev. Each wallet needs its own persistent `dataDir` for RGB state and operation journals. Await `shutdown()` before closing or reopening it. Check the [profile and endpoint requirements](/sdk/wdk-wallet-rgb#configuration) for the selected build.
 
 ## Lightning Status
 

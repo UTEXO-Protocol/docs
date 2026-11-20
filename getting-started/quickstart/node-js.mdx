@@ -29,7 +29,7 @@ Never use mainnet keys or real funds in this signet guide.
 npm install @utexo/wdk-wallet-rgb@latest
 ```
 
-Package installation alone does not provide the matching native executable. See [installation](/sdk/wdk-wallet-rgb#installation) for native worker setup.
+Package installation alone does not provide the matching native executable. See [installation](/sdk/wdk-wallet-rgb#installation) for native worker setup. Verify that the selected WDK build admits the Utexo staging indexer before running the example; see the [configuration compatibility note](/sdk/wdk-wallet-rgb#configuration).
 
 ## Step 2: Open and Connect the Wallet
 
@@ -67,7 +67,7 @@ await wallet.connect();
 
 `loadMnemonicFromSecureStorage()` and `requestWalletApproval(review)` are application-owned functions. The approval callback returns `true` only after the application approves the exact recipient, amount, fee, and transaction plan. `nativeExecutable` must be an absolute path to the matching worker; the hash must come from the verified build.
 
-The network is **public Bitcoin signet**. The SDK accepts only the pinned Electrum indexer above; `https://mempool.space/signet/api` is an Esplora endpoint and cannot be used as its `indexerUrl`. The staging proxy is `https://staging.rgb-proxy.utexo.com/json-rpc`, represented by the required `rpcs://` URI in the SDK.
+The network is **public Bitcoin signet**. The configured Utexo Electrum endpoint requires a WDK build that admits it; the reviewed implementation still pins another signet endpoint. The browser's `https://mempool.space/signet/api` Esplora endpoint is not accepted by this WDK profile. The staging proxy is `https://staging.rgb-proxy.utexo.com/json-rpc`, represented by the required `rpcs://` URI in the SDK.
 
 Give the sender a separate mnemonic, manager, and storage directory, using the same signet staging profile. Opening in offline mode permits cached reads; `connect()` is required before allocating addresses, creating invoices, or spending.
 

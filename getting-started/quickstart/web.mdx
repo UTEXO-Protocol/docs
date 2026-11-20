@@ -1,192 +1,171 @@
 ---
-title: "Web Quickstart"
-sidebarTitle: "Web"
-description: "Initialize a browser wallet and prepare an RGB transfer using @utexo/rgb-sdk-web."
+title: 'Web Quickstart'
+sidebarTitle: 'Web'
+description: 'Create a browser wallet with the RGB SDK facade and RgbLibWeb, then transfer an on-chain BFA asset.'
 ---
 
-<Info>
-  This guide covers browser applications. For Node.js, see the [Node.js guide](/getting-started/quickstart/node-js). For iOS and Android, see the [React Native guide](/getting-started/quickstart/react-native).
-</Info>
-
-<Warning>
-  Current SDK integrations support on-chain operations. Lightning is WIP, available only for experimental testing, and not recommended for production.
-</Warning>
+Use **`UTEXOWallet` from `@utexo/rgb-sdk`** with **`RgbLibWeb` from `@utexo/rgb-sdk-web`**. The engine runs rgb-lib WASM in the browser, stores state in IndexedDB, and supports on-chain RGB including BFA. It has no Lightning backend.
 
 ## Prerequisites
 
-- A modern browser with WebAssembly support
-- A bundler that supports WebAssembly, such as Vite
-- Bitcoin test funds for transaction fees
-- A separately initialized sender wallet that already holds the RGB asset for an end-to-end transfer
+- A browser with WebAssembly and IndexedDB
+- An ESM bundler serving the engine's WASM asset
+- Signet BTC and a separately initialized sender holding the expected BFA asset
+- Secure mnemonic storage and a distinct wallet profile for each wallet
 
-<Warning>
-  This guide uses the `utexo` network profile for Utexo's hosted signet infrastructure. Never use mainnet keys or real funds while following this guide.
-</Warning>
+This guide uses public Bitcoin signet. Browser indexers must use HTTP(S), so the example uses the public signet Esplora API with the Utexo staging RGB proxy.
 
-## Step 1: Install the SDK
+## Step 1: Install and Configure the Bundler
 
 ```bash
-npm install @utexo/rgb-sdk-web
+npm install @utexo/rgb-sdk@latest @utexo/rgb-sdk-core@latest @utexo/rgb-sdk-web@latest
 ```
 
-The package targets browser environments and stores wallet state in browser storage. It is not interchangeable with `@utexo/wdk-wallet-rgb` or `@utexo/rgb-sdk-rn`.
+For Vite:
 
-## Step 2: Initialize the Wallet
+```typescript
+import { defineConfig } from 'vite';
 
-Initialize the RLN WebAssembly module once, generate keys, then create and unlock the wallet.
+export default defineConfig({
+  optimizeDeps: {
+    exclude: ['@utexo/rgb-sdk-web', '@utexo/rgb-lib-wasm'],
+  },
+});
+```
+
+The bundler must serve `rgb_lib_wasm_bindings_bg.wasm`; alternatively, set `wasmUrl` on the engine. See [bundler setup](/sdk/web-sdk#installation-and-bundler-setup).
+
+## Step 2: Generate and Save Keys
 
 ```javascript
-import {
-  generateKeys,
-  initRlnWasm,
-  UTEXOWallet,
-} from '@utexo/rgb-sdk-web';
+import { generateKeys } from '@utexo/rgb-sdk-web';
 
-await initRlnWasm();
+const keys = await generateKeys('signet');
+await saveMnemonicSecurely(keys.mnemonic);
+```
 
-const keys = await generateKeys('utexo');
-const password = await getPasswordFromSecureInput();
+`saveMnemonicSecurely()` is application-owned. Generate keys only once, save them before opening the wallet, and load the saved mnemonic on subsequent launches.
+
+## Step 3: Create the Engine and Facade
+
+```javascript
+import { UTEXOWallet } from '@utexo/rgb-sdk';
+import { RgbLibWeb } from '@utexo/rgb-sdk-web';
 
 const wallet = new UTEXOWallet({
-  mnemonic: keys.mnemonic,
-  password,
-  network: 'utexo',
+  engine: new RgbLibWeb({
+    network: 'signet',
+    mnemonic: keys.mnemonic,
+    dataDir: 'signet-rgb-receiver',
+    indexerUrl: 'https://mempool.space/signet/api',
+    proxyEndpoint: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
+    evmRpcUrls: { '42161': 'https://arb1.arbitrum.io/rpc' },
+  }),
 });
 
 await wallet.init();
-await wallet.unlock();
 ```
 
-`getPasswordFromSecureInput()` represents an application-owned password prompt. Do not hard-code the password, log the mnemonic, or store either value unencrypted in `localStorage`.
+`init()` loads WASM and opens local wallet state. Network operations connect automatically; `unlock(params)` or `goOnline(params)` connects explicitly. Configure the sender with the same network services and its own keys and IndexedDB profile.
 
-<Warning>
-  The current Web constructor accepts one parameter object. The older `new UTEXOWallet(mnemonic, options)` form and `initialize()` lifecycle shown in previous versions of this page do not match the current implementation.
-</Warning>
+The `dataDir` value is an IndexedDB prefix, not a filesystem path. Use it consistently when reopening. The EVM RPC validates BFA mint locks on Arbitrum. Browser access to all configured services requires compatible CORS settings.
 
-## Step 3: Fund the Wallet
-
-Get a Bitcoin address and send signet BTC to it for transaction fees.
+## Step 4: Fund and Prepare the Receiver
 
 ```javascript
-const address = await wallet.getAddress();
-console.log('Deposit address:', address);
+console.log('Signet deposit address:', await wallet.getAddress());
 ```
 
-Wait for the required confirmation before creating RGB UTXOs.
-
-## Step 4: Create RGB UTXOs
+Fund the address with signet BTC and wait for confirmations. Then prepare outputs for a blinded receive:
 
 ```javascript
-await wallet.createUtxos({ num: 5, size: 1000 });
-await wallet.refreshWallet();
+await wallet.syncWallet();
+await wallet.createUtxos({ upTo: true, num: 5, size: 1000, feeRate: 2 });
 ```
 
-Both `num` and `size` are integers. `size` is denominated in satoshis.
+Wait for the output transaction to confirm. A witness receive does not need a receiver UTXO; its sender must instead provide `witnessData.amountSat`.
 
-## Step 5: Resolve the Asset From the Sender
+## Step 5: Select the BFA Asset
 
-`listAssets()` returns an object grouped by asset schema. This guide uses an NIA test asset, which is in the `nia` array and uses the `assetId` field.
+The initialized `senderWallet` must hold the expected BFA asset and BTC for fees. Get `expectedAssetId` from authoritative deployment metadata.
 
 ```javascript
-const { nia } = await senderWallet.listAssets();
-const testAsset = nia.find((asset) => asset.ticker === 'TEST'); // the ticker of your test asset
+const { bfa } = await senderWallet.listAssets();
+const asset = bfa.find((item) => item.assetId === expectedAssetId);
+if (!asset) throw new Error('The sender does not hold the expected BFA asset');
 
-if (!testAsset) {
-  throw new Error('The sender wallet does not hold the requested NIA asset');
-}
-
-const assetId = testAsset.assetId;
-const amount = 10 ** testAsset.precision; // one displayed unit in base units
+const assetId = asset.assetId;
+const amount = 10 ** asset.precision;
+if (!Number.isSafeInteger(amount)) throw new Error('Amount exceeds the safe integer range');
 ```
 
-<Note>
-  USDT on Bitcoin from the Utexo Mint uses the **BFA** asset schema. `@utexo/rgb-sdk-web` `1.0.0-beta.12` does not list BFA assets yet. To hold or move Mint USDT, use the [React Native SDK](/sdk/react-native-sdk), the [on-chain WDK](/sdk/wdk-wallet-rgb#assets-and-bfa), or a BFA-compatible `rgb-lib` integration (see [Mint and Burn Integration](/mint/mint-burn-integration)).
-</Note>
+The current Web engine lists BFA assets in `listAssets().bfa`. Amounts use safe integer base units; this example sends one displayed unit.
 
-A new receiver wallet will not list an asset it has never received. Resolve the asset ID and precision from the funded sender or an authoritative asset registry. Do not use the removed `assets.find(...).id` pattern.
-
-## Step 6: Create a Receive Invoice
-
-Run this on the receiver wallet initialized in Step 2:
+## Step 6: Create an Invoice and Send
 
 ```javascript
-const receiveData = await wallet.blindReceive({
-  assetId,
-  amount,
+const receive = await wallet.onchainReceive({
+  witness: false,
   minConfirmations: 1,
   durationSeconds: 3600,
 });
 
-console.log('RGB invoice:', receiveData.invoice);
-```
-
-The `amount` is an integer in asset base units. One displayed unit is `10 ** precision` base units.
-
-## Step 7: Send From the Funded Wallet
-
-The current Web API uses `onchainSend()`, not `send()`.
-
-```javascript
-const sendResult = await senderWallet.onchainSend({
-  invoice: receiveData.invoice,
+const result = await senderWallet.onchainSend({
+  invoice: receive.invoice,
   assetId,
   amount,
-  donation: false,
-  feeRate: 7,
+  feeRate: 2,
   minConfirmations: 1,
 });
-
-console.log('Transfer transaction:', sendResult.txid);
+console.log('Transfer transaction:', result.txid);
 ```
 
-The sender wallet must be a separately initialized `UTEXOWallet` with sufficient signet BTC and a spendable balance of the asset.
+The receive invoice omits an asset ID because the receiver has not learned the asset yet. The sender supplies it and the amount explicitly. Use a separate wallet instance for each party.
 
-## Step 8: Refresh and Verify
+## Step 7: Refresh Until Settlement
 
 ```javascript
-await senderWallet.refreshWallet();
-await wallet.refreshWallet();
-
-const receiverAssets = await wallet.listAssets();
-const receivedAsset = receiverAssets.nia.find(
-  (asset) => asset.assetId === assetId
-);
-
-console.log('Receiver asset balance:', receivedAsset?.balance);
+await senderWallet.refresh();
+await wallet.refresh();
+console.log('Receiver transfers:', await wallet.listTransfers(assetId));
+console.log('Receiver balance:', await wallet.getAssetBalance(assetId));
 ```
 
-A transfer can remain pending while its consignment is delivered and its Bitcoin anchor reaches the required confirmation state. Refresh both wallets before treating a missing settled balance as a failure.
+Repeat refreshes on both wallets and inspect transfer status. One refresh does not guarantee that consignments and Bitcoin confirmations have arrived.
 
-## Lightning Status
+## Step 8: Back Up and Close
 
-This quickstart covers the supported on-chain flow. Lightning remains **WIP**, is available only for experimental testing, and is **not recommended for production**. Channel, BOLT11 payment, LSP, and APay examples in the [platform reference](/sdk/web-sdk#lightning-methods) are testing-only and require a build and test network that support them.
+```javascript
+const backupBytes = await wallet.exportBackup({ password: backupPassword });
+await saveEncryptedBackup(backupBytes);
+await wallet.destroy();
+```
 
-## Web-Specific Notes
+The application supplies `backupPassword` and persists the encrypted bytes with `saveEncryptedBackup()`. Back up and close the sender too. A mnemonic alone does not recover RGB state.
 
-- Call `initRlnWasm()` before constructing a wallet.
-- Persist wallet state and secrets according to the SDK's backup guidance. Clearing site data can remove local wallet state.
-- Use HTTPS in production so browser storage and secure-context APIs are available.
-- Endpoint defaults are resolved by the `utexo` network profile. Override them only when operating compatible infrastructure.
+For restore, create a new engine with the same keys and a separate `dataDir`, call `init()`, then `restoreBackup({ bytes, password })` **before connecting**. VSS backups are also available; see [Backup and Restore](/sdk/web-sdk#backup-and-restore).
+
+## BFA Burns and Lightning
+
+The Web engine supports local burns but does not export consignments. A bridge redemption that requires a burn proof cannot be completed through this engine alone. WebRGB providers over it therefore do not advertise `burnAsset` or `getConsignment`.
+
+Lightning, channels, LSP, and APay are absent. Separate experimental Lightning integrations remain WIP, testing-only, and not recommended for production.
 
 ## Troubleshooting
 
-| Issue | Likely cause | Check |
-| --- | --- | --- |
-| WebAssembly fails to load | Bundler or MIME configuration | Verify the generated `.wasm` asset is served and allowed by CSP |
-| `init()` or `unlock()` fails | Endpoint, password, or stored-state problem | Check the browser console and network requests without exposing secrets |
-| `createUtxos()` fails | Insufficient confirmed BTC | Fund the wallet and wait for confirmation |
-| Asset cannot be found | Wrong response shape or unfunded sender | Read `listAssets().nia` and use `assetId` |
-| `onchainSend()` fails | Invoice, amount, balance, or transport problem | Confirm the invoice is unexpired and the amount is in base units |
-
-## Implementation References
-
-- [Web wallet implementation](https://github.com/UTEXO-Protocol/rgb-sdk-web/blob/dev/src/utexo/utexo-wallet.ts)
-- [Web network defaults](https://github.com/UTEXO-Protocol/rgb-sdk-web/blob/dev/src/binding/RlnDefaults.ts)
-- [Shared wallet models](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/types/wallet-model.ts)
-- [Shared on-chain transfer interface](https://github.com/UTEXO-Protocol/rgb-sdk-core/blob/dev/src/interfaces/wallet/IOnchainTransfers.ts)
+| Issue | Check |
+| --- | --- |
+| `UTEXOWallet` import fails | Import it from `@utexo/rgb-sdk`, and `RgbLibWeb` from the platform package |
+| WASM fails to load | Check the emitted asset URL, bundler configuration, and optional `wasmUrl` |
+| Indexer rejected | Use HTTP(S) Esplora; browser wallets cannot use Electrum |
+| BFA transfer pending | Check the asset ID, `evmRpcUrls`, proxy, and refresh results |
+| Restore rejected | Restore after `init()` but before any online call, into a fresh profile |
+| Network requests fail | Check CORS and endpoint availability |
+| Engine contract mismatch | Install compatible facade, engine, and core packages |
 
 ## Next Steps
 
-- [SDK Reference](/product-suite/sdk)
-- [Architecture](/getting-started/architecture)
-- [Glossary](/getting-started/glossary)
+- [RGB SDK Facade](/sdk/rgb-sdk)
+- [Web SDK Reference](/sdk/web-sdk)
+- [React Native Quickstart](/getting-started/quickstart/react-native)
+- [Web SDK source](https://github.com/UTEXO-Protocol/rgb-sdk-web/tree/dev)
