@@ -273,7 +273,7 @@ All amounts are decimal strings in base units. `amount = receiveAmount + totalTo
 
 | Status | Meaning |
 | --- | --- |
-| `400` | Invalid IDs or amount, a network pair that is not a mint or a burn, an unsupported token, a missing `senderAddress` on an entrypoint mint, or a malformed or mismatched `opId`. An amount below the route's floor returns code `2` with `details` (`amount`, `minAmount`) |
+| `400` | Invalid IDs or amount, a network pair that is not a mint or a burn, an unsupported token, a missing `senderAddress` on an entrypoint mint, or a malformed or mismatched `opId`. An amount below the route's floor returns code `2` with `details` (`amount`, `minAmount`). A burn above the outflow allowance (`availableOutflow` of `GET /unlock/capacity`) returns code `4` with `details` (`amount`, `maxAmount`) |
 | `401` | The API key or session is missing or invalid |
 | `403` | Code `9`: for a mint, KYC or KYB is required because the cumulative mint limit would be exceeded |
 | `404` | The RGB network is not served |
@@ -404,7 +404,7 @@ Returns how much can be released right now for a burn. Call it before you burn. 
 | --- | --- |
 | `poolBalance` | USDT0 locked in the bridge, in base units |
 | `pendingReleases` | Amount reserved by releases still in progress, burns accepted as `confirming` included |
-| `availableOutflow` | Remaining outflow allowance; omitted when no limit applies |
+| `availableOutflow` | Remaining outflow allowance, the most that the estimate of a burn accepts. `0` while outflow is paused; omitted when no limit applies |
 | `available` | Maximum amount that can be burned and released now |
 
 ---
@@ -641,6 +641,7 @@ All endpoints return a consistent error envelope on failure.
 | `1` | RGB protocol error |
 | `2` | An amount the caller must change, for example a mint or burn below the route's minimum (`details`: `amount`, `minAmount`) |
 | `3` | System balance error (the bridge cannot cover the transfer) |
+| `4` | The burn is above the outflow allowance of the bridge (HTTP `400` from the estimate of a burn, `details`: `amount`, `maxAmount`). Do not burn it: lower the amount or quote again later |
 | `5` | AML policy or clearance failure |
 | `6` | Release wait: the Bitcoin relay has not reached the burn block yet |
 | `7` | Release wait: the burn does not have enough Bitcoin confirmations yet |

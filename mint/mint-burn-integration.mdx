@@ -137,7 +137,7 @@ amount               = receiveAmount + totalTokenFee
 | `transactionCost` | Everything the user pays, in token base units: `totalTokenFee` plus the `InToken` values that are present |
 | `estimatedDeliverySeconds`, `estimatedDeliverySecondsP90` | Median and 90th percentile delivery time of the route's recent completed transfers. Omitted while too few have completed |
 
-An `amount` below `minAmount` returns `400` with code `2` and `details: {"amount": "...", "minAmount": "..."}`.
+An `amount` below `minAmount` returns `400` with code `2` and `details: {"amount": "...", "minAmount": "..."}`. A burn above the current outflow limit of the bridge returns `400` with code `4` and `details: {"amount": "...", "maxAmount": "..."}`.
 
 The fee schedule is deployment-specific; the numbers in this section are illustrative. The way the quote is calculated depends on whether Arbitrum or an entrypoint-based network is the mint source.
 
@@ -462,7 +462,7 @@ Test your implementation against the published vectors before you burn. For exam
     curl -H "X-API-Key: <API_KEY>" https://gateway.mint.utexo.com/api/v0/mint-burn/estimate/827166/42161/2/1000000
     ```
 
-    Show the customer both the gross burn and `receiveAmount`. The recipient receives `receiveAmount`; `totalTokenFee` (the bridge commission plus, on a LayerZero release, `oftFee`) is deducted. Do not burn less than `minAmount`. The quote does not check current release liquidity, so perform the capacity check separately.
+    Show the customer both the gross burn and `receiveAmount`. The recipient receives `receiveAmount`; `totalTokenFee` (the bridge commission plus, on a LayerZero release, `oftFee`) is deducted. Do not burn less than `minAmount`. The quote refuses a burn above the current outflow limit (`availableOutflow` of the capacity endpoint) with `400` and code `4`: `details.maxAmount` is the limit, `0` while outflow is paused. It does not count the releases in progress, so perform the capacity check separately.
   </Step>
   <Step title="Check release capacity">
     ```bash
@@ -665,6 +665,7 @@ Errors have the shape `{"error":"...","code":4,"details":{...}}`. `details` is p
 | --- | --- | --- | --- |
 | `400` | `65535` | Route, network, token, address, or amount is invalid; the amount does not cover commission; or on `/unlock`, the consignment is not a burn, has no burn reason, or its `burnDestination` is missing or does not match the burn reason | Correct the request; do not continue with a burn |
 | `400` | `2` | The amount is below the route's minimum (`details.amount`, `details.minAmount`) | Raise the amount |
+| `400` | `4` | Estimate of a burn: the amount is above the current outflow limit (`details.amount`, `details.maxAmount`) | Do not burn it. Burn at most `available` of the capacity endpoint, or quote again later |
 | `401` | - | The API key or session is missing or invalid | Check the key |
 | `403` | `9` | Estimate or `/mint/op-id`: the mint would exceed the verification limit of an account without KYC or KYB | Complete verification |
 | `404` | - | `/lock/{opId}/status`: unknown `opId`. `/unlock`: unknown network, or the burn cites a mint this bridge never prepared | Check the identifiers |
