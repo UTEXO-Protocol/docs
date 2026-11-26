@@ -667,7 +667,7 @@ Errors have the shape `{"error":"...","code":4,"details":{...}}`. `details` is p
 | `400` | `2` | The amount is below the route's minimum (`details.amount`, `details.minAmount`) | Raise the amount |
 | `401` | - | The API key or session is missing or invalid | Check the key |
 | `403` | `9` | Estimate or `/mint/op-id`: the mint would exceed the verification limit of an account without KYC or KYB | Complete verification |
-| `404` | - | `/lock/{opId}/status`: unknown `opId`. `/unlock`: unknown network, or the burn cites a mint this bridge never prepared | Check the identifiers |
+| `404` | - | `/lock/{opId}/status`: unknown `opId`. `/unlock`: unknown network | Check the identifiers |
 | `409` | - | `/mint/op-id`: the invoice is already used or belongs to another preparation, or the unpaid-mint limit is reached. `/unlock`: the burn was already released or is being released, `confirming` and `held` included | Use a new invoice; for a burn, do not submit another release, follow the transfer history |
 | `409` | `12` | Estimate with `opId`: the prepared mint is closed or expired | Do not pay it; check its status |
 | `409` | `6`, `7`, `8` | `/unlock`: the bridge could not keep the burn waiting for Bitcoin finality (relay behind the burn block, too few confirmations, or relay depth refused) | Retry the same request later |

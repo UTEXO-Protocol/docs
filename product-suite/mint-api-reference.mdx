@@ -468,7 +468,7 @@ A burn shows as `FAILED` in the history, and can be unlocked again, when no rele
 | --- | --- |
 | `400` | Invalid input; an unknown `tokenId`, or none for a LayerZero destination; a consignment that is not a burn, or a burn without a burn reason; a `burnDestination` that is missing, malformed, does not hash to the burn reason, or is for another destination; or an asset the bridge does not release |
 | `401` | The API key or session is missing or invalid |
-| `404` | Unknown `destinationNetworkId` or `srcNetworkId`, or the burn cites a mint this bridge never prepared |
+| `404` | Unknown `destinationNetworkId` or `srcNetworkId` |
 | `409` | The burn was already released or is being released (`confirming` and `held` included). Codes `6`, `7`, `8`: the bridge could not keep the burn waiting for Bitcoin finality; nothing was sent, retry the same request later |
 | `422` | Code `10`: the asset's reject list rejects a coin the burn descends from. Do not retry |
 | `429` | Rate limit exceeded |
