@@ -573,7 +573,7 @@ Test your implementation against the published vectors before you burn. For exam
 
     Send the result as the `consignment` field of `/unlock`. Do not encode the path or a hex representation of the file; `/unlock` expects standard base64 of the raw consignment bytes.
 
-    Optionally, send the same body to `POST /unlock/verify` first. It runs the checks `/unlock` runs before it claims the burn (burn shape, bridged asset, payout destination) and returns `operationId`, `amount`, `recipient`, `assetId`, and `burnTxid`. It does not refuse a burn for outflow capacity: if the amount does not fit the current limits, it also returns `holdReason`, the reason `/unlock` would hold the release. Nothing is claimed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind earlier mints, or the reject list.
+    Optionally, send the same body to `POST /unlock/verify` first. It runs the checks `/unlock` runs before it claims the burn (burn shape, bridged asset, payout destination, screening of the payout address) and returns `operationId`, `amount`, `recipient`, `assetId`, and `burnTxid`. It does not refuse a burn for outflow capacity: if the amount does not fit the current limits, it also returns `holdReason`, the reason `/unlock` would hold the release. Nothing is claimed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind earlier mints, or the reject list.
 
   </Step>
   <Step title="Submit the burn">
@@ -623,7 +623,7 @@ Test your implementation against the published vectors before you burn. For exam
     | `confirming` | The burn is accepted and claimed, but not final on Bitcoin yet. Nothing was sent and `evmTxHash` is empty. The bridge sends the release itself once the burn is final. Do not resend: a second `/unlock` of the same burn returns `409` |
     | `held` | The burn is accepted and claimed, but its release cannot go out now, for example because the outflow limit dropped after your check. `holdReason` says why. Nothing was sent and `evmTxHash` is empty. The bridge sends the release itself once it can. Do not resend: a second `/unlock` of the same burn returns `409` |
 
-    `operationId` is the keccak256 of the consignment. The transfer history lists the burn under it: `SOURCE_IN` while it waits for Bitcoin finality, `HELD` while its release is held (a `confirming` burn can become held too), `SIGNING` while the release is signed, `DEST_OUT` once it is out, and `SETTLED` once it is paid. A burn whose release does not go out within 24 hours (for example, because its Bitcoin transaction was replaced or dropped) shows as `FAILED` and can be unlocked again. The time a burn is held does not count.
+    `operationId` is the keccak256 of the consignment. The transfer history lists the burn under it: `SOURCE_IN` while it waits for Bitcoin finality, `HELD` while its release is held (a `confirming` burn can become held too), `SIGNING` while the release is signed, `DEST_OUT` once it is out, and `SETTLED` once it is paid. A burn shows as `FAILED`, and can be unlocked again, when no release goes out within 24 hours, or when the bridge's Bitcoin indexer still does not know its transaction an hour after the unlock (for example, because it was never broadcast, replaced or dropped). The time a burn is held does not count.
 
     Verify that `recipient` is the payee committed in the burn. The recipient receives the estimate's `receiveAmount`.
   </Step>

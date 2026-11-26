@@ -460,7 +460,7 @@ Submit right after the burn. The signer enclaves require 6 Bitcoin confirmations
 | `operationId` | keccak256 of the consignment, hex. The [transfer history](#transfer-history) lists the burn under it |
 | `holdReason` | Why a `held` burn waits; omitted otherwise. `outflow_limit`: the release does not fit the outflow allowance or the liquidity now. `above_max_release`: the amount is larger than a single release can be at the current liquidity. `consignment_too_costly`: the signers did not validate the consignment in time |
 
-A burn whose release does not go out within 24 hours (for example, a replaced or dropped burn transaction) shows as `FAILED` in the history and can be unlocked again. The time a burn is held does not count.
+A burn shows as `FAILED` in the history, and can be unlocked again, when no release goes out within 24 hours, or when the bridge's Bitcoin indexer still does not know its transaction an hour after the unlock (for example, a burn transaction that was never broadcast, replaced or dropped). The time a burn is held does not count.
 
 **Error Responses**
 
@@ -511,7 +511,7 @@ See [Mint and Burn Integration](/mint/mint-burn-integration#choose-the-burn-dest
 
 #### `POST /unlock/verify` - Check a Burn Before Unlocking
 
-Takes the same body as `POST /unlock` and runs the checks `POST /unlock` makes before it claims the burn: the consignment is a burn, the asset is the bridged RGB asset, and the burn reason is the hash of the `burnDestination` sent for this destination. It does not refuse a burn for outflow capacity: `holdReason` reports a burn that does not fit the current limits. Nothing is claimed, signed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind the cited mints, or the reject list. Requires authentication.
+Takes the same body as `POST /unlock` and runs the checks `POST /unlock` makes before it claims the burn: the consignment is a burn, the asset is the bridged RGB asset, the burn reason is the hash of the `burnDestination` sent for this destination, and screening accepts the payout address. It does not refuse a burn for outflow capacity: `holdReason` reports a burn that does not fit the current limits. Nothing is claimed, signed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind the cited mints, or the reject list. Requires authentication.
 
 **Response `200`**
 
@@ -534,7 +534,7 @@ Takes the same body as `POST /unlock` and runs the checks `POST /unlock` makes b
 | `burnTxid` | Bitcoin transaction anchoring the burn |
 | `holdReason` | Why `POST /unlock` would hold the release now: `outflow_limit` or `above_max_release`. Omitted when the amount fits the current limits |
 
-Errors are as for `POST /unlock`: `400`, `401`, `404`, `409` (already redeemed or being redeemed), `429`, `500`.
+Errors are as for `POST /unlock`: `400`, `401`, `403` (screening refused the payout address), `404`, `409` (already redeemed or being redeemed), `429`, `500`.
 
 ---
 
