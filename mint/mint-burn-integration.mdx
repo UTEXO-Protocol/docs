@@ -573,7 +573,7 @@ Test your implementation against the published vectors before you burn. For exam
 
     Send the result as the `consignment` field of `/unlock`. Do not encode the path or a hex representation of the file; `/unlock` expects standard base64 of the raw consignment bytes.
 
-    Optionally, send the same body to `POST /unlock/verify` first. It runs the checks `/unlock` runs before it claims the burn (burn shape, bridged asset, payout destination, outflow capacity) and returns `operationId`, `amount`, `recipient`, `assetId`, and `burnTxid`. Nothing is claimed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind earlier mints, or the reject list.
+    Optionally, send the same body to `POST /unlock/verify` first. It runs the checks `/unlock` runs before it claims the burn (burn shape, bridged asset, payout destination, screening of the payout address) and returns `operationId`, `amount`, `recipient`, `assetId`, and `burnTxid`. It does not refuse a burn for outflow capacity: if the amount does not fit the current limits, it also returns `holdReason`, the reason `/unlock` would hold the release. Nothing is claimed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind earlier mints, or the reject list.
 
   </Step>
   <Step title="Submit the burn">
@@ -606,7 +606,7 @@ Test your implementation against the published vectors before you burn. For exam
     Submit right after the burn; you do not need to wait for Bitcoin confirmations. The signer enclaves require 6 confirmations of the burn before they sign, and the bridge waits for them itself. The amount and payout destination are read from the consignment and cannot be overridden by the request.
   </Step>
   <Step title="Confirm the release">
-    A successful submission returns `200` with one of two statuses:
+    A successful submission returns `200` with one of three statuses:
 
     ```json
     {
@@ -621,8 +621,9 @@ Test your implementation against the published vectors before you burn. For exam
     | --- | --- |
     | `submitted` | The release transaction was sent. It is not yet a confirmation: follow `evmTxHash` until it confirms |
     | `confirming` | The burn is accepted and claimed, but not final on Bitcoin yet. Nothing was sent and `evmTxHash` is empty. The bridge sends the release itself once the burn is final. Do not resend: a second `/unlock` of the same burn returns `409` |
+    | `held` | The burn is accepted and claimed, but its release cannot go out now, for example because the outflow limit dropped after your check. `holdReason` says why. Nothing was sent and `evmTxHash` is empty. The bridge sends the release itself once it can. Do not resend: a second `/unlock` of the same burn returns `409` |
 
-    `operationId` is the keccak256 of the consignment. The transfer history lists the burn under it: `SOURCE_IN` while it waits for Bitcoin finality, `SIGNING` while the release is signed, `DEST_OUT` once it is out, and `SETTLED` once it is paid. A burn whose release does not go out within 24 hours (for example, because its Bitcoin transaction was replaced or dropped) shows as `FAILED` and can be unlocked again.
+    `operationId` is the keccak256 of the consignment. The transfer history lists the burn under it: `SOURCE_IN` while it waits for Bitcoin finality, `HELD` while its release is held (a `confirming` burn can become held too), `SIGNING` while the release is signed, `DEST_OUT` once it is out, and `SETTLED` once it is paid. A burn shows as `FAILED`, and can be unlocked again, when no release goes out within 24 hours, or when the bridge's Bitcoin indexer still does not know its transaction an hour after the unlock (for example, because it was never broadcast, replaced or dropped). The time a burn is held does not count.
 
     Verify that `recipient` is the payee committed in the burn. The recipient receives the estimate's `receiveAmount`.
   </Step>
@@ -664,11 +665,10 @@ Errors have the shape `{"error":"...","code":4,"details":{...}}`. `details` is p
 | --- | --- | --- | --- |
 | `400` | `65535` | Route, network, token, address, or amount is invalid; the amount does not cover commission; or on `/unlock`, the consignment is not a burn, has no burn reason, or its `burnDestination` is missing or does not match the burn reason | Correct the request; do not continue with a burn |
 | `400` | `2` | The amount is below the route's minimum (`details.amount`, `details.minAmount`) | Raise the amount |
-| `400` | `4` | `/unlock`: the release is above the current outflow limit | Wait and retry. The burn remains redeemable |
 | `401` | - | The API key or session is missing or invalid | Check the key |
 | `403` | `9` | Estimate or `/mint/op-id`: the mint would exceed the verification limit of an account without KYC or KYB | Complete verification |
-| `404` | - | `/lock/{opId}/status`: unknown `opId`. `/unlock`: unknown network, or the burn cites a mint this bridge never prepared | Check the identifiers |
-| `409` | - | `/mint/op-id`: the invoice is already used or belongs to another preparation, or the unpaid-mint limit is reached. `/unlock`: the burn was already released or is being released, `confirming` included | Use a new invoice; for a burn, do not submit another release, follow the transfer history |
+| `404` | - | `/lock/{opId}/status`: unknown `opId`. `/unlock`: unknown network | Check the identifiers |
+| `409` | - | `/mint/op-id`: the invoice is already used or belongs to another preparation, or the unpaid-mint limit is reached. `/unlock`: the burn was already released or is being released, `confirming` and `held` included | Use a new invoice; for a burn, do not submit another release, follow the transfer history |
 | `409` | `12` | Estimate with `opId`: the prepared mint is closed or expired | Do not pay it; check its status |
 | `409` | `6`, `7`, `8` | `/unlock`: the bridge could not keep the burn waiting for Bitcoin finality (relay behind the burn block, too few confirmations, or relay depth refused) | Retry the same request later |
 | `422` | `10` | `/unlock`: the asset's reject list rejects a coin the burn descends from | Do not retry; the signers refuse it on every attempt |
@@ -679,4 +679,4 @@ Errors have the shape `{"error":"...","code":4,"details":{...}}`. `details` is p
 
 On `POST /mint/op-id`, a `400` may indicate that the deposit does not cover the commission, the invoice is malformed, the invoice uses a witness recipient, the invoice amount or asset does not match, or the route is invalid. A `409` indicating that the RGB invoice was already used means you must create a new blinded invoice. Sending the same request again for a prepared mint that is not paid yet resumes it; the retry never renews the original deadline.
 
-For unlock codes `6`, `7`, and `8`, and for a `confirming` response, nothing was sent to the destination EVM network, and retrying the same request with the same consignment is safe. For transport errors or a `500` during an irreversible or externally submitted step, first reconcile the RGB wallet, bridge status, and EVM transaction state. Do not assume the operation failed merely because the response was lost.
+For unlock codes `6`, `7`, and `8`, and for a `confirming` or `held` response, nothing was sent to the destination EVM network, and retrying the same request with the same consignment is safe. For transport errors or a `500` during an irreversible or externally submitted step, first reconcile the RGB wallet, bridge status, and EVM transaction state. Do not assume the operation failed merely because the response was lost.

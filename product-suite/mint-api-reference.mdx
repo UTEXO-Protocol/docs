@@ -73,7 +73,7 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
     `POST /unlock` - send the base64-encoded consignment, plus `burnDestination` for a V1 burn. Submit it right after the burn: if the burn is not final on Bitcoin yet, the response is `confirming` and the bridge sends the release itself once it is.
   </Step>
   <Step title="Confirm the release">
-    The response contains the `status`, the `evmTxHash` of the submitted release (empty while `confirming`), the `recipient` read from the burn, and the `operationId` under which the [transfer history](#transfer-history) lists the burn. The release confirms on the EVM network asynchronously.
+    The response contains the `status`, the `evmTxHash` of the submitted release (empty while `confirming` or `held`), the `recipient` read from the burn, and the `operationId` under which the [transfer history](#transfer-history) lists the burn. The release confirms on the EVM network asynchronously.
   </Step>
 </Steps>
 
@@ -454,21 +454,22 @@ Submit right after the burn. The signer enclaves require 6 Bitcoin confirmations
 
 | Field | Description |
 | --- | --- |
-| `status` | `submitted`: the EVM release was sent. `confirming`: the burn is accepted but not final on Bitcoin; nothing was sent, and the bridge sends the release itself once it is. Do not resend |
-| `evmTxHash` | The submitted release transaction. Empty while `confirming`. For a LayerZero destination, this is the Arbitrum transaction |
+| `status` | `submitted`: the EVM release was sent. `confirming`: the burn is accepted but not final on Bitcoin; nothing was sent, and the bridge sends the release itself once it is. `held`: the burn is accepted but its release cannot go out now; nothing was sent, and the bridge sends the release itself once it can. Do not resend a `confirming` or `held` burn |
+| `evmTxHash` | The submitted release transaction. Empty while `confirming` or `held`. For a LayerZero destination, this is the Arbitrum transaction |
 | `recipient` | Payee: the `recipient` of the V1 record |
 | `operationId` | keccak256 of the consignment, hex. The [transfer history](#transfer-history) lists the burn under it |
+| `holdReason` | Why a `held` burn waits; omitted otherwise. `outflow_limit`: the release does not fit the outflow allowance or the liquidity now. `above_max_release`: the amount is larger than a single release can be at the current liquidity. `consignment_too_costly`: the signers did not validate the consignment in time |
 
-A burn whose release does not go out within 24 hours (for example, a replaced or dropped burn transaction) shows as `FAILED` in the history and can be unlocked again.
+A burn shows as `FAILED` in the history, and can be unlocked again, when no release goes out within 24 hours, or when the bridge's Bitcoin indexer still does not know its transaction an hour after the unlock (for example, a burn transaction that was never broadcast, replaced or dropped). The time a burn is held does not count.
 
 **Error Responses**
 
 | Status | Meaning |
 | --- | --- |
-| `400` | Invalid input; an unknown `tokenId`, or none for a LayerZero destination; a consignment that is not a burn, or a burn without a burn reason; a `burnDestination` that is missing, malformed, does not hash to the burn reason, or is for another destination; an asset the bridge does not release; or code `4`, the release exceeds the current outflow allowance (the burn stays redeemable; retry later) |
+| `400` | Invalid input; an unknown `tokenId`, or none for a LayerZero destination; a consignment that is not a burn, or a burn without a burn reason; a `burnDestination` that is missing, malformed, does not hash to the burn reason, or is for another destination; or an asset the bridge does not release |
 | `401` | The API key or session is missing or invalid |
-| `404` | Unknown `destinationNetworkId` or `srcNetworkId`, or the burn cites a mint this bridge never prepared |
-| `409` | The burn was already released or is being released (`confirming` included). Codes `6`, `7`, `8`: the bridge could not keep the burn waiting for Bitcoin finality; nothing was sent, retry the same request later |
+| `404` | Unknown `destinationNetworkId` or `srcNetworkId` |
+| `409` | The burn was already released or is being released (`confirming` and `held` included). Codes `6`, `7`, `8`: the bridge could not keep the burn waiting for Bitcoin finality; nothing was sent, retry the same request later |
 | `422` | Code `10`: the asset's reject list rejects a coin the burn descends from. Do not retry |
 | `429` | Rate limit exceeded |
 | `500` | Burn validation, signing or EVM submission failed |
@@ -510,7 +511,7 @@ See [Mint and Burn Integration](/mint/mint-burn-integration#choose-the-burn-dest
 
 #### `POST /unlock/verify` - Check a Burn Before Unlocking
 
-Takes the same body as `POST /unlock` and runs the checks `POST /unlock` makes before it claims the burn: the consignment is a burn, the asset is the bridged RGB asset, the burn reason is the hash of the `burnDestination` sent for this destination, and the outflow capacity covers the amount. Nothing is claimed, signed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind the cited mints, or the reject list. Requires authentication.
+Takes the same body as `POST /unlock` and runs the checks `POST /unlock` makes before it claims the burn: the consignment is a burn, the asset is the bridged RGB asset, the burn reason is the hash of the `burnDestination` sent for this destination, and screening accepts the payout address. It does not refuse a burn for outflow capacity: `holdReason` reports a burn that does not fit the current limits. Nothing is claimed, signed or sent, so it can be repeated. It does not check Bitcoin finality, the deposits behind the cited mints, or the reject list. Requires authentication.
 
 **Response `200`**
 
@@ -531,8 +532,9 @@ Takes the same body as `POST /unlock` and runs the checks `POST /unlock` makes b
 | `recipient` | Payee of the release |
 | `assetId` | Burned RGB asset |
 | `burnTxid` | Bitcoin transaction anchoring the burn |
+| `holdReason` | Why `POST /unlock` would hold the release now: `outflow_limit` or `above_max_release`. Omitted when the amount fits the current limits |
 
-Errors are as for `POST /unlock`: `400` (code `4` for outflow capacity), `401`, `404`, `409` (already redeemed or being redeemed), `429`, `500`.
+Errors are as for `POST /unlock`: `400`, `401`, `403` (screening refused the payout address), `404`, `409` (already redeemed or being redeemed), `429`, `500`.
 
 ---
 
@@ -583,6 +585,7 @@ Returns a page of the wallet's mints and burns, newest first. A mint is listed u
 | `type` | `mint` or `burn` |
 | `status` | See the status values below |
 | `operationId` | The mint's `opId`, or the burn's `operationId` from `POST /unlock` |
+| `holdReason` | Why a `HELD` burn waits: a reason of `POST /unlock`, or `reject_list` when the signers refuse the burn because of the asset's reject list. Omitted otherwise |
 | `senderAmount`, `recipientAmount`, `commission` | Decimal token amounts, already scaled by the token's decimals |
 | `senderToken`, `recipientToken` | Token `id`, `shortName`, `longName` and `iconLink` on each side |
 | `sender`, `recipient` | `networkId`, `networkName`, `displayName` and `address` of each side |
@@ -602,6 +605,7 @@ Returns a page of the wallet's mints and burns, newest first. A mint is listed u
 | `SIGNING` | The destination transaction is being signed or re-sent, and no release hash is known yet |
 | `DEST_OUT` | The destination transaction is out |
 | `SETTLED` | Paid |
+| `HELD` | A burn was accepted, but its release cannot go out now; `holdReason` says why. The bridge sends it once it can |
 | `FAILED` | Failed. A burn is `FAILED` when its release was reorged out or did not go out within 24 hours of the unlock; it can be unlocked again |
 | `EXPIRED` | A prepared mint expired without a deposit |
 
@@ -637,7 +641,6 @@ All endpoints return a consistent error envelope on failure.
 | `1` | RGB protocol error |
 | `2` | An amount the caller must change, for example a mint or burn below the route's minimum (`details`: `amount`, `minAmount`) |
 | `3` | System balance error (the bridge cannot cover the transfer) |
-| `4` | Destination outflow limit exceeded. Retry after capacity recovers |
 | `5` | AML policy or clearance failure |
 | `6` | Release wait: the Bitcoin relay has not reached the burn block yet |
 | `7` | Release wait: the burn does not have enough Bitcoin confirmations yet |
