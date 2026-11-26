@@ -18,8 +18,8 @@ Every transfer starts with an estimate. Then the two directions follow these ste
 | Step | Lock and mint (EVM → Bitcoin) | Burn and unlock (Bitcoin → EVM) |
 | --- | --- | --- |
 | 1. Estimate | [`GET /mint-burn/estimate`](#estimate-the-result) from the EVM network to the RGB network: the amount minted and the fees | [`GET /mint-burn/estimate`](#estimate-the-result) from the RGB network to the payout network, and [`GET /unlock/capacity`](#burn-and-unlock): the amount released and what can be released now |
-| 2. Prepare | [`POST /mint/op-id`](#lock-and-mint) with a blinded RGB invoice: returns the `opId` and the `settlementData` the deposit must carry | [Choose the burn destination](#choose-the-burn-destination): the V1 record and the 32-byte burn reason for the payout network and address |
-| 3. Move funds | **Lock:** call `fundsIn` on the Arbitrum bridge (or the entrypoint on another network) with `settlementData` | **Burn:** burn USDT on Bitcoin in the RGB wallet with the burn reason, then export the burn consignment |
+| 2. Prepare | [`POST /mint/op-id`](#lock-and-mint) with an RGB invoice and the depositor's address: returns the `opId`, and the `settlementData` and `authorization` the deposit must carry | [Choose the burn destination](#choose-the-burn-destination): the V1 record and the 32-byte burn reason for the payout network and address |
+| 3. Move funds | **Lock:** call `fundsIn` on the Arbitrum bridge with `settlementData` and `authorization` (or `deposit` on the entrypoint of another network) | **Burn:** burn USDT on Bitcoin in the RGB wallet with the burn reason, then export the burn consignment |
 | 4. Settle | The mint signer mints USDT on Bitcoin to the invoice. Track it with `GET /lock/{opId}/status` | **Unlock:** `POST /unlock` with the consignment and the record. The release signers release USDT0, or USDT on another network |
 
 ## Supported networks and routes
@@ -141,6 +141,8 @@ An `amount` below `minAmount` returns `400` with code `2` and `details: {"amount
 
 The fee schedule is deployment-specific; the numbers in this section are illustrative. The way the quote is calculated depends on whether Arbitrum or an entrypoint-based network is the mint source.
 
+The flat part of a mint's commission (`baseFee`) depends on the invoice: a mint to a witness invoice pays the route's witness fee instead of the base fee. Add `invoice={invoice}` to the query to quote a mint to that invoice. Without it, or with an invoice the bridge cannot read, the estimate quotes the base fee.
+
 ### Direct mint estimate from Arbitrum
 
 For Arbitrum One, the gross `amount` is deposited directly into the bridge contract. Quote a gross deposit of 1 USDT or USDT0 like this:
@@ -149,7 +151,7 @@ For Arbitrum One, the gross `amount` is deposited directly into the bridge contr
 curl -H "X-API-Key: <API_KEY>" https://gateway.mint.utexo.com/api/v0/mint-burn/estimate/42161/827166/2/1000000
 ```
 
-No `senderAddress` is required for the direct Arbitrum route. There is no `oftFee` on this route, so:
+`senderAddress` is optional on the direct Arbitrum route: with it, the estimate includes `networkFee`, the depositor's gas. There is no `oftFee` on this route, so:
 
 ```text
 receiveAmount + totalTokenCommission = amount
@@ -195,17 +197,17 @@ The endpoint is read-only: it does not reserve liquidity, prepare a mint, or mov
 
 To target an exact RGB receive amount, search for a gross input whose `receiveAmount` equals the target. Start with the target as the gross input, add the difference between the target and `receiveAmount`, and quote again until the endpoint returns the exact target. Integer rounding and a base fee mean that simply adding one percentage may not produce an exact result.
 
-To recheck the fees of a mint you already prepared and have not paid yet, add `?opId={opId}` (with `senderAddress` if the mint has a stored depositor). The route, token, depositor, and exact gross amount must match the prepared mint, so its reservation is not counted twice against your verification limit. A mint that is closed or expired returns `409` with code `12`: do not pay it.
+To recheck the fees of a mint you already prepared and have not paid yet, add `?opId={opId}` with `senderAddress` set to the mint's `sourceAddress`. The route, token, depositor, and exact gross amount must match the prepared mint, so its reservation is not counted twice against your verification limit. The estimate quotes the flat fee of the mint's own invoice. A mint that is closed or expired returns `409` with code `12`: do not pay it.
 
 <Warning>
-  Call the estimate before creating the RGB invoice so you can show and record the expected net amount. After `POST /mint/op-id`, verify that `mintAmount` is the amount the customer accepted before moving funds. If the invoice itself carries a fungible amount, it must equal `mintAmount`, not the gross EVM deposit.
+  Call the estimate before preparing the mint so you can show and record the expected net amount; quote a mint to a witness invoice with that `invoice`. After `POST /mint/op-id`, verify that `mintAmount` is the amount the customer accepted before moving funds. If the invoice itself carries a fungible amount, it must equal `mintAmount`, not the gross EVM deposit.
 </Warning>
 
 ## RGB wallet requirements
 
 Utexo's USDT on Bitcoin uses the **BFA (Burnable Fungible Asset)** schema, which allows the asset to be burned for release on a supported EVM network. Use any RGB wallet that supports BFA and can:
 
-- create a **blinded** receive invoice for a mint;
+- create a blinded or witness receive invoice for a mint;
 - refresh and settle incoming transfers;
 - burn a BFA amount with a 32-byte burn reason (the payout destination);
 - report spendable balances and unspent outputs before a burn;
@@ -228,24 +230,27 @@ Set up the wallet as follows:
 
     If the customer specifies the desired RGB amount instead, iterate estimates as described in [Estimate the result](#estimate-the-result) to find an exact gross input.
   </Step>
-  <Step title="Create a blinded RGB invoice">
-    A bridge mint requires a **blinded** recipient. Do not use a witness invoice: a witness recipient requires a satoshi amount in the Bitcoin output, while the bridge mint does not carry one.
+  <Step title="Create an RGB invoice">
+    A bridge mint pays a blinded or a witness invoice:
 
-    Create a new blinded receive invoice in the RGB wallet:
+    - a **blinded** recipient receives the USDT on a UTXO the wallet already holds;
+    - a **witness** recipient receives it on a new output of the mint's Bitcoin transaction. The bridge pays that output a fixed amount of sats and charges the route's witness fee instead of the base fee. Quote it with the estimate's `invoice` query parameter. A route without a witness fee refuses a witness invoice with `400`.
+
+    Create a new receive invoice in the RGB wallet:
 
     - leave the asset ID out of the invoice, and leave the assignment unspecified (the bridge binds the prepared mint amount);
     - set an expiry, for example 24 hours;
     - use the Utexo RGB proxy as the transport endpoint;
     - require 1 confirmation before the receive settles.
 
-    Persist the invoice and the wallet's transfer reference with your operation state. For a bridge mint, the invoice normally has an unspecified assignment; the bridge binds the prepared `mintAmount` to that blinded recipient.
+    Persist the invoice and the wallet's transfer reference with your operation state. For a bridge mint, the invoice normally has an unspecified assignment; the bridge binds the prepared `mintAmount` to that recipient.
 
     An invoice may omit the asset ID and amount. If another client produces an invoice that includes an asset ID or fungible assignment, they must match the supported USDT asset and the prepared `mintAmount`.
 
     Use a new invoice for every mint. The Mint refuses an invoice it has already paid.
   </Step>
   <Step title="Prepare the mint">
-    Send the blinded invoice and the **gross source deposit** from the estimate as `amount`:
+    Send the invoice, the address that will send the deposit as `sourceAddress`, and the **gross source deposit** from the estimate as `amount`:
 
     ```bash
     curl -X POST https://gateway.mint.utexo.com/api/v0/mint/op-id \
@@ -254,6 +259,7 @@ Set up the wallet as follows:
       -d '{
         "networkId": 827166,
         "sourceNetworkId": 42161,
+        "sourceAddress": "0xYourArbitrumAddress",
         "tokenId": 2,
         "assetId": "<RGB_ASSET_ID>",
         "invoice": "rgb:...",
@@ -263,32 +269,41 @@ Set up the wallet as follows:
 
     ```json
     {
+      "lockId": "5b1d...07c3",
+      "witnessTxId": "c2a4...9e10",
       "opId": "9f2c...e41a",
       "ttlSeconds": 600,
-      "settlementData": "0x9f2c...e41a",
+      "settlementData": "0x5b1d...",
       "depositAmount": "1000000",
-      "mintAmount": "989500"
+      "mintAmount": "989500",
+      "authorization": {
+        "nonce": "0x5b1d...07c3",
+        "deadline": 1795170000,
+        "signature": "0x8c1e...4b1c"
+      }
     }
     ```
+
+    `authorization` is the bridge's permit for this one deposit. Its `nonce` is the `lockId`, the lock ID of the mint, which is derived from `opId` and `witnessTxId` (the Bitcoin transaction that will anchor the mint). Its `deadline` is a Unix time. `settlementData` is `abi.encode(uint256 lockId, uint64 beforeBlock)` followed by one flat fee type byte: `0` for a blinded invoice, `1` for a witness invoice. `beforeBlock` is the Arbitrum block that the deposit must be included before.
 
     Before moving funds, verify all of the following:
 
     - `depositAmount` equals the gross amount you intend to deposit;
-    - `mintAmount` equals the amount in the blinded invoice and the amount the customer accepted;
-    - `settlementData` is retained byte-for-byte for the contract call;
+    - `mintAmount` equals the amount the customer accepted, and the invoice amount if the invoice carries one;
+    - `settlementData` and `authorization` are retained byte-for-byte for the contract call;
     - enough time remains in `ttlSeconds` for the deposit to be submitted.
 
     The deposit must reach the bridge contract before the operation expires. If it expires, prepare a new operation and use a new invoice.
   </Step>
   <Step title="Lock USDT or USDT0">
-    Approve the bridge contract to spend exactly `depositAmount`. If the token requires resetting an existing allowance, set it to `0` first. Then call `fundsIn` with the returned `settlementData` unchanged. `destinationAddress` is an empty string because the RGB recipient was supplied in the invoice.
+    Approve the bridge contract to spend exactly `depositAmount`. If the token requires resetting an existing allowance, set it to `0` first. Then call `fundsIn` from `sourceAddress`, with the returned `settlementData` unchanged and `authorization` as the last argument. `destinationAddress` is an empty string because the RGB recipient was supplied in the invoice.
 
     ```ts
     import { createWalletClient, http, parseAbi } from "viem";
     import { arbitrum } from "viem/chains";
 
     const bridgeAbi = parseAbi([
-      "function fundsIn(uint256 amount, uint256 destinationChainId, string destinationAddress, bytes settlementData) payable returns (bytes32 operationId)",
+      "function fundsIn(uint256 amount, uint256 destinationChainId, string destinationAddress, bytes settlementData, (bytes32 authorizationNonce, uint256 deadline, bytes signature) authorization) payable returns (bytes32 operationId)",
     ]);
     const erc20Abi = parseAbi([
       "function approve(address spender, uint256 amount) returns (bool)",
@@ -306,11 +321,21 @@ Set up the wallet as follows:
       address: bridgeContract,
       abi: bridgeAbi,
       functionName: "fundsIn",
-      args: [BigInt(depositAmount), 827166n, "", settlementData],
+      args: [
+        BigInt(depositAmount),
+        827166n,
+        "",
+        settlementData,
+        {
+          authorizationNonce: authorization.nonce,
+          deadline: BigInt(authorization.deadline),
+          signature: authorization.signature,
+        },
+      ],
     });
     ```
 
-    Submit the exact prepared amount. A different amount will not match the prepared mint.
+    The authorization covers this one deposit: the token, `depositAmount`, the sender `sourceAddress`, the RGB network `827166`, the empty `destinationAddress` and `settlementData`. The bridge contract refuses a deposit that differs in any of them, arrives after `deadline`, or reuses the nonce.
 
     The bridge takes the commission that applies when the deposit arrives. Right before you send the deposit, recheck the prepared mint with `GET /mint-burn/estimate/...?opId={opId}` (see [Estimate lifecycle](#estimate-lifecycle-and-exact-receive-amounts)). If `receiveAmount` no longer equals `mintAmount`, do not deposit: prepare a new mint with a new invoice.
   </Step>
@@ -325,13 +350,16 @@ Set up the wallet as follows:
     | Status | Meaning |
     | --- | --- |
     | `awaiting_funds_in` | Waiting for the matching deposit, until `expiresAt` |
+    | `funds_in_observed` | The deposit was seen and waits for finality on Arbitrum |
     | `funds_in_confirmed` | The deposit was found and matches the prepared mint |
     | `bridge_signed` | The mint signer signed the mint |
     | `broadcast` | The Bitcoin transaction anchoring the mint was broadcast |
     | `completed` | The Bitcoin transaction is confirmed; the mint is complete |
-    | `expired` | No matching deposit arrived in time |
+    | `expired` | No matching deposit arrived in time, or the mint was cancelled. Do not pay it |
+    | `blocked` | Screening blocked the deposit. Nothing is minted |
+    | `failed` | The deposit arrived, but the mint was not signed before its execution deadline. Nothing is minted |
 
-    Signing starts only after the deposit is final on Arbitrum, so `funds_in_confirmed` can last for a while before `bridge_signed`.
+    Signing starts only after the deposit is final on Arbitrum, so `funds_in_observed` and `funds_in_confirmed` can last for a while before `bridge_signed`. For a `blocked` or `failed` mint, contact Utexo with the `opId`.
   </Step>
   <Step title="Receive the USDT in the RGB wallet">
     Refresh the wallet until the incoming transfer settles. Then read the USDT balance.
@@ -350,11 +378,11 @@ From Ethereum, Polygon PoS, Plasma, or Tron, quote and prepare the mint with tha
 Instead of calling `fundsIn` directly:
 
 1. Approve `entrypoint.contractAddress` to spend `depositParams.amountLD` of the source token.
-2. Call `deposit(depositParams)` on the entrypoint contract with `entrypoint.nativeFee` as the transaction value.
+2. Call `deposit(depositParams)` on the entrypoint contract from `sourceAddress`, with `entrypoint.nativeFee` as the transaction value.
 
 ```ts
 const entrypointAbi = parseAbi([
-  "function deposit((uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes payload, address refundTo, uint256 expectedComposeValue) depositParams) payable returns (bytes32 guid)",
+  "function deposit((uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes payload, address refundTo, uint256 expectedComposeValue, bytes32 authorizationNonce, uint256 authorizationDeadline, bytes authorizationSignature) depositParams) payable returns (bytes32 guid)",
 ]);
 
 await wallet.writeContract({
@@ -368,12 +396,15 @@ await wallet.writeContract({
     payload: `0x${p.payload}`,
     refundTo: p.refundTo,
     expectedComposeValue: BigInt(p.expectedComposeValue),
+    authorizationNonce: `0x${p.authorizationNonce}`,
+    authorizationDeadline: BigInt(p.authorizationDeadline),
+    authorizationSignature: `0x${p.authorizationSignature}`,
   }],
   value: BigInt(entrypoint.nativeFee),
 });
 ```
 
-`p` is `entrypoint.depositParams`. `extraOptions` and `payload` are returned without the `0x` prefix. On Tron, make the equivalent calls with TronWeb. Then track the mint with `GET /lock/{opId}/status`.
+`p` is `entrypoint.depositParams`. `extraOptions`, `payload`, `authorizationNonce` and `authorizationSignature` are returned as hex without the `0x` prefix, and `authorizationDeadline` as a decimal string. On these routes the bridge's permit is in `depositParams`, and the response has no `authorization` field. On Tron, make the equivalent calls with TronWeb. Then track the mint with `GET /lock/{opId}/status`.
 
 ## Burn and unlock
 
@@ -626,6 +657,8 @@ Test your implementation against the published vectors before you burn. For exam
     `operationId` is the keccak256 of the consignment. The transfer history lists the burn under it: `SOURCE_IN` while it waits for Bitcoin finality, `HELD` while its release is held (a `confirming` burn can become held too), `SIGNING` while the release is signed, `DEST_OUT` once it is out, and `SETTLED` once it is paid. A burn shows as `FAILED`, and can be unlocked again, when no release goes out within 24 hours, or when the bridge's Bitcoin indexer still does not know its transaction an hour after the unlock (for example, because it was never broadcast, replaced or dropped). The time a burn is held does not count.
 
     Verify that `recipient` is the payee committed in the burn. The recipient receives the estimate's `receiveAmount`.
+
+    A `confirming` response can name what the burn waits for. `waitReason` `signer_headers_behind` means that the signers' Bitcoin headers are behind a block the release needs: `waitRequiredHeight` is that block's height and `waitSignerHeight` is the signers' height. The transfer history shows the same three fields while the burn waits.
   </Step>
 </Steps>
 
@@ -667,16 +700,19 @@ Errors have the shape `{"error":"...","code":4,"details":{...}}`. `details` is p
 | `400` | `2` | The amount is below the route's minimum (`details.amount`, `details.minAmount`) | Raise the amount |
 | `401` | - | The API key or session is missing or invalid | Check the key |
 | `403` | `9` | Estimate or `/mint/op-id`: the mint would exceed the verification limit of an account without KYC or KYB | Complete verification |
+| `403` | - | `/mint/op-id`, `/unlock`, `/unlock/verify`: screening refused the address, the `sourceAddress` of a mint or the payout address of a burn | Do not retry; contact Utexo |
 | `404` | - | `/lock/{opId}/status`: unknown `opId`. `/unlock`: unknown network | Check the identifiers |
 | `409` | - | `/mint/op-id`: the invoice is already used or belongs to another preparation, or the unpaid-mint limit is reached. `/unlock`: the burn was already released or is being released, `confirming` and `held` included | Use a new invoice; for a burn, do not submit another release, follow the transfer history |
 | `409` | `12` | Estimate with `opId`: the prepared mint is closed or expired | Do not pay it; check its status |
-| `409` | `6`, `7`, `8` | `/unlock`: the bridge could not keep the burn waiting for Bitcoin finality (relay behind the burn block, too few confirmations, or relay depth refused) | Retry the same request later |
+| `409` | `6`, `7`, `8`, `14` | `/unlock`: the bridge could not keep the burn waiting for Bitcoin finality (relay behind the burn block, too few confirmations, relay depth refused, or the signers' Bitcoin headers behind a block the release needs) | Retry the same request later |
 | `422` | `10` | `/unlock`: the asset's reject list rejects a coin the burn descends from | Do not retry; the signers refuse it on every attempt |
+| `422` | `13` | `/unlock`: the signers did not validate the burn consignment in time, and the bridge could not hold the burn | Do not retry at once; the burn stays redeemable. Contact Utexo |
 | `429` | - | Rate limit | Back off with jitter and retry |
+| `429` | - | `/unlock`: too many of your burns are waiting for their release | Retry once one of them is released |
 | `500` | - | Validation, signing, or submission failed | Reconcile operation state before retrying, then contact Utexo with the `opId` or burn `operationId` |
-| `503` | - | The route's commission cannot be priced, a LayerZero quote is unavailable, or another mint on the wallet is not broadcast yet | Do not prepare or submit; retry later |
+| `503` | - | The route's commission cannot be priced, a LayerZero quote is unavailable, or another mint on the wallet is not broadcast yet; on `/unlock`, a signer enclave is not ready and nothing was sent | Do not prepare or submit; retry later |
 | `503` | `11` | `/mint/op-id`: the mint wallet has no bridge right to spare | Retry the same request later; it refills itself |
 
-On `POST /mint/op-id`, a `400` may indicate that the deposit does not cover the commission, the invoice is malformed, the invoice uses a witness recipient, the invoice amount or asset does not match, or the route is invalid. A `409` indicating that the RGB invoice was already used means you must create a new blinded invoice. Sending the same request again for a prepared mint that is not paid yet resumes it; the retry never renews the original deadline.
+On `POST /mint/op-id`, a `400` may indicate that `sourceAddress` is missing, the deposit does not cover the commission, the invoice is malformed, the invoice amount or asset does not match, the invoice is a witness invoice on a route without a witness fee, or the route is invalid. A `409` indicating that the RGB invoice was already used means you must create a new invoice. Sending the same request again for a prepared mint that is not paid yet resumes it; the retry never renews the original deadline.
 
 For unlock codes `6`, `7`, and `8`, and for a `confirming` or `held` response, nothing was sent to the destination EVM network, and retrying the same request with the same consignment is safe. For transport errors or a `500` during an irreversible or externally submitted step, first reconcile the RGB wallet, bridge status, and EVM transaction state. Do not assume the operation failed merely because the response was lost.

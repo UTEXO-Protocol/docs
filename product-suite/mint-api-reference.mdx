@@ -42,13 +42,13 @@ The Mint moves USDT in two directions: **lock and mint** (USDT0 on EVM → USDT 
     `GET /mint-burn/estimate/{senderNetworkId}/{recipientNetworkId}/{tokenId}/{amount}` — the amount minted on Bitcoin for a gross deposit, and the bridge commission.
   </Step>
   <Step title="Create an RGB invoice">
-    The recipient's RGB wallet creates an invoice for the USDT asset.
+    The recipient's RGB wallet creates a blinded or witness invoice for the USDT asset.
   </Step>
   <Step title="Prepare the mint">
-    `POST /mint/op-id` - submit the invoice, the gross deposit, the source network and the token ID. The response contains the `opId`, the `settlementData` to pass to the deposit, and `ttlSeconds`. If the source network uses an entrypoint contract, the response also contains an `entrypoint` object.
+    `POST /mint/op-id` - submit the invoice, the gross deposit, the source network, the depositor's address and the token ID. The response contains the `opId`, the `settlementData` and `authorization` to pass to the deposit, and `ttlSeconds`. If the source network uses an entrypoint contract, the response contains an `entrypoint` object instead of `authorization`.
   </Step>
   <Step title="Lock USDT0">
-    Before `ttlSeconds` runs out, the user calls `fundsIn()` on the Arbitrum bridge contract with `depositAmount` and passes `settlementData` verbatim as the `settlementData` argument. On a network that uses an entrypoint contract, the user calls that contract with the returned `depositParams` instead. This step happens **client-side**; the API does not broadcast the transaction.
+    Before `ttlSeconds` runs out, the user calls `fundsIn()` on the Arbitrum bridge contract from the depositor's address with `depositAmount`, passes `settlementData` verbatim as the `settlementData` argument, and passes `authorization` as the last argument. On a network that uses an entrypoint contract, the user calls that contract with the returned `depositParams` instead. This step happens **client-side**; the API does not broadcast the transaction.
   </Step>
   <Step title="Track the mint">
     `GET /lock/{opId}/status` - poll until the status is `completed` or `expired`.
@@ -100,7 +100,7 @@ An account without approved KYC or KYB can mint only up to a cumulative limit se
 curl -X POST https://gateway.mint.utexo.com/api/v0/mint/op-id \
   -H "X-API-Key: <API_KEY>" \
   -H "Content-Type: application/json" \
-  -d '{"networkId": 827166, "sourceNetworkId": 42161, "tokenId": 2, "invoice": "rgb:...", "amount": 1000000}'
+  -d '{"networkId": 827166, "sourceNetworkId": 42161, "sourceAddress": "0x...", "tokenId": 2, "invoice": "rgb:...", "amount": 1000000}'
 ```
 
 ---
@@ -228,8 +228,9 @@ Quotes what a mint or a burn receives and what the bridge charges. The direction
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `senderAddress` | `string` | Conditional | Depositor address. Required for a mint from an entrypoint network, or with an `opId` whose mint stored a depositor |
-| `opId` | `string` | No | An unpaid mint you already prepared (64 hex characters). Rechecks its fees without counting its reservation twice. It must belong to you and match the route, token, depositor and exact gross amount |
+| `senderAddress` | `string` | Conditional | Depositor address. Required for a mint from an entrypoint network, and with an `opId`. On a direct mint it adds the depositor's gas (`networkFee`) |
+| `opId` | `string` | No | An unpaid mint you already prepared (64 hex characters). Rechecks its fees without counting its reservation twice. It must belong to you and match the route, token, depositor and exact gross amount. The quote uses the flat fee of the mint's own invoice |
+| `invoice` | `string` | No | RGB invoice of a mint. A witness invoice is quoted with the route's witness fee as `baseFee`; without an invoice, or with one the bridge cannot read, the quote uses the base fee. A witness invoice on a route without a witness fee returns `400` |
 
 **Response `200`**
 
@@ -292,6 +293,7 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
 {
   "networkId": 827166,
   "sourceNetworkId": 42161,
+  "sourceAddress": "0x...",
   "tokenId": 2,
   "invoice": "rgb:...",
   "amount": 1000000
@@ -302,7 +304,7 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
 | --- | --- | --- | --- |
 | `networkId` | `integer` | Yes | RGB network ID (not the EVM source chain) |
 | `sourceNetworkId` | `integer` | Yes | EVM network the deposit is sent from |
-| `sourceAddress` | `string` | No | Address that sends the deposit. Required when the source network uses an entrypoint contract |
+| `sourceAddress` | `string` | Yes | Address that sends the deposit, in the format of the source network. The bridge's permit names it, so the deposit must come from this address |
 | `tokenId` | `integer` | Yes | Token ID of the deposited token on the source network |
 | `assetId` | `string` | No | RGB asset ID. Omit to use the standard USDT asset |
 | `invoice` | `string` | Yes | Invoice created by the recipient's RGB wallet |
@@ -312,22 +314,32 @@ Prepares the RGB side of a lock-and-mint transfer and returns the data the depos
 
 ```json
 {
+  "lockId": "5b1d...07c3",
+  "witnessTxId": "c2a4...9e10",
   "opId": "9f2c...e41a",
   "ttlSeconds": 1800,
-  "settlementData": "0x9f2c...e41a",
+  "settlementData": "0x5b1d...",
   "depositAmount": "1000000",
-  "mintAmount": "<deposit less commission>"
+  "mintAmount": "<deposit less commission>",
+  "authorization": {
+    "nonce": "0x5b1d...07c3",
+    "deadline": 1795170000,
+    "signature": "0x8c1e...4b1c"
+  }
 }
 ```
 
 | Field | Description |
 | --- | --- |
+| `lockId` | Lock ID of the mint, hex: a hash of `opId` and `witnessTxId`. `settlementData` carries it, and it is the nonce of `authorization` |
+| `witnessTxId` | ID of the Bitcoin transaction that will anchor the mint |
 | `opId` | RGB operation ID of the mint. Use it to track the mint |
 | `ttlSeconds` | Time available to submit the matching deposit |
-| `settlementData` | ABI-encoded `opId`. Pass it verbatim as the `settlementData` argument of `fundsIn()`; do not pass `opId` directly |
+| `settlementData` | `0x` hex of `abi.encode(uint256 lockId, uint64 beforeBlock)` followed by one flat fee type byte: `0` for a blinded invoice, `1` for a witness invoice. `beforeBlock` is the Arbitrum block that the deposit must be included before. Pass it verbatim as the `settlementData` argument of `fundsIn()` |
 | `depositAmount` | Gross deposit in base units: the amount `fundsIn()` transfers |
 | `mintAmount` | Amount minted on Bitcoin, in base units: the deposit less the bridge commission |
-| `entrypoint` | Present only when the source network uses an entrypoint contract: `contractAddress`, `depositParams` (`amountLD`, `minAmountLD`, `extraOptions`, `payload`, `refundTo`, `expectedComposeValue`), `networkFee`, `nativeFee` and `totalNativeRequired` |
+| `entrypoint` | Present only when the source network uses an entrypoint contract: `contractAddress`, `depositParams` (`amountLD`, `minAmountLD`, `extraOptions`, `payload`, `refundTo`, `expectedComposeValue`, `authorizationNonce`, `authorizationDeadline`, `authorizationSignature`), `networkFee`, `nativeFee` and `totalNativeRequired`. `extraOptions`, `payload`, `authorizationNonce` and `authorizationSignature` are hex without `0x`; `authorizationDeadline` is a decimal string |
+| `authorization` | Present only for a direct deposit: the bridge's permit for this one deposit, with `nonce` (`0x` hex, the `lockId`), `deadline` (Unix time) and `signature` (`0x` hex). Pass it unchanged as the last argument of `fundsIn()`. The bridge contract refuses a deposit with another amount, sender, destination or `settlementData`, after `deadline`, or with a nonce already used |
 
 The `fundsIn` must be included in a block before `ttlSeconds` runs out. Sending the same request again for a prepared mint that is not paid yet resumes it; a retry never renews the original deadline.
 
@@ -335,9 +347,9 @@ The `fundsIn` must be included in a block before `ttlSeconds` runs out. Sending 
 
 | Status | Meaning |
 | --- | --- |
-| `400` | Invalid network, amount, invoice, asset or transport endpoint. A deposit below the bridge's `minFundsInAmount` (for a LayerZero mint, a delivery below it) returns code `2` with `details` |
+| `400` | Invalid network, amount, invoice, asset or transport endpoint; a missing `sourceAddress`; or a witness invoice on a route without a witness fee. A deposit below the bridge's `minFundsInAmount` (for a LayerZero mint, a delivery below it) returns code `2` with `details` |
 | `401` | The API key or session is missing or invalid |
-| `403` | Code `9`: KYC or KYB is required because the cumulative mint limit would be exceeded |
+| `403` | Code `9`: KYC or KYB is required because the cumulative mint limit would be exceeded. Without code `9`: screening refused `sourceAddress` |
 | `409` | The invoice is already used or belongs to another preparation, its owner, wallet, route, token or amount differs from the original, payment was already observed, too little time is left to resume safely, or the unpaid-mint limit is reached |
 | `429` | Rate limit exceeded |
 | `500` | Mint preparation failed inside the bridge or RGB connector |
@@ -354,6 +366,8 @@ Returns the state of a prepared mint. Poll it after the deposit is submitted. Re
 
 ```json
 {
+  "lockId": "5b1d...07c3",
+  "witnessTxId": "c2a4...9e10",
   "opId": "9f2c...e41a",
   "status": "broadcast",
   "expiresAt": "2026-10-06T12:30:00Z",
@@ -364,11 +378,14 @@ Returns the state of a prepared mint. Poll it after the deposit is submitted. Re
 | Status | Description |
 | --- | --- |
 | `awaiting_funds_in` | Waiting for the deposit. `expiresAt` is the deadline for the `fundsIn` block timestamp: a `fundsIn` included by then still moves to `funds_in_confirmed` once confirmed |
+| `funds_in_observed` | The deposit was seen and waits for finality on Arbitrum |
 | `funds_in_confirmed` | The deposit was detected and matched to the mint |
 | `bridge_signed` | The mint signer signed the mint |
 | `broadcast` | The Bitcoin transaction anchoring the mint was broadcast |
 | `completed` | The Bitcoin transaction has the required confirmations; the mint is complete |
-| `expired` | No matching deposit arrived in time |
+| `expired` | No matching deposit arrived in time, or the mint was cancelled. Do not pay it |
+| `blocked` | Screening blocked the deposit. Nothing is minted; contact Utexo with the `opId` |
+| `failed` | The deposit arrived, but the mint was not signed before its execution deadline. Nothing is minted; contact Utexo with the `opId` |
 
 `evmTxHash` is the detected deposit transaction on the EVM network. It is omitted until the deposit is detected.
 
@@ -457,6 +474,8 @@ Submit right after the burn. The signer enclaves require 6 Bitcoin confirmations
 | `status` | `submitted`: the EVM release was sent. `confirming`: the burn is accepted but not final on Bitcoin; nothing was sent, and the bridge sends the release itself once it is. `held`: the burn is accepted but its release cannot go out now; nothing was sent, and the bridge sends the release itself once it can. Do not resend a `confirming` or `held` burn |
 | `evmTxHash` | The submitted release transaction. Empty while `confirming` or `held`. For a LayerZero destination, this is the Arbitrum transaction |
 | `recipient` | Payee: the `recipient` of the V1 record |
+| `waitReason` | What a `confirming` burn waits for, when the bridge can name it: `signer_headers_behind`, the signers' Bitcoin headers are behind a block the release needs. Omitted otherwise |
+| `waitRequiredHeight`, `waitSignerHeight` | With `waitReason`: the height of the Bitcoin block the release needs, and the signers' header height. Each is omitted when not known |
 | `operationId` | keccak256 of the consignment, hex. The [transfer history](#transfer-history) lists the burn under it |
 | `holdReason` | Why a `held` burn waits; omitted otherwise. `outflow_limit`: the release does not fit the outflow allowance or the liquidity now. `above_max_release`: the amount is larger than a single release can be at the current liquidity. `consignment_too_costly`: the signers did not validate the consignment in time |
 
@@ -468,11 +487,15 @@ A burn shows as `FAILED` in the history, and can be unlocked again, when no rele
 | --- | --- |
 | `400` | Invalid input; an unknown `tokenId`, or none for a LayerZero destination; a consignment that is not a burn, or a burn without a burn reason; a `burnDestination` that is missing, malformed, does not hash to the burn reason, or is for another destination; or an asset the bridge does not release |
 | `401` | The API key or session is missing or invalid |
+| `403` | Screening refused the payout address. Do not retry |
 | `404` | Unknown `destinationNetworkId` or `srcNetworkId` |
 | `409` | The burn was already released or is being released (`confirming` and `held` included). Codes `6`, `7`, `8`: the bridge could not keep the burn waiting for Bitcoin finality; nothing was sent, retry the same request later |
+| `409` | Code `14`: the signers' Bitcoin headers are behind a block the release needs, and the bridge could not keep the burn waiting. Nothing was sent; retry the same request later |
 | `422` | Code `10`: the asset's reject list rejects a coin the burn descends from. Do not retry |
-| `429` | Rate limit exceeded |
+| `422` | Code `13`: the signers did not validate the consignment in time, and the bridge could not hold the burn. Nothing was sent and the burn stays redeemable; do not retry at once |
+| `429` | Rate limit exceeded, or too many of your burns are waiting for their release: retry once one of them is released |
 | `500` | Burn validation, signing or EVM submission failed |
+| `503` | A signer enclave is not ready. Nothing was sent; retry the same request later |
 
 #### Burn destination
 
@@ -587,12 +610,14 @@ Returns a page of the wallet's mints and burns, newest first. A mint is listed u
 | `operationId` | The mint's `opId`, or the burn's `operationId` from `POST /unlock` |
 | `holdReason` | Why a `HELD` burn waits: a reason of `POST /unlock`, or `reject_list` when the signers refuse the burn because of the asset's reject list. Omitted otherwise |
 | `senderAmount`, `recipientAmount`, `commission` | Decimal token amounts, already scaled by the token's decimals |
+| `commissionKind` | Burns only: where `commission` comes from. `actual`: what the release kept. `estimated`: the commission quoted when the burn was submitted, shown until the release pays. `unknown`: `commission` is omitted and `recipientAmount` is the burned amount |
 | `senderToken`, `recipientToken` | Token `id`, `shortName`, `longName` and `iconLink` on each side |
 | `sender`, `recipient` | `networkId`, `networkName`, `displayName` and `address` of each side |
 | `sourceTxHash` | Source transaction, encoded for the sender network. Omitted until known |
 | `bridgeInTxHash`, `bridgeInNetworkId` | Deposit received by the bridge and its network, for example Arbitrum for an entrypoint mint. Omitted until known |
 | `bridgeOutTxHash`, `bridgeOutNetworkId` | Release sent by the bridge and its network, for example Arbitrum for a LayerZero burn. Omitted until known |
 | `destinationTxHash` | Final delivery on the recipient network. Omitted until known |
+| `waitReason`, `waitRequiredHeight`, `waitSignerHeight` | For a burn that waits for Bitcoin finality: what it waits for, as in the `POST /unlock` response. Omitted otherwise |
 
 **Status Values**
 
@@ -606,7 +631,8 @@ Returns a page of the wallet's mints and burns, newest first. A mint is listed u
 | `DEST_OUT` | The destination transaction is out |
 | `SETTLED` | Paid |
 | `HELD` | A burn was accepted, but its release cannot go out now; `holdReason` says why. The bridge sends it once it can |
-| `FAILED` | Failed. A burn is `FAILED` when its release was reorged out or did not go out within 24 hours of the unlock; it can be unlocked again |
+| `FAILED` | Failed. A mint is `FAILED` when a deposit arrived but nothing was minted for it, for example a late deposit or a mint not signed before its execution deadline. A burn is `FAILED` when no release went out within 24 hours of the unlock (or of the end of its hold), or when its Bitcoin transaction was still unknown to the bridge an hour after the unlock; it can be unlocked again |
+| `BLOCKED` | Screening blocked the deposit of a mint. Nothing is minted |
 | `EXPIRED` | A prepared mint expired without a deposit |
 
 **Error Responses**
@@ -649,9 +675,11 @@ All endpoints return a consistent error envelope on failure.
 | `10` | The asset's reject list rejects a coin the burn descends from (HTTP `422` from `POST /unlock`). Do not retry |
 | `11` | The mint wallet has no bridge right to spare (HTTP `503` from `POST /mint/op-id`). Retry later |
 | `12` | The prepared mint is no longer payable (HTTP `409` from the estimate with `opId`). Do not pay it |
+| `13` | The signers did not validate the burn consignment in time, and the bridge could not hold the burn (HTTP `422` from `POST /unlock`). Do not retry at once |
+| `14` | Release wait: the signers' Bitcoin headers are behind a block the release needs |
 | `65535` | Other / unclassified error |
 
-Codes `6`, `7` and `8` come with HTTP `409` from `POST /unlock`, and a `details` object with the numbers behind the wait (for example `confirmations` and `requiredConfirmations` for code `7`). A burn waiting for finality is normally accepted as `confirming` instead, so these codes are returned only when the bridge could not keep it waiting. Nothing is sent to the EVM network, and the burn stays redeemable. Authentication errors may omit `code`.
+Codes `6`, `7`, `8` and `14` come with HTTP `409` from `POST /unlock`, and a `details` object with the numbers behind the wait (for example `confirmations` and `requiredConfirmations` for code `7`, or `requiredHeight` and `signerHeight` for code `14`). A burn waiting for finality is normally accepted as `confirming` instead, so these codes are returned only when the bridge could not keep it waiting. Nothing is sent to the EVM network, and the burn stays redeemable. Authentication errors may omit `code`.
 
 ---
 
@@ -695,12 +723,13 @@ Codes `6`, `7` and `8` come with HTTP `409` from `POST /unlock`, and a `details`
 | Term | Definition |
 | --- | --- |
 | **RGB** | A client-side validated smart contract protocol built on Bitcoin. Assets are issued and transferred using Bitcoin UTXOs as state anchors. |
-| **RGB Invoice** | A blinded payment request string used to receive RGB assets. Contains blinded UTXO data to preserve receiver privacy. |
+| **RGB Invoice** | A payment request string used to receive RGB assets. Its recipient is a blinded UTXO, which preserves receiver privacy, or a witness output of the paying transaction. |
 | **EVM** | Ethereum Virtual Machine — the execution environment used by Arbitrum and other compatible chains. |
 | **Bridge Contract** | The EVM smart contract that locks or releases assets on the EVM side of a cross-chain transfer. |
-| **`fundsIn()`** | The method on the EVM bridge contract the sender calls to deposit assets for minting. |
+| **`fundsIn()`** | The method on the EVM bridge contract the sender calls to deposit assets for minting. Its last argument is the `authorization` returned by `POST /mint/op-id`. |
 | **OpId** | The RGB operation ID of a prepared mint, returned by `POST /mint/op-id`. |
-| **settlementData** | The ABI-encoded OpId the deposit carries to bind it to the prepared mint. |
+| **LockId** | The lock ID of a prepared mint: a hash of its OpId and the ID of its Bitcoin transaction. The deposit carries it in `settlementData` and as the nonce of its authorization. |
+| **settlementData** | The data the deposit carries to bind it to the prepared mint: the LockId, the Arbitrum block the deposit must be included before, and the flat fee type. |
 | **Burn consignment** | The RGB data that proves a burn. `POST /unlock` reads the release amount and recipient from it. |
 | **Entrypoint contract** | A per-network contract that forwards a deposit to the Arbitrum hub through LayerZero. When a route uses it, `POST /mint/op-id` returns an `entrypoint` object and the user calls that contract instead of `fundsIn()`. |
 | **UTXO** | Unspent Transaction Output — the fundamental unit of Bitcoin accounting. RGB asset state is anchored to UTXOs. |
